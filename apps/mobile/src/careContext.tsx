@@ -48,8 +48,8 @@ export function CareProvider({ children }: PropsWithChildren) {
 
   const reconcileStoredReminders = useCallback(async (storedMedications: Medication[], storedAppointments: Appointment[]) => {
     const [medicationResults, appointmentResults] = await Promise.all([
-      Promise.all(storedMedications.filter((medication) => medication.enabled).map(async (medication) => ({ medication, scheduled: await reconcileMedicationReminder(medication) }))),
-      Promise.all(storedAppointments.map(async (appointment) => ({ appointment, scheduled: await reconcileAppointmentReminder(appointment) }))),
+      Promise.all(storedMedications.filter((medication) => medication.enabled).map(async (medication) => ({ medication, scheduled: await reconcileMedicationReminder(medication).catch(() => ({ state: 'unavailable' as const, notificationId: undefined, notificationIds: undefined })) }))),
+      Promise.all(storedAppointments.map(async (appointment) => ({ appointment, scheduled: await reconcileAppointmentReminder(appointment).catch(() => ({ state: 'unavailable' as const, notificationId: undefined })) }))),
     ]);
     const updatedMedications = storedMedications.map((medication) => {
       const result = medicationResults.find((item) => item.medication.id === medication.id);
