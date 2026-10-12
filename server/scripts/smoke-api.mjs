@@ -60,7 +60,16 @@ const invitationAcceptance = await call(`${acceptedInvitation.pathname}${accepte
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');
 const emailInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId: emailContactId, channel: 'email' }) });
 const emailInvitationUrl = new URL(emailInvitation.acceptUrl);
-await call(`${emailInvitationUrl.pathname}${emailInvitationUrl.search}`);
+const invitationPageResponse = await fetch(`${baseUrl}${emailInvitationUrl.pathname}${emailInvitationUrl.search}`, { headers: { accept: 'text/html' } });
+const invitationPage = await invitationPageResponse.text();
+if (invitationPageResponse.status !== 200 || !invitationPage.includes('Aceptar invitación') || !invitationPage.includes('<form')) throw new Error('invitation landing page was not rendered');
+const invitationFormResponse = await fetch(`${baseUrl}${emailInvitationUrl.pathname}`, {
+  method: 'POST',
+  headers: { accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
+  body: `token=${encodeURIComponent(emailInvitationUrl.searchParams.get('token') ?? '')}`,
+});
+const invitationFormPage = await invitationFormResponse.text();
+if (invitationFormResponse.status !== 200 || !invitationFormPage.includes('Invitación aceptada')) throw new Error('invitation form did not accept the invitation');
 const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
 if (alert.status !== 'queued' || alert.deliveries.length !== 2 || !alert.deliveries.every((delivery) => delivery.status === 'queued')) throw new Error('alert was not queued honestly per contact channel');
 const replayedAlert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });

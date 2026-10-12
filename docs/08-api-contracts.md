@@ -84,6 +84,10 @@ A `provider_accepted` invitation means only that the email/SMS provider
 accepted the request; the patient can still share the returned URL manually
 when a provider is unavailable. Production provider delivery is attempted only
 when `PUBLIC_API_URL` is HTTPS, so invitations never contain a localhost link.
+Opening the returned URL in a browser renders a no-index confirmation page;
+the invitation changes to `accepted` only after the user presses the button
+(HTML `POST`). API clients may continue to accept the token with the JSON `GET`
+contract used by integration clients.
 
 ## Sync event upload and pull
 

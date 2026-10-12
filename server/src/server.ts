@@ -32,6 +32,21 @@ function send(response: ServerResponse, status: number, body: unknown, headers: 
   response.end(serialized);
 }
 
+function sendInvitationHtml(response: ServerResponse, status: number, title: string, message: string, action?: { label: string; url: string; token: string }) {
+  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
+  const actionMarkup = action
+    ? `<form method="post" action="${escapeHtml(action.url)}"><input type="hidden" name="token" value="${escapeHtml(action.token)}"><button type="submit">${escapeHtml(action.label)}</button></form>`
+    : '';
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)}</title><style>body{margin:0;background:#0b0d0f;color:#fff7e8;font:16px system-ui,sans-serif;line-height:1.5}main{max-width:38rem;margin:12vh auto;padding:2rem}h1{font-size:1.8rem}p{color:#b8b2a7}button{border:0;border-radius:999px;background:#ffbe55;color:#0b0d0f;font:inherit;font-weight:700;padding:.8rem 1.2rem;cursor:pointer}</style></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p>${actionMarkup}</main></body></html>`;
+  response.writeHead(status, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+  });
+  response.end(html);
+}
+
 function errorBody(code: string, message: string, retryable = false) {
   return { error: { code, message, retryable, correlationId: randomUUID() } };
 }
@@ -283,14 +298,32 @@ async function revokeInvitation(user: AuthUser, body: JsonObject, response: Serv
   send(response, 200, { status: 'revoked' });
 }
 
-async function acceptInvitation(token: string | null, response: ServerResponse) {
+async function acceptInvitation(token: string | null, response: ServerResponse, request: IncomingMessage, mutate: boolean) {
   if (!token || token.length > 512) { fail(response, 400, 'INVALID_INVITATION_TOKEN', 'El enlace de invitación no es válido.'); return; }
+  const wantsHtml = (request.headers.accept ?? '').includes('text/html');
+  if (wantsHtml && !mutate) {
+    sendInvitationHtml(response, 200, 'Invitación de GlucoCare', 'Confirma que aceptas recibir avisos de ayuda. Esta invitación no da acceso al historial clínico.', {
+      label: 'Aceptar invitación',
+      url: '/v1/contact-invitations/accept',
+      token,
+    });
+    return;
+  }
   const accepted = await pool.query<{ id: string; contact_id: string }>(
     `UPDATE contact_invitations SET status = 'accepted'
      WHERE token_hash = $1 AND status = 'pending' AND expires_at > now()
      RETURNING id, contact_id`, [hashToken(token)],
   );
-  if (!accepted.rows[0]) { fail(response, 410, 'INVITATION_EXPIRED', 'La invitación ya no está disponible.'); return; }
+  if (!accepted.rows[0]) {
+    if (wantsHtml) {
+      sendInvitationHtml(response, 410, 'Invitación no disponible', 'La invitación ya fue usada, revocada o venció. Pide a tu contacto una nueva invitación.');
+    } else fail(response, 410, 'INVITATION_EXPIRED', 'La invitación ya no está disponible.');
+    return;
+  }
+  if (wantsHtml) {
+    sendInvitationHtml(response, 200, 'Invitación aceptada', 'Ahora puedes recibir avisos de ayuda de GlucoCare. La persona que te invitó sigue siendo responsable de sus decisiones de emergencia.');
+    return;
+  }
   send(response, 200, { invitationId: accepted.rows[0].id, contactId: accepted.rows[0].contact_id, status: 'accepted' });
 }
 
@@ -391,10 +424,24 @@ async function route(request: AuthenticatedRequest, response: ServerResponse) {
     await authRoute(request, response, url.pathname); return;
   }
   if (request.method === 'POST' && url.pathname === '/v1/auth/signout') { await revokeSession(bearerTokenFromNodeRequest(request)); send(response, 204, {}); return; }
-  if (request.method === 'GET' && url.pathname === '/v1/contact-invitations/accept') {
+  if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/v1/contact-invitations/accept') {
     const limit = consumeRateLimit(`invitation-accept:${requestAddress(request)}`, 30, 60_000);
     if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
-    await acceptInvitation(url.searchParams.get('token'), response); return;
+    let token = url.searchParams.get('token');
+    if (request.method === 'POST') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const raw = Buffer.concat(chunks).toString('utf8');
+      if ((request.headers['content-type'] ?? '').includes('application/json')) {
+        try {
+          const body = JSON.parse(raw) as JsonObject;
+          token = stringValue(body.token, 512) ?? token;
+        } catch { /* Fall through to the invalid-token response. */ }
+      } else {
+        token = new URLSearchParams(raw).get('token') ?? token;
+      }
+    }
+    await acceptInvitation(token, response, request, request.method === 'POST'); return;
   }
 
   const user = await requireUser(request, response);
