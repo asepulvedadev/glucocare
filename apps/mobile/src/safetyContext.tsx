@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeTrustedContact, updateTrustedContact as updateStoredTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
+import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeAllTrustedContactConsent as revokeAllStoredTrustedContactConsent, revokeTrustedContact, updateTrustedContact as updateStoredTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
 import type { EmergencyCard, NewEmergencyCard, NewTrustedContact, TrustedContact } from './types/safety';
 import { newId } from './ids';
 import { supabase } from './supabase';
@@ -17,6 +17,7 @@ type SafetyContextValue = {
   grantTrustedContactConsent: (contactId: string) => Promise<void>;
   sendTrustedContactInvitation: (contactId: string, channel: TrustedContactInvitationChannel) => Promise<void>;
   revokeTrustedContact: (contactId: string) => Promise<void>;
+  revokeAllTrustedContactConsent: () => Promise<number>;
   refresh: () => Promise<void>;
 };
 const SafetyContext = createContext<SafetyContextValue | null>(null);
@@ -65,6 +66,12 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     setTrustedContacts((current) => current.filter((contact) => contact.id !== contactId));
   }, [db]);
 
+  const revokeAllContactConsent = useCallback(async () => {
+    const count = await revokeAllStoredTrustedContactConsent(db);
+    await refresh();
+    return count;
+  }, [db, refresh]);
+
   const grantContactConsent = useCallback(async (contactId: string) => {
     const contact = await grantTrustedContactConsent(db, contactId);
     setTrustedContacts((current) => current.map((item) => item.id === contact.id ? contact : item));
@@ -76,7 +83,7 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     if (error) throw error;
   }, []);
 
-  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, updateTrustedContact: updateContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, updateContact, grantContactConsent, sendContactInvitation, revokeContact, refresh]);
+  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, updateTrustedContact: updateContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, revokeAllTrustedContactConsent: revokeAllContactConsent, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, updateContact, grantContactConsent, sendContactInvitation, revokeContact, revokeAllContactConsent, refresh]);
   return <SafetyContext.Provider value={value}>{children}</SafetyContext.Provider>;
 }
 

@@ -14,7 +14,7 @@ beta authorization.
 | Native data protection | SQLCipher initialization and device-bound SecureStore key | Code-reviewed; physical reinstall/restore evidence pending |
 | Clinical boundary | No dosing calculator, diagnosis engine, or guaranteed delivery claim | Code/docs guardrail; clinical sign-off pending |
 | Cloud authorization | Supabase migrations, RLS negative tests, private functions | Local Supabase CI evidence exists; hosted credentials/deploy pending |
-| Consent boundary | Trusted-contact outbox events are blocked without emergency-sharing consent; revocations remain uploadable | Automated domain coverage and schema migration present |
+| Consent boundary | Trusted-contact outbox events are blocked without emergency-sharing consent; revocations remain uploadable; privacy withdrawal requests remote revocation | Automated domain coverage and schema migration present |
 | Web staging | Docker Compose, health checks, COOP/COEP headers | VPS verified healthy on `127.0.0.1:18080/18082` |
 | Release recovery | Three-release cache, automatic deploy rollback, `glucocare-rollback` | VPS installed and manually verified |
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |

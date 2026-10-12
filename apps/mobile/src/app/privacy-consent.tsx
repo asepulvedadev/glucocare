@@ -6,6 +6,9 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { usePrivacy } from '../privacyContext';
+import { useSafety } from '../safetyContext';
+import { useAuth } from '../authContext';
+import { supabase } from '../supabase';
 import { colors, spacing } from '../theme/tokens';
 
 function ConsentRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
@@ -17,6 +20,8 @@ function ConsentRow({ label, checked, onPress }: { label: string; checked: boole
 
 export default function PrivacyConsentScreen() {
   const { consent, saveConsent } = usePrivacy();
+  const { trustedContacts, revokeAllTrustedContactConsent } = useSafety();
+  const { session } = useAuth();
   const [localDataConsent, setLocalDataConsent] = useState(consent?.localDataConsent ?? false);
   const [cloudSyncConsent, setCloudSyncConsent] = useState(consent?.cloudSyncConsent ?? false);
   const [emergencySharingConsent, setEmergencySharingConsent] = useState(consent?.emergencySharingConsent ?? false);
@@ -29,8 +34,20 @@ export default function PrivacyConsentScreen() {
     }
     setSaving(true);
     try {
+      const withdrawingContactSharing = consent?.emergencySharingConsent === true && !emergencySharingConsent;
+      let remoteRevocationFailures = 0;
+      if (withdrawingContactSharing && session && supabase) {
+        for (const contact of trustedContacts) {
+          const { error } = await supabase.functions.invoke('contact-invitation', { body: { action: 'revoke', contactId: contact.id } });
+          if (error) remoteRevocationFailures += 1;
+        }
+      }
+      const revokedContacts = withdrawingContactSharing ? await revokeAllTrustedContactConsent() : 0;
       await saveConsent({ localDataConsent, cloudSyncConsent, emergencySharingConsent });
-      Alert.alert('Preferencias guardadas', 'Puedes cambiarlas desde Perfil cuando quieras.');
+      const remoteMessage = remoteRevocationFailures > 0
+        ? ' Guardamos la revocación local, pero algunos contactos cloud requieren volver a sincronizar.'
+        : '';
+      Alert.alert('Preferencias guardadas', `${revokedContacts > 0 ? `${revokedContacts} contacto(s) quedaron sin consentimiento. ` : ''}Puedes cambiarlas desde Perfil cuando quieras.${remoteMessage}`);
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');

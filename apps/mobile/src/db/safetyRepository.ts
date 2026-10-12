@@ -85,3 +85,34 @@ export async function grantTrustedContactConsent(db: SQLiteDatabase, contactId: 
   });
   return contact;
 }
+
+/**
+ * Withdraws every trusted-contact consent locally and queues remote revocation
+ * events. The contact details stay on-device so the user can review or delete
+ * them later, but no contact remains eligible for a help alert.
+ */
+export async function revokeAllTrustedContactConsent(db: SQLiteDatabase) {
+  const rows = await db.getAllAsync<ContactRow>('SELECT * FROM trusted_contacts');
+  await db.withTransactionAsync(async () => {
+    for (const row of rows) {
+      const contact = {
+        id: row.id,
+        name: row.name,
+        relationship: row.relationship ?? undefined,
+        phone: row.phone ?? undefined,
+        email: row.email ?? undefined,
+        consentGranted: false,
+        createdAt: row.created_at,
+      } satisfies TrustedContact;
+      await db.runAsync('UPDATE trusted_contacts SET consent_granted = 0 WHERE id = ?', row.id);
+      await enqueueOutbox(db, {
+        id: newId(),
+        entityType: 'trusted_contact',
+        entityId: row.id,
+        eventType: 'contact.consent.revoked.v1',
+        payload: { ...contact, revoked: true },
+      });
+    }
+  });
+  return rows.length;
+}

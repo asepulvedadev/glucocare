@@ -120,5 +120,6 @@ Before beta, approve a retention schedule for clinical records, delivery logs, a
 - [ ] No health data or secrets appear in client logs, notification previews, analytics, or crash breadcrumbs.
 - [ ] Local encryption/key loss/restore behavior is tested.
 - [ ] Consent withdrawal blocks new processing promptly.
+- [ ] Withdrawing emergency-sharing consent clears local eligibility and requests remote trusted-contact revocation; failures remain visible for retry.
 - [ ] Production access and backups are audited.
 - [ ] Legal and regulatory sign-off is recorded.
