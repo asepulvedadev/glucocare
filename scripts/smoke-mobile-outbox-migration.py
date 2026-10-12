@@ -31,6 +31,8 @@ def migration_sql(version: int) -> str:
             WHERE value_mg_dl IS NULL OR conversion_version IS NULL;
             """
         )
+    elif version == 33:
+        return "ALTER TABLE accessibility_preferences ADD COLUMN glucose_unit TEXT NOT NULL DEFAULT 'mg/dL' CHECK (glucose_unit IN ('mg/dL', 'mmol/L'));"
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -79,6 +81,10 @@ def main() -> int:
           unit TEXT NOT NULL
         );
         INSERT INTO glucose_readings (id, value, unit) VALUES ('reading-1', 10, 'mmol/L');
+        CREATE TABLE accessibility_preferences (
+          id TEXT PRIMARY KEY NOT NULL,
+          updated_at TEXT NOT NULL
+        );
         """
     )
     db.executescript(migration_sql(32))
@@ -87,7 +93,15 @@ def main() -> int:
     ).fetchone()
     if canonical[1] != "fixed-18.0182-v1" or abs(canonical[0] - 180.182) > 1e-9:
         raise SystemExit(f"Unexpected canonical glucose migration result: {canonical!r}")
-    print("Mobile SQLite outbox v31 and glucose canonical v32 migrations passed.")
+    db.executescript(migration_sql(33))
+    unit = db.execute("SELECT glucose_unit FROM accessibility_preferences").fetchone()
+    if unit is not None:
+        raise SystemExit(f"Unexpected preference fixture rows before insert: {unit!r}")
+    db.execute("INSERT INTO accessibility_preferences (id, updated_at) VALUES ('default', 'now')")
+    unit = db.execute("SELECT glucose_unit FROM accessibility_preferences WHERE id = 'default'").fetchone()
+    if unit != ("mg/dL",):
+        raise SystemExit(f"Unexpected glucose preference migration result: {unit!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, and unit preference v33 migrations passed.")
     return 0
 
 

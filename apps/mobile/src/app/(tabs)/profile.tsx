@@ -23,6 +23,7 @@ import { usePrivacy } from '../../privacyContext';
 import { supabase } from '../../supabase';
 import { openNotificationSettings, sendTestNotification } from '../../notifications';
 import * as LocalAuthentication from 'expo-local-authentication';
+import type { GlucoseUnit } from '../../types/domain';
 
 type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -53,7 +54,7 @@ export default function ProfileScreen() {
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
-  const { preferences, setPreference, refresh: refreshAccessibility } = useAccessibility();
+  const { preferences, setPreference, setGlucoseUnit, refresh: refreshAccessibility } = useAccessibility();
   const { consent, refresh: refreshPrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -260,6 +261,12 @@ export default function ProfileScreen() {
         <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
         <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
         <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
+      </Panel>
+      <Panel>
+        <Caption>UNIDAD DE GLUCOSA</Caption>
+        <Body>La unidad elegida se usará como valor inicial en nuevos registros. Las lecturas existentes conservan su unidad original.</Body>
+        <PrimaryButton label={`mg/dL${preferences.glucoseUnit === 'mg/dL' ? ' · seleccionada' : ''}`} tone="quiet" onPress={() => void setGlucoseUnit('mg/dL' as GlucoseUnit)} />
+        <PrimaryButton label={`mmol/L${preferences.glucoseUnit === 'mmol/L' ? ' · seleccionada' : ''}`} tone="quiet" onPress={() => void setGlucoseUnit('mmol/L' as GlucoseUnit)} />
       </Panel>
       <Panel>
         <Caption>PRIVACIDAD DEL DISPOSITIVO</Caption>

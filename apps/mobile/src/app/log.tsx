@@ -10,6 +10,7 @@ import { glucoseContextLabel, type GlucoseContext, type GlucoseReading, type Glu
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
 import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
+import { useAccessibility } from '../accessibilityContext';
 
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 const sourceLabel: Record<GlucoseSource, string> = { manual: 'Digitada', import: 'Importada', cgm: 'CGM', glucometer: 'Glucómetro' };
@@ -38,8 +39,9 @@ export default function LogScreen() {
 
 function LogForm({ existing }: { existing?: GlucoseReading }) {
   const { addReading, updateReading } = useGlucose();
+  const { preferences } = useAccessibility();
   const [value, setValue] = useState(existing ? String(existing.value) : '');
-  const [unit, setUnit] = useState<GlucoseUnit>(existing?.unit ?? 'mg/dL');
+  const [unit, setUnit] = useState<GlucoseUnit>(existing?.unit ?? preferences.glucoseUnit);
   const [context, setContext] = useState<GlucoseContext>(existing?.context ?? 'other');
   const [source, setSource] = useState<GlucoseSource>(existing?.source ?? 'manual');
   const [mealOffset, setMealOffset] = useState(existing?.mealOffsetMinutes === undefined ? '' : String(existing.mealOffsetMinutes));

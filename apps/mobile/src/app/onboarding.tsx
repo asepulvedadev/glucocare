@@ -10,6 +10,7 @@ import { usePrivacy } from '../privacyContext';
 import { useSafety } from '../safetyContext';
 import { emergencyConfig } from '../config';
 import { colors, radii, spacing } from '../theme/tokens';
+import type { GlucoseUnit } from '../types/domain';
 
 function CheckRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
   return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={onPress} style={styles.checkRow}>
@@ -19,13 +20,14 @@ function CheckRow({ label, checked, onPress }: { label: string; checked: boolean
 }
 
 export default function OnboardingScreen() {
-  const { preferences, setPreference } = useAccessibility();
+  const { preferences, setPreference, setGlucoseUnit } = useAccessibility();
   const { saveConsent } = usePrivacy();
   const { saveEmergencyCard } = useSafety();
   const [step, setStep] = useState(0);
   const [largeText, setLargeText] = useState(preferences.largeText);
   const [simpleMode, setSimpleMode] = useState(preferences.simpleMode);
   const [highContrast, setHighContrast] = useState(preferences.highContrast);
+  const [glucoseUnit, setGlucoseUnitChoice] = useState<GlucoseUnit>(preferences.glucoseUnit);
   const [localDataConsent, setLocalDataConsent] = useState(false);
   const [cloudSyncConsent, setCloudSyncConsent] = useState(false);
   const [emergencySharingConsent, setEmergencySharingConsent] = useState(false);
@@ -51,6 +53,7 @@ export default function OnboardingScreen() {
       await setPreference('largeText', largeText);
       await setPreference('simpleMode', simpleMode);
       await setPreference('highContrast', highContrast);
+      await setGlucoseUnit(glucoseUnit);
       if (fullName.trim()) {
         await saveEmergencyCard({
           fullName: fullName.trim(),
@@ -78,6 +81,11 @@ export default function OnboardingScreen() {
         <CheckRow label="Texto grande" checked={largeText} onPress={() => setLargeText((value) => !value)} />
         <CheckRow label="Modo simple, con menos controles secundarios" checked={simpleMode} onPress={() => setSimpleMode((value) => !value)} />
         <CheckRow label="Alto contraste" checked={highContrast} onPress={() => setHighContrast((value) => !value)} />
+      </Panel>
+      <Panel>
+        <Caption>UNIDAD DE GLUCOSA</Caption>
+        <Body>Elige la unidad que aparece primero al registrar una lectura. Puedes cambiarla en Perfil.</Body>
+        <View style={styles.unitRow}>{(['mg/dL', 'mmol/L'] as GlucoseUnit[]).map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: glucoseUnit === option }} onPress={() => setGlucoseUnitChoice(option)} style={[styles.unitOption, glucoseUnit === option && styles.unitOptionSelected]}><Text style={[styles.unitText, glucoseUnit === option && styles.unitTextSelected]}>{option}</Text></Pressable>)}</View>
       </Panel>
       <PrimaryButton label="Continuar" onPress={() => setStep(1)} />
     </> : step === 1 ? <>
@@ -120,5 +128,10 @@ const styles = StyleSheet.create({
   checkmark: { color: colors.canvas, fontSize: 20, fontWeight: '800' },
   input: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16, marginBottom: spacing.sm },
   actions: { flexDirection: 'row', gap: spacing.sm },
+  unitRow: { flexDirection: 'row', gap: spacing.sm },
+  unitOption: { minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border },
+  unitOptionSelected: { backgroundColor: colors.amber, borderColor: colors.amber },
+  unitText: { color: colors.textSecondary, fontSize: 17, fontWeight: '700' },
+  unitTextSelected: { color: colors.canvas },
   note: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg },
 });

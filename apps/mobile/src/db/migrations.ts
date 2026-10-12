@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 32;
+const DATABASE_VERSION = 33;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -438,6 +438,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       WHERE value_mg_dl IS NULL OR conversion_version IS NULL;
     `);
     currentVersion = 32;
+  }
+
+  if (currentVersion < 33) {
+    const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
+    if (!preferenceColumns.some((column) => column.name === 'glucose_unit')) await db.execAsync("ALTER TABLE accessibility_preferences ADD COLUMN glucose_unit TEXT NOT NULL DEFAULT 'mg/dL' CHECK (glucose_unit IN ('mg/dL', 'mmol/L'))");
+    currentVersion = 33;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

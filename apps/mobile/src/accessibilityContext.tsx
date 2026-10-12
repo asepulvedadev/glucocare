@@ -4,11 +4,13 @@ import { configureNotificationPreferences, refreshNotificationSchedules } from '
 import { useSQLiteContext } from 'expo-sqlite';
 import { getAccessibilityPreferences, upsertAccessibilityPreferences } from './db/preferencesRepository';
 import type { AccessibilityPreferenceKey, AccessibilityPreferences } from './types/preferences';
+import type { GlucoseUnit } from './types/domain';
 
 type AccessibilityContextValue = {
   preferences: AccessibilityPreferences;
   isLoading: boolean;
   setPreference: (key: AccessibilityPreferenceKey, value: boolean) => Promise<void>;
+  setGlucoseUnit: (unit: GlucoseUnit) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -16,7 +18,7 @@ const AccessibilityContext = createContext<AccessibilityContextValue | null>(nul
 
 export function AccessibilityProvider({ children }: PropsWithChildren) {
   const db = useSQLiteContext();
-  const [preferences, setPreferences] = useState<AccessibilityPreferences>({ id: 'default', simpleMode: false, largeText: false, highContrast: false, reduceMotion: false, notificationSound: true, notificationVibration: true, appLockEnabled: false, onboardingCompleted: false, updatedAt: new Date().toISOString() });
+  const [preferences, setPreferences] = useState<AccessibilityPreferences>({ id: 'default', simpleMode: false, largeText: false, highContrast: false, reduceMotion: false, notificationSound: true, notificationVibration: true, appLockEnabled: false, onboardingCompleted: false, glucoseUnit: 'mg/dL', updatedAt: new Date().toISOString() });
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -51,7 +53,13 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     }
   }, [db, preferences]);
 
-  const value = useMemo(() => ({ preferences, isLoading, setPreference, refresh }), [preferences, isLoading, setPreference, refresh]);
+  const setGlucoseUnit = useCallback(async (glucoseUnit: GlucoseUnit) => {
+    const next = { ...preferences, glucoseUnit, updatedAt: new Date().toISOString() };
+    await upsertAccessibilityPreferences(db, next);
+    setPreferences(next);
+  }, [db, preferences]);
+
+  const value = useMemo(() => ({ preferences, isLoading, setPreference, setGlucoseUnit, refresh }), [preferences, isLoading, setPreference, setGlucoseUnit, refresh]);
   return <AccessibilityContext.Provider value={value}>{children}</AccessibilityContext.Provider>;
 }
 
