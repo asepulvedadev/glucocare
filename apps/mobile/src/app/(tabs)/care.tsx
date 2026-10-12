@@ -18,7 +18,7 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh } = useCare();
+  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh } = useCare();
   const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
   const [actingMeasurementId, setActingMeasurementId] = useState<string | null>(null);
   const [actingAppointmentId, setActingAppointmentId] = useState<string | null>(null);
@@ -27,12 +27,25 @@ export default function CareScreen() {
     void refresh();
   }, [refresh]));
 
-  async function updateOccurrence(occurrenceId: string, status: 'taken' | 'skipped') {
+  async function updateOccurrence(occurrenceId: string, status: 'taken' | 'skipped' | 'not_recorded') {
     setActingOccurrenceId(occurrenceId);
     try {
       await markMedicationOccurrence(occurrenceId, status);
     } catch {
       Alert.alert('No se pudo actualizar', 'Conserva la instrucción de tu equipo de salud y vuelve a intentarlo.');
+    } finally {
+      setActingOccurrenceId(null);
+    }
+  }
+
+  async function snoozeOccurrence(occurrenceId: string) {
+    setActingOccurrenceId(occurrenceId);
+    try {
+      const permission = await snoozeMedicationOccurrence(occurrenceId);
+      if (permission === 'permission_denied') Alert.alert('Toma pospuesta', 'Guardamos el estado, pero las notificaciones están deshabilitadas.');
+      else if (permission === 'unavailable') Alert.alert('Toma pospuesta', 'Guardamos el estado. El recordatorio pospuesto solo está disponible en el dispositivo.');
+    } catch {
+      Alert.alert('No se pudo posponer', 'Vuelve a intentarlo.');
     } finally {
       setActingOccurrenceId(null);
     }
@@ -98,6 +111,8 @@ export default function CareScreen() {
                   {!acted ? <View style={styles.occurrenceActions}>
                     <PrimaryButton label="Marcar tomado" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'taken')} />
                     <PrimaryButton label="Omitir" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'skipped')} />
+                    <PrimaryButton label="Posponer 10 min" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void snoozeOccurrence(occurrence.id)} />
+                    <PrimaryButton label="No registrada" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'not_recorded')} />
                   </View> : null}
                 </>;
               })()}

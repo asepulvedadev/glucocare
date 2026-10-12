@@ -50,6 +50,20 @@ export async function scheduleMedicationReminder(medication: Medication): Promis
   return { state: permission, notificationId };
 }
 
+export async function scheduleMedicationSnooze(medication: Medication, minutes = 10): Promise<ReminderPermission> {
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return permission;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `Recordatorio pospuesto: ${medication.name}`,
+      body: `Revisa la indicación de ${medication.doseText} en ${minutes} minutos.`,
+      data: { url: '/care', medicationId: medication.id, snoozed: true },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: MEDICATION_CHANNEL },
+  });
+  return permission;
+}
+
 export async function cancelReminder(notificationId?: string) {
   if (notificationId && Platform.OS !== 'web') {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
