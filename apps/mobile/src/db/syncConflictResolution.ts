@@ -1,6 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { discardPendingOutboxForEntity } from './outboxRepository';
 import { resolveSyncConflictsForEntity, type SyncConflict } from './syncConflictRepository';
+import type { GlucoseUnit } from '../types/domain';
+import { conversionVersionForUnit, toCanonicalMgDl } from '../domain/glucoseSummary';
 
 function stringValue(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;
@@ -32,7 +34,7 @@ function dateOnly(value: unknown) {
   return typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : null;
 }
 
-function localUnit(value: unknown) {
+function localUnit(value: unknown): GlucoseUnit {
   return value === 'mmol_l' ? 'mmol/L' : 'mg/dL';
 }
 
@@ -62,12 +64,22 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
   await db.withTransactionAsync(async () => {
     switch (conflict.entityType) {
       case 'glucose_reading':
+        {
+        const value = numberValue(payload.value_original, 'value');
+        const unit = localUnit(payload.unit_original);
+        const canonicalValue = typeof payload.value_mg_dl === 'number' && Number.isFinite(payload.value_mg_dl)
+          ? payload.value_mg_dl
+          : toCanonicalMgDl(value, unit);
+        const conversionVersion = typeof payload.conversion_version === 'string'
+          ? payload.conversion_version
+          : conversionVersionForUnit(unit);
         await db.runAsync(
-          `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
-           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, timezone = excluded.timezone, utc_offset_minutes = excluded.utc_offset_minutes, time_edited = excluded.time_edited, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
-          conflict.entityId, numberValue(payload.value_original, 'value'), localUnit(payload.unit_original), localContext(payload.context), localSource(payload.source), typeof payload.meal_offset_minutes === 'number' ? payload.meal_offset_minutes : null, requiredString(payload.measured_at, 'measured_at'), payload.timezone ? String(payload.timezone) : null, typeof payload.utc_offset_minutes === 'number' ? payload.utc_offset_minutes : null, payload.time_edited === true, Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, payload.classification ? String(payload.classification) : null,
+          `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, value_mg_dl = excluded.value_mg_dl, conversion_version = excluded.conversion_version, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, timezone = excluded.timezone, utc_offset_minutes = excluded.utc_offset_minutes, time_edited = excluded.time_edited, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
+          conflict.entityId, value, unit, canonicalValue, conversionVersion, localContext(payload.context), localSource(payload.source), typeof payload.meal_offset_minutes === 'number' ? payload.meal_offset_minutes : null, requiredString(payload.measured_at, 'measured_at'), payload.timezone ? String(payload.timezone) : null, typeof payload.utc_offset_minutes === 'number' ? payload.utc_offset_minutes : null, payload.time_edited === true, Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, payload.classification ? String(payload.classification) : null,
         );
+        }
         break;
       case 'medication':
         {

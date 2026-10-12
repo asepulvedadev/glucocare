@@ -22,7 +22,9 @@ describe('reviewed sync conflict resolution', () => {
       value_original: 130, unit_original: 'mg_dl', context: 'fasting', measured_at: '2026-10-12T08:00:00.000Z', classification: 'in_range',
     }));
     expect(db.withTransactionAsync).toHaveBeenCalledOnce();
-    expect(db.runAsync.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO glucose_readings'))).toBe(true);
+    const glucoseInsert = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO glucose_readings'));
+    expect(glucoseInsert?.[0]).toContain('value_mg_dl');
+    expect(glucoseInsert?.[0]).toContain('conversion_version');
     expect(db.runAsync.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM sync_outbox'))).toBe(true);
     expect(db.runAsync.mock.calls.some(([sql]) => String(sql).includes("resolution = 'remote'"))).toBe(false);
     expect(db.runAsync.mock.calls.some(([sql]) => String(sql).includes('UPDATE sync_conflicts'))).toBe(true);
