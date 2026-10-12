@@ -179,6 +179,16 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
          DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at, deleted_at = NULL`,
         [user.id, entityType, entityId, JSON.stringify(payload), occurredAt],
       );
+      // A local contact edit/removal carries `revoked: true`. Revoke the
+      // server-side invitation in the same transaction so a stale accepted
+      // invitation can never keep the contact eligible for a future alert.
+      if (entityType === 'trusted_contact' && payload.revoked === true) {
+        await client.query(
+          `UPDATE contact_invitations SET status = 'revoked'
+           WHERE patient_id = $1 AND contact_id = $2 AND status IN ('pending', 'accepted')`,
+          [user.id, entityId],
+        );
+      }
       if (eventType.includes('corrected') || entityType === 'care_plan' || entityType === 'medication' || entityType === 'appointment' || entityType === 'emergency_card' || entityType === 'trusted_contact' || entityType === 'measurement_plan') {
         await client.query(
           `INSERT INTO audit_events (id, patient_id, action, entity_type, entity_id, occurred_at, before_data, after_data)
@@ -328,7 +338,11 @@ async function route(request: AuthenticatedRequest, response: ServerResponse) {
     await authRoute(request, response, url.pathname); return;
   }
   if (request.method === 'POST' && url.pathname === '/v1/auth/signout') { await revokeSession(bearerTokenFromNodeRequest(request)); send(response, 204, {}); return; }
-  if (request.method === 'GET' && url.pathname === '/v1/contact-invitations/accept') { await acceptInvitation(url.searchParams.get('token'), response); return; }
+  if (request.method === 'GET' && url.pathname === '/v1/contact-invitations/accept') {
+    const limit = consumeRateLimit(`invitation-accept:${requestAddress(request)}`, 30, 60_000);
+    if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
+    await acceptInvitation(url.searchParams.get('token'), response); return;
+  }
 
   const user = await requireUser(request, response);
   if (!user) return;

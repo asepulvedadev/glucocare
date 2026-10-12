@@ -44,6 +44,15 @@ const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { au
 if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'queued') throw new Error('alert was not queued honestly');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 if (deliveries.deliveries.length !== 1) throw new Error('expected one alert delivery');
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'contact.revoked.v1',
+  entityType: 'trusted_contact',
+  entityId: contactId,
+  payload: { id: contactId, revoked: true, updatedAt: new Date().toISOString() },
+}) });
+const revokedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [contactId], channels: ['sms'] }) });
+if (revokedAlert.status !== 400) throw new Error('revoked contact remained eligible for an alert');
 const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
 const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });

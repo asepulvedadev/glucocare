@@ -103,6 +103,12 @@ patient.
 | `emergency.incident.started.v1` | Minimal incident record. |
 | `emergency.alert.status_changed.v1` | Provider status, not clinical state. |
 
+When a `trusted_contact` event carries `revoked: true` (for example after a
+contact edit, deletion, or privacy-consent withdrawal), the API revokes that
+contact's pending and accepted invitations in the same transaction as the
+health-record projection. A stale invitation therefore cannot authorize a
+later emergency alert.
+
 ## Error envelope
 
 ```json
@@ -128,7 +134,7 @@ Do not return another patient’s existence or sensitive record details in error
 
 ## Rate limits
 
-- Stricter limits for invitations, contact alerts, and login are enforced in the single VPS API process; export/acknowledgement limits remain required when those routes are added.
+- Stricter limits for invitations, invitation acceptance, contact alerts, and login are enforced in the single VPS API process; export/acknowledgement limits remain required when those routes are added.
 - Emergency alert limiting prevents abuse but must return a direct-call fallback rather than a dead end.
 - Limit response includes safe retry timing; never expose internal provider details.
 

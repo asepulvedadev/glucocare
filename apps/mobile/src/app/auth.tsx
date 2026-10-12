@@ -16,8 +16,8 @@ export default function AuthScreen() {
   const [saving, setSaving] = useState(false);
 
   async function submit() {
-    if (!email.trim() || password.length < 8) {
-      Alert.alert('Completa los datos', 'Escribe un correo y una contraseña de al menos 8 caracteres.');
+    if (!email.trim() || password.length < 12) {
+      Alert.alert('Completa los datos', 'Escribe un correo y una contraseña de al menos 12 caracteres.');
       return;
     }
     setSaving(true);
