@@ -73,12 +73,40 @@ function resolvedSchedule(plan: MeasurementPlan, meals: MealEvent[], now: Date):
 }
 
 export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, plan: MeasurementPlan | null, now = new Date()) {
-  if (!plan) return;
   const createdAt = new Date().toISOString();
+  const startOfToday = startOfLocalDay(now).toISOString();
+  const staleRows = await db.getAllAsync<MeasurementOccurrenceRow>(
+    `SELECT * FROM measurement_occurrences WHERE status IN ('planned', 'due') AND scheduled_at < ?`,
+    startOfToday,
+  );
+  if (staleRows.length > 0) {
+    await db.withTransactionAsync(async () => {
+      for (const row of staleRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'expired' as const };
+        transitionMeasurementOccurrence(current.status, next.status);
+        await db.runAsync('UPDATE measurement_occurrences SET status = ?, completed_at = ? WHERE id = ?', 'expired', now.toISOString(), row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: row.id, eventType: 'measurement_occurrence.expired.v1', payload: { ...next, completedAt: now.toISOString() } });
+      }
+    });
+  }
+  if (!plan) return;
   const start = startOfLocalDay(now).toISOString();
   const end = new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString();
   if (!isMeasurementPlanActive(plan, now)) {
-    await db.runAsync("DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
+    const inactiveRows = await db.getAllAsync<MeasurementOccurrenceRow>(
+      "SELECT * FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')",
+      plan.id, start, end,
+    );
+    await db.withTransactionAsync(async () => {
+      for (const row of inactiveRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'expired' as const };
+        transitionMeasurementOccurrence(current.status, next.status);
+        await db.runAsync('UPDATE measurement_occurrences SET status = ?, completed_at = ? WHERE id = ?', 'expired', now.toISOString(), row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: row.id, eventType: 'measurement_occurrence.expired.v1', payload: { ...next, completedAt: now.toISOString() } });
+      }
+    });
     return;
   }
   const meals = await listMealEventsForDay(db, start, end);
@@ -86,13 +114,27 @@ export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, pla
   await db.withTransactionAsync(async () => {
     if (schedule.length > 0) {
       const placeholders = schedule.map(() => '?').join(', ');
-      await db.runAsync(
-        `DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ?
+      const staleScheduleRows = await db.getAllAsync<MeasurementOccurrenceRow>(
+        `SELECT * FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ?
          AND status IN ('planned', 'due') AND scheduled_at NOT IN (${placeholders})`,
         plan.id, start, end, ...schedule.map((item) => item.scheduledAt),
       );
+      for (const row of staleScheduleRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'expired' as const };
+        transitionMeasurementOccurrence(current.status, next.status);
+        await db.runAsync('UPDATE measurement_occurrences SET status = ?, completed_at = ? WHERE id = ?', 'expired', now.toISOString(), row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: row.id, eventType: 'measurement_occurrence.expired.v1', payload: { ...next, completedAt: now.toISOString() } });
+      }
     } else {
-      await db.runAsync("DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
+      const staleScheduleRows = await db.getAllAsync<MeasurementOccurrenceRow>("SELECT * FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
+      for (const row of staleScheduleRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'expired' as const };
+        transitionMeasurementOccurrence(current.status, next.status);
+        await db.runAsync('UPDATE measurement_occurrences SET status = ?, completed_at = ? WHERE id = ?', 'expired', now.toISOString(), row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: row.id, eventType: 'measurement_occurrence.expired.v1', payload: { ...next, completedAt: now.toISOString() } });
+      }
     }
     for (const item of schedule) {
       await db.runAsync(
@@ -107,7 +149,18 @@ export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, pla
 export async function listTodaysMeasurementOccurrences(db: SQLiteDatabase, now = new Date()): Promise<MeasurementOccurrence[]> {
   const start = startOfLocalDay(now).toISOString();
   const end = new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString();
-  await db.runAsync("UPDATE measurement_occurrences SET status = 'due' WHERE status = 'planned' AND scheduled_at <= ? AND scheduled_at >= ? AND scheduled_at < ?", now.toISOString(), start, end);
+  const dueRows = await db.getAllAsync<MeasurementOccurrenceRow>("SELECT * FROM measurement_occurrences WHERE status = 'planned' AND scheduled_at <= ? AND scheduled_at >= ? AND scheduled_at < ?", now.toISOString(), start, end);
+  if (dueRows.length > 0) {
+    await db.withTransactionAsync(async () => {
+      for (const row of dueRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'due' as const };
+        transitionMeasurementOccurrence(current.status, next.status);
+        await db.runAsync("UPDATE measurement_occurrences SET status = 'due' WHERE id = ?", row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: row.id, eventType: 'measurement_occurrence.due.v1', payload: next });
+      }
+    });
+  }
   const rows = await db.getAllAsync<MeasurementOccurrenceRow>(
     `SELECT * FROM measurement_occurrences WHERE scheduled_at >= ? AND scheduled_at < ? ORDER BY scheduled_at ASC`,
     start, end,
