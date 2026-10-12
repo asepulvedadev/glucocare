@@ -70,6 +70,11 @@ If notification permission is denied:
 - Let the user test current settings.
 - Never repeatedly nag on every launch.
 
+If the native notification API is unavailable or throws (for example during a
+platform update), the medication, measurement, or appointment write still
+commits locally with `unavailable` reminder state. A failed reminder must never
+discard the health record or make the user retry the clinical action.
+
 ## Contact invitation and consent
 
 1. Patient enters the contact and chooses event types/channels.

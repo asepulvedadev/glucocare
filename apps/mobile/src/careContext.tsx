@@ -137,7 +137,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       createdAt: new Date().toISOString(),
       reminderState: 'unavailable',
     };
-    const scheduled = await scheduleMedicationReminder(medication);
+    const scheduled = await scheduleMedicationReminder(medication).catch(() => ({ state: 'unavailable' as const, notificationId: undefined, notificationIds: [] as string[] }));
     const stored: Medication = {
       ...medication,
       notificationId: scheduled.notificationId,
@@ -154,9 +154,9 @@ export function CareProvider({ children }: PropsWithChildren) {
   const updateMedication = useCallback(async (medicationId: string, input: NewMedication) => {
     const current = medications.find((item) => item.id === medicationId);
     if (!current) throw new Error('Medication not found.');
-    await cancelReminder(current.notificationIds ?? current.notificationId);
+    await cancelReminder(current.notificationIds ?? current.notificationId).catch(() => undefined);
     const medication: Medication = { ...input, id: current.id, createdAt: current.createdAt, reminderState: 'unavailable' };
-    const scheduled = await scheduleMedicationReminder(medication);
+    const scheduled = await scheduleMedicationReminder(medication).catch(() => ({ state: 'unavailable' as const, notificationId: undefined, notificationIds: [] as string[] }));
     const stored: Medication = { ...medication, notificationId: scheduled.notificationId, notificationIds: scheduled.notificationIds, reminderState: scheduled.state === 'granted' ? 'scheduled' : scheduled.state };
     await updateStoredMedication(db, stored);
     await ensureTodaysMedicationOccurrences(db, [stored]);
@@ -172,7 +172,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       createdAt: new Date().toISOString(),
       reminderState: 'unavailable',
     };
-    const scheduled = await scheduleAppointmentReminder(appointment);
+    const scheduled = await scheduleAppointmentReminder(appointment).catch(() => ({ state: 'unavailable' as const, notificationId: undefined }));
     const stored: Appointment = {
       ...appointment,
       notificationId: scheduled.notificationId,
@@ -186,7 +186,7 @@ export function CareProvider({ children }: PropsWithChildren) {
   const updateAppointment = useCallback(async (appointmentId: string, input: NewAppointment) => {
     const current = appointments.find((item) => item.id === appointmentId);
     if (!current) throw new Error('Appointment not found.');
-    await cancelReminder(current.notificationId);
+    await cancelReminder(current.notificationId).catch(() => undefined);
     const appointment: Appointment = {
       ...input,
       id: current.id,
@@ -195,7 +195,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     };
     const scheduled = isTerminalAppointmentStatus(appointment.status)
       ? { state: 'unavailable' as const, notificationId: undefined }
-      : await scheduleAppointmentReminder(appointment);
+      : await scheduleAppointmentReminder(appointment).catch(() => ({ state: 'unavailable' as const, notificationId: undefined }));
     const stored: Appointment = {
       ...appointment,
       notificationId: scheduled.notificationId,
@@ -240,7 +240,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     const occurrence = medicationOccurrences.find((item) => item.id === occurrenceId);
     const medication = occurrence ? medications.find((item) => item.id === occurrence.medicationId) : undefined;
     if (!medication) throw new Error('Medication not found.');
-    const permission = await scheduleMedicationSnooze(medication);
+    const permission = await scheduleMedicationSnooze(medication).catch(() => 'unavailable' as const);
     const updated = await recordMedicationOccurrence(db, occurrenceId, 'snoozed');
     setMedicationOccurrences((current) => current.map((item) => item.id === updated.id ? updated : item));
     return permission;
@@ -254,10 +254,10 @@ export function CareProvider({ children }: PropsWithChildren) {
   const updateAppointmentStatus = useCallback(async (appointmentId: string, status: Appointment['status']) => {
     const updated = await updateStoredAppointmentStatus(db, appointmentId, status);
     const terminal = isTerminalAppointmentStatus(status);
-    if (terminal) await cancelReminder(updated.notificationId);
+    if (terminal) await cancelReminder(updated.notificationId).catch(() => undefined);
     const scheduled = terminal
       ? { state: 'unavailable' as const, notificationId: undefined }
-      : await reconcileAppointmentReminder(updated);
+      : await reconcileAppointmentReminder(updated).catch(() => ({ state: 'unavailable' as const, notificationId: undefined }));
     const next = {
       ...updated,
       notificationId: scheduled.notificationId,
