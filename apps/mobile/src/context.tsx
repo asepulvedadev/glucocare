@@ -4,6 +4,7 @@ import { insertGlucoseReading, listGlucoseReadings, type NewGlucoseReading } fro
 import type { GlucoseReading } from './types/domain';
 import { getCarePlan } from './db/carePlanRepository';
 import { classifyGlucose } from './domain/glucoseRisk';
+import { notifyUrgentGlucoseRisk } from './notifications';
 
 type GlucoseContextValue = {
   readings: GlucoseReading[];
@@ -38,6 +39,7 @@ export function GlucoseProvider({ children }: PropsWithChildren) {
     const carePlan = await getCarePlan(db);
     const saved = await insertGlucoseReading(db, { ...reading, riskClassification: classifyGlucose(reading.value, reading.unit, carePlan) });
     setReadings((current) => [saved, ...current]);
+    if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') void notifyUrgentGlucoseRisk(saved.riskClassification);
     return saved;
   }, [db]);
 

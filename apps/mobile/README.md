@@ -10,6 +10,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Accessible 44 pt touch targets, labels, semantic status colors, and large readable values.
 - Offline glucose entry backed by SQLite, automatic timestamp, unit, context, symptoms, and notes.
 - Optional clinician-provided glucose thresholds with deterministic, non-diagnostic risk labels and urgent foreground guidance.
+- Urgent clinician-configured glucose risks also surface a privacy-preserving local notification when notification permission is already granted; saving a reading never requires notification permission.
 - Local history persisted across app restarts.
 - Emergency help flow that opens the local emergency number and states delivery limitations.
 - Medication records with clinician-provided dose text, route, one to three daily times, prescriber, instructions, validity dates, and local reminder state.

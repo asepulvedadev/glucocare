@@ -2,9 +2,11 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
+import type { GlucoseRiskClassification } from './types/carePlan';
 import { isMedicationActive } from './domain/medication';
 
 const MEDICATION_CHANNEL = 'medications';
+const GLUCOSE_RISK_CHANNEL = 'glucose-risk';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -90,6 +92,35 @@ export async function sendTestNotification(): Promise<ReminderPermission> {
     trigger: null,
   });
   return permission;
+}
+
+/**
+ * Surfaces an urgent, clinician-configured risk without putting the glucose
+ * value on the lock screen. It never requests permission by itself: saving a
+ * reading must remain possible when notifications are disabled.
+ */
+export async function notifyUrgentGlucoseRisk(risk: GlucoseRiskClassification): Promise<ReminderPermission> {
+  if (risk !== 'urgent_low' && risk !== 'urgent_high') return 'unavailable';
+  if (Platform.OS === 'web') return 'unavailable';
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(GLUCOSE_RISK_CHANNEL, {
+      name: 'Alertas de glucosa',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 350, 200, 350],
+      lightColor: '#FF7A5C',
+    });
+  }
+  const permission = await Notifications.getPermissionsAsync();
+  if (permission.status !== 'granted') return 'permission_denied';
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Revisa tu plan de glucosa',
+      body: 'Tu última lectura quedó fuera del rango urgente guardado. Abre GlucoCare y sigue las instrucciones de tu equipo de salud.',
+      data: { url: '/help', risk },
+    },
+    trigger: Platform.OS === 'android' ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: GLUCOSE_RISK_CHANNEL } : null,
+  });
+  return 'granted';
 }
 
 export async function cancelReminder(notificationId?: string | string[]) {
