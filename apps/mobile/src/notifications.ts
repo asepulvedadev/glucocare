@@ -8,10 +8,31 @@ import { isMedicationActive } from './domain/medication';
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
 const GLUCOSE_RISK_CHANNEL = 'glucose-risk';
+let notificationPreferences = { sound: true, vibration: true };
+
+export function configureNotificationPreferences(preferences: { notificationSound: boolean; notificationVibration: boolean }) {
+  notificationPreferences = { sound: preferences.notificationSound, vibration: preferences.notificationVibration };
+}
+
+function channelId(base: string) {
+  return `${base}-${notificationPreferences.sound ? 'sound' : 'silent'}-${notificationPreferences.vibration ? 'vibrate' : 'quiet'}`;
+}
+
+async function ensureAndroidChannel(base: string, name: string, importance: Notifications.AndroidImportance, vibrationPattern: number[], lightColor: string) {
+  const id = channelId(base);
+  await Notifications.setNotificationChannelAsync(id, {
+    name,
+    importance,
+    sound: notificationPreferences.sound ? 'default' : null,
+    vibrationPattern: notificationPreferences.vibration ? vibrationPattern : null,
+    lightColor,
+  });
+  return id;
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldPlaySound: false,
+    shouldPlaySound: notificationPreferences.sound,
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
@@ -30,18 +51,9 @@ export async function openNotificationSettings() {
 export async function ensurePermission(): Promise<ReminderPermission> {
   if (Platform.OS === 'web') return 'unavailable';
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(MEDICATION_CHANNEL, {
-      name: 'Recordatorios de medicamentos',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FFBE55',
-    });
-    await Notifications.setNotificationChannelAsync(APPOINTMENT_CHANNEL, {
-      name: 'Recordatorios de citas',
-      importance: Notifications.AndroidImportance.DEFAULT,
-      vibrationPattern: [0, 180, 120, 180],
-      lightColor: '#54D6C0',
-    });
+    await ensureAndroidChannel(MEDICATION_CHANNEL, 'Recordatorios de medicamentos', Notifications.AndroidImportance.HIGH, [0, 250, 250, 250], '#FFBE55');
+    await ensureAndroidChannel(APPOINTMENT_CHANNEL, 'Recordatorios de citas', Notifications.AndroidImportance.DEFAULT, [0, 180, 120, 180], '#54D6C0');
+    await ensureAndroidChannel(GLUCOSE_RISK_CHANNEL, 'Alertas de glucosa', Notifications.AndroidImportance.HIGH, [0, 350, 200, 350], '#FF7A5C');
   }
   const current = await Notifications.getPermissionsAsync();
   const result = current.status === 'granted' ? current : await Notifications.requestPermissionsAsync();
@@ -58,13 +70,14 @@ export async function scheduleMedicationReminder(medication: Medication): Promis
   for (const time of times) {
     const [hour, minute] = time.split(':').map(Number);
     const trigger: Notifications.SchedulableNotificationTriggerInput = Platform.OS === 'android'
-      ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: MEDICATION_CHANNEL }
+      ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: channelId(MEDICATION_CHANNEL) }
       : { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour, minute, repeats: true };
     notificationIds.push(await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Recordatorio de rutina',
         body: 'Tienes una tarea de salud programada. Abre GlucoCare para ver los detalles.',
         data: { url: '/care', medicationId: medication.id, time },
+        sound: notificationPreferences.sound ? 'default' : undefined,
       },
       trigger,
     }));
@@ -80,8 +93,9 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
       title: 'Recordatorio pospuesto',
       body: 'Revisa tu tarea de salud en GlucoCare.',
       data: { url: '/care', medicationId: medication.id, snoozed: true },
+      sound: notificationPreferences.sound ? 'default' : undefined,
     },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: MEDICATION_CHANNEL },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: channelId(MEDICATION_CHANNEL) },
   });
   return permission;
 }
@@ -95,6 +109,7 @@ export async function sendTestNotification(): Promise<ReminderPermission> {
       title: 'Prueba de recordatorios',
       body: 'Las notificaciones locales de GlucoCare están activas.',
       data: { url: '/care', test: true },
+      sound: notificationPreferences.sound ? 'default' : undefined,
     },
     trigger: null,
   });
@@ -110,12 +125,7 @@ export async function notifyUrgentGlucoseRisk(risk: GlucoseRiskClassification): 
   if (risk !== 'urgent_low' && risk !== 'urgent_high') return 'unavailable';
   if (Platform.OS === 'web') return 'unavailable';
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(GLUCOSE_RISK_CHANNEL, {
-      name: 'Alertas de glucosa',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 350, 200, 350],
-      lightColor: '#FF7A5C',
-    });
+    await ensureAndroidChannel(GLUCOSE_RISK_CHANNEL, 'Alertas de glucosa', Notifications.AndroidImportance.HIGH, [0, 350, 200, 350], '#FF7A5C');
   }
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return 'permission_denied';
@@ -124,8 +134,9 @@ export async function notifyUrgentGlucoseRisk(risk: GlucoseRiskClassification): 
       title: 'Revisa tu plan de glucosa',
       body: 'Tu última lectura quedó fuera del rango urgente guardado. Abre GlucoCare y sigue las instrucciones de tu equipo de salud.',
       data: { url: '/help', risk },
+      sound: notificationPreferences.sound ? 'default' : undefined,
     },
-    trigger: Platform.OS === 'android' ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: GLUCOSE_RISK_CHANNEL } : null,
+    trigger: Platform.OS === 'android' ? { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1, channelId: channelId(GLUCOSE_RISK_CHANNEL) } : null,
   });
   return 'granted';
 }
@@ -172,8 +183,9 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
       title: 'Recordatorio de cita',
       body: 'Tienes una cita próxima. Abre GlucoCare para ver los detalles.',
       data: { url: '/care', appointmentId: appointment.id },
+      sound: notificationPreferences.sound ? 'default' : undefined,
     },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: APPOINTMENT_CHANNEL },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: channelId(APPOINTMENT_CHANNEL) },
   });
   return { state: permission, notificationId };
 }

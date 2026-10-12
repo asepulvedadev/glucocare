@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 28;
+const DATABASE_VERSION = 29;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -140,6 +140,8 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
         large_text INTEGER NOT NULL DEFAULT 0,
         high_contrast INTEGER NOT NULL DEFAULT 0,
         reduce_motion INTEGER NOT NULL DEFAULT 0,
+        notification_sound INTEGER NOT NULL DEFAULT 1,
+        notification_vibration INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL
       );
     `);
@@ -380,6 +382,13 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_glucose_audit_reading ON glucose_audit_events(reading_id, occurred_at DESC);
     `);
     currentVersion = 28;
+  }
+
+  if (currentVersion < 29) {
+    const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
+    if (!preferenceColumns.some((column) => column.name === 'notification_sound')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN notification_sound INTEGER NOT NULL DEFAULT 1');
+    if (!preferenceColumns.some((column) => column.name === 'notification_vibration')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN notification_vibration INTEGER NOT NULL DEFAULT 1');
+    currentVersion = 29;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

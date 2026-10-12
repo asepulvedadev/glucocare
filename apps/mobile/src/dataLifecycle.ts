@@ -363,8 +363,8 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
 
     for (const row of accessibilityPreferences) {
       await db.runAsync(
-        `INSERT INTO accessibility_preferences (id, simple_mode, large_text, high_contrast, reduce_motion, onboarding_completed, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), booleanFlag(row, 'simple_mode'), booleanFlag(row, 'large_text'), booleanFlag(row, 'high_contrast'), booleanFlag(row, 'reduce_motion'), booleanFlag(row, 'onboarding_completed'), requiredString(row, 'updated_at'),
+        `INSERT INTO accessibility_preferences (id, simple_mode, large_text, high_contrast, reduce_motion, notification_sound, notification_vibration, onboarding_completed, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), booleanFlag(row, 'simple_mode'), booleanFlag(row, 'large_text'), booleanFlag(row, 'high_contrast'), booleanFlag(row, 'reduce_motion'), booleanFlag(row, 'notification_sound', true), booleanFlag(row, 'notification_vibration', true), booleanFlag(row, 'onboarding_completed'), requiredString(row, 'updated_at'),
       );
     }
   });

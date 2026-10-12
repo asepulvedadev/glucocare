@@ -236,6 +236,9 @@ export default function ProfileScreen() {
       </Panel>
       <Panel>
         <Caption>RECORDATORIOS</Caption>
+        <Body>Configura sonido y vibración. El sistema operativo puede aplicar controles adicionales por canal.</Body>
+        <PrimaryButton label={`Sonido de notificaciones: ${preferences.notificationSound ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('notificationSound', !preferences.notificationSound)} />
+        <PrimaryButton label={`Vibración de notificaciones: ${preferences.notificationVibration ? 'activada' : 'desactivada'}`} tone="quiet" onPress={() => void setPreference('notificationVibration', !preferences.notificationVibration)} />
         <Body>Prueba una notificación genérica sin datos clínicos para confirmar que el dispositivo puede mostrar avisos.</Body>
         <PrimaryButton label="Probar notificaciones" tone="quiet" onPress={() => void testNotifications()} />
       </Panel>

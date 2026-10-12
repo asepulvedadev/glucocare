@@ -4,6 +4,8 @@ export type AccessibilityPreferences = {
   largeText: boolean;
   highContrast: boolean;
   reduceMotion: boolean;
+  notificationSound: boolean;
+  notificationVibration: boolean;
   onboardingCompleted: boolean;
   updatedAt: string;
 };
