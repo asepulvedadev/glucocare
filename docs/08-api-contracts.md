@@ -57,7 +57,9 @@ Response `202 Accepted` means queued, not delivered. A private VPS worker later
 transitions each channel to `provider_accepted`, `not_configured`, or `failed`;
 provider acceptance still does not prove that a person read the message. The
 API returns `400 INVALID_ALERT_CONTACTS` unless every contact has a non-expired
-accepted invitation:
+accepted invitation. It creates one delivery only for a requested channel that
+matches an address stored on that contact (email uses `email`; SMS/voice use
+`phone`), so a mixed request never creates impossible cross-channel deliveries:
 
 ```json
 {

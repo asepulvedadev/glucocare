@@ -280,8 +280,8 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
   const contactIds = Array.isArray(body.contactIds) ? [...new Set(body.contactIds.filter((value): value is string => typeof value === 'string' && value.length <= 256))] : [];
   const channels = Array.isArray(body.channels) ? [...new Set(body.channels.filter((value): value is string => ['email', 'sms', 'push', 'voice'].includes(String(value))).map(String))] : [];
   if (!incidentId || !contactIds.length || !channels.length) { fail(response, 400, 'INVALID_ALERT', 'El incidente, los contactos y los canales son obligatorios.'); return; }
-  const contacts = await pool.query(
-    `SELECT r.entity_id FROM health_records r
+  const contacts = await pool.query<{ entity_id: string; payload: JsonObject }>(
+    `SELECT r.entity_id, r.payload FROM health_records r
      WHERE r.patient_id = $1 AND r.entity_type = 'trusted_contact' AND r.entity_id = ANY($2::text[])
        AND EXISTS (
          SELECT 1 FROM contact_invitations i
@@ -291,6 +291,14 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
     [user.id, contactIds],
   );
   if (contacts.rowCount !== contactIds.length) { fail(response, 400, 'INVALID_ALERT_CONTACTS', 'Uno o más contactos no pertenecen a tu cuenta.'); return; }
+  // A request may contain several contacts with different channels. Build the
+  // delivery ledger from each contact's available address instead of taking a
+  // cartesian product that would create impossible email/SMS deliveries.
+  const deliveryPairs = contacts.rows.flatMap(({ entity_id: contactId, payload }) => channels
+    .filter((channel) => (channel === 'email' && typeof payload.email === 'string' && payload.email.trim().length > 0)
+      || ((channel === 'sms' || channel === 'voice') && typeof payload.phone === 'string' && payload.phone.trim().length > 0))
+    .map((channel) => ({ contactId, channel })));
+  if (!deliveryPairs.length) { fail(response, 400, 'INVALID_ALERT_CHANNELS', 'Ningún contacto tiene una dirección disponible para los canales solicitados.'); return; }
   const alertId = randomUUID();
   const client = await pool.connect();
   try {
@@ -308,7 +316,7 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
       const existingDeliveries = await client.query<{ contact_id: string; channel: string; status: string }>(
         `SELECT contact_id, channel, status FROM alert_deliveries WHERE alert_id = $1 ORDER BY queued_at ASC`, [existingAlert.id],
       );
-      const requestedKeys = contactIds.flatMap((contactId) => channels.map((channel) => `${contactId}:${channel}`)).sort();
+      const requestedKeys = deliveryPairs.map(({ contactId, channel }) => `${contactId}:${channel}`).sort();
       const existingKeys = existingDeliveries.rows.map((delivery) => `${delivery.contact_id}:${delivery.channel}`).sort();
       if (requestedKeys.length !== existingKeys.length || requestedKeys.some((key, index) => key !== existingKeys[index])) {
         await client.query('ROLLBACK');
@@ -325,17 +333,15 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
     }
     const persistedAlertId = alert.rows[0].id;
     await client.query('DELETE FROM alert_deliveries WHERE alert_id = $1', [persistedAlertId]);
-    for (const contactId of contactIds) {
-      for (const channel of channels) {
-        await client.query(
-          `INSERT INTO alert_deliveries (id, alert_id, contact_id, channel, status, failure_code, next_attempt_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [randomUUID(), persistedAlertId, contactId, channel, 'queued', null, new Date()],
-        );
-      }
+    for (const { contactId, channel } of deliveryPairs) {
+      await client.query(
+        `INSERT INTO alert_deliveries (id, alert_id, contact_id, channel, status, failure_code, next_attempt_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [randomUUID(), persistedAlertId, contactId, channel, 'queued', null, new Date()],
+      );
     }
     await client.query('COMMIT');
-    send(response, 202, { alertId: persistedAlertId, status: 'queued', deliveries: contactIds.flatMap((contactId) => channels.map((channel) => ({ contactId, channel, status: 'queued' }))) });
+    send(response, 202, { alertId: persistedAlertId, status: 'queued', deliveries: deliveryPairs.map(({ contactId, channel }) => ({ contactId, channel, status: 'queued' })) });
     return;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);

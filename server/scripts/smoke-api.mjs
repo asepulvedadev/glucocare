@@ -40,21 +40,32 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
   entityId: contactId,
   payload: { id: contactId, name: 'Synthetic contact', phone: '+10000000000', updatedAt: new Date().toISOString() },
 }) });
+const emailContactId = crypto.randomUUID();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'trusted_contact.created.v1',
+  entityType: 'trusted_contact',
+  entityId: emailContactId,
+  payload: { id: emailContactId, name: 'Email contact', email: 'email-contact@example.invalid', updatedAt: new Date().toISOString() },
+}) });
 const incidentId = crypto.randomUUID();
-const blockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
+const blockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
 if (blockedAlert.status !== 400) throw new Error('unaccepted contact was allowed to receive an alert');
 const invitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
 const acceptedInvitation = new URL(invitation.acceptUrl);
 const invitationAcceptance = await call(`${acceptedInvitation.pathname}${acceptedInvitation.search}`);
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');
-const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
-if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'queued') throw new Error('alert was not queued honestly');
-const replayedAlert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
-if (replayedAlert.alertId !== alert.alertId || replayedAlert.deliveries.length !== 1 || replayedAlert.deliveries[0]?.status !== 'queued') throw new Error('alert replay was not idempotent');
-const alertConflict = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['email'] }) });
+const emailInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId: emailContactId, channel: 'email' }) });
+const emailInvitationUrl = new URL(emailInvitation.acceptUrl);
+await call(`${emailInvitationUrl.pathname}${emailInvitationUrl.search}`);
+const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
+if (alert.status !== 'queued' || alert.deliveries.length !== 2 || !alert.deliveries.every((delivery) => delivery.status === 'queued')) throw new Error('alert was not queued honestly per contact channel');
+const replayedAlert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
+if (replayedAlert.alertId !== alert.alertId || replayedAlert.deliveries.length !== 2 || replayedAlert.deliveries.some((delivery) => delivery.status !== 'queued')) throw new Error('alert replay was not idempotent');
+const alertConflict = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['email'] }) });
 if (alertConflict.status !== 409) throw new Error('alert incident accepted a different delivery set');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
-if (deliveries.deliveries.length !== 1) throw new Error('expected one alert delivery');
+if (deliveries.deliveries.length !== 2) throw new Error('expected one delivery per available contact channel');
 const revokedContactId = crypto.randomUUID();
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(),
