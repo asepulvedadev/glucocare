@@ -27,6 +27,7 @@ GlucoCare is a lightweight, accessible Expo application for people living with d
 | MVP plan | [Roadmap and backlog](docs/10-roadmap-backlog.md) |
 | Complete development plan | [Development plan](DEVELOPMENT_PLAN.md) |
 | Operational readiness | [Operations](docs/11-operations-observability.md) |
+| Release evidence | [Beta evidence index](docs/RELEASE_EVIDENCE.md) |
 | Open risks | [Risk register](docs/12-risk-register.md) |
 | Product vocabulary | [Glossary](docs/GLOSSARY.md) |
 | Architecture decisions | [ADR index](docs/adr/README.md) |

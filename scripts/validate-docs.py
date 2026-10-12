@@ -16,6 +16,7 @@ required = [
     "docs/04-architecture.md",
     "docs/07-security-privacy-compliance.md",
     "docs/10-roadmap-backlog.md",
+    "docs/RELEASE_EVIDENCE.md",
     "deploy/compose.yml",
     "deploy/mobile.Dockerfile",
     "Dockerfile",
