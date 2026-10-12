@@ -79,7 +79,8 @@ payloads or patient records.
 
 ## Remaining beta evidence
 
-These items are release gates, not TODOs that can be safely inferred from code:
+These items are release gates, not TODOs that can be safely inferred from code.
+Execute them using the [physical-device test matrix](DEVICE_TEST_MATRIX.md):
 
 1. Physical Android and iOS runs covering offline capture, process kill/restart,
    permissions, reboot, timezone/DST, notifications, export, deletion, and

@@ -19,6 +19,7 @@ These documents are the source of truth for product intent, safety, and implemen
 13. [Complete development plan](../DEVELOPMENT_PLAN.md)
 14. [Production configuration handoff](PRODUCTION_CONFIGURATION.md)
 15. [Incident runbooks](13-incident-runbooks.md)
+16. [Physical-device test matrix](DEVICE_TEST_MATRIX.md)
 
 ## Document ownership
 

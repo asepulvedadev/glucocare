@@ -349,4 +349,4 @@ Open questions that must be answered before the corresponding gate:
 - [ ] Clinical lead, product owner, QA, security, operations, and counsel sign the beta decision.
 - [ ] The public release notes state limitations and emergency-service boundaries plainly.
 
-**Next document to execute:** [Roadmap and backlog](docs/10-roadmap-backlog.md), then create the first work-unit issue for `GOV-01` and `FND-01`.
+**Next execution artifact:** use the [physical-device test matrix](docs/DEVICE_TEST_MATRIX.md) to attach evidence to the remaining beta gates, alongside the [roadmap and backlog](docs/10-roadmap-backlog.md). The first work-unit issue remains `GOV-01`/`FND-01` if the clinical and product owners have not yet assigned them.
