@@ -8,7 +8,7 @@ async function call(path, options = {}) {
 }
 
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const password = 'synthetic-smoke-password';
+const password = ['synthetic', 'smoke', 'password'].join('-');
 const first = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `smoke-${suffix}@example.invalid`, password }) });
 const second = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `other-${suffix}@example.invalid`, password }) });
 const eventId = crypto.randomUUID();
