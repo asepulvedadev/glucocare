@@ -90,7 +90,7 @@ Available offline and from the lock-screen-safe app entry point after explicit o
 
 - Timeline filtered by date, glucose context, medications, incidents, or appointments.
 - Daily/weekly summaries without judgmental scoring.
-- Export selected date range to CSV and an accessible printable report.
+- Export selected rolling date range (7 days, 30 days, or all history) to CSV and an accessible printable report; JSON remains a complete local backup.
 - Share only after explicit confirmation of recipient and included fields.
 
 ## Functional requirements

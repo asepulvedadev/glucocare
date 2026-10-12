@@ -24,6 +24,7 @@ import { supabase } from '../../supabase';
 import { openNotificationSettings, sendTestNotification } from '../../notifications';
 import * as LocalAuthentication from 'expo-local-authentication';
 import type { GlucoseUnit } from '../../types/domain';
+import { exportRangeLabel, exportRangeOptions, type ExportRange } from '../../domain/exportRange';
 
 type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [invitationStatuses, setInvitationStatuses] = useState<Record<string, InvitationStatus>>({});
   const [appLockBusy, setAppLockBusy] = useState(false);
+  const [exportRange, setExportRange] = useState<ExportRange>(30);
 
   async function toggleAppLock() {
     if (preferences.appLockEnabled) {
@@ -154,20 +156,37 @@ export default function ProfileScreen() {
     ]);
   }
 
-  async function exportData(format: 'json' | 'csv') {
+  async function exportData(format: 'json' | 'csv', range: ExportRange = 'all') {
     try {
-      const result = await shareExport(db, format);
+      const result = await shareExport(db, format, range);
       Alert.alert(result.shared ? 'Exportación lista' : 'Exportación preparada', result.shared ? `Se creó ${result.filename}.` : `No se pudo abrir el menú de compartir. Archivo: ${result.filename}`);
     } catch { Alert.alert('No se pudo exportar', 'Vuelve a intentarlo.'); }
+  }
+
+  function requestExport(format: 'json' | 'csv', range: ExportRange = 'all') {
+    const description = format === 'json'
+      ? 'Se incluirá una copia completa de tus registros locales para restauración. Luego podrás elegir el destinatario en el menú del sistema.'
+      : `Se incluirán solo tus lecturas de glucosa de ${exportRangeLabel[range].toLowerCase()}. Luego podrás elegir el destinatario en el menú del sistema.`;
+    Alert.alert('Confirmar exportación', description, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Exportar', onPress: () => void exportData(format, range) },
+    ]);
   }
 
   async function exportClinicianReport() {
     setReporting(true);
     try {
-      const result = await printClinicianReport(db);
+      const result = await printClinicianReport(db, exportRange);
       Alert.alert(result.shared ? 'Reporte listo' : 'Reporte preparado', result.shared ? 'Puedes imprimirlo o compartirlo con tu equipo de salud.' : 'El reporte se abrió en la vista de impresión.');
     } catch { Alert.alert('No se pudo preparar el reporte', 'Vuelve a intentarlo.'); }
     finally { setReporting(false); }
+  }
+
+  function requestClinicianReport() {
+    Alert.alert('Confirmar reporte', `Se incluirán lecturas, comidas, tomas, citas y solicitudes de ayuda de ${exportRangeLabel[exportRange].toLowerCase()}, además de tu tarjeta y medicamentos configurados. Luego podrás elegir el destinatario en el menú del sistema.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Preparar reporte', onPress: () => void exportClinicianReport() },
+    ]);
   }
 
   async function testNotifications() {
@@ -325,9 +344,11 @@ export default function ProfileScreen() {
       <Panel>
         <Caption>TUS DATOS</Caption>
         <Body>Exporta una copia legible, restaura un respaldo o elimina la información guardada en este dispositivo.</Body>
-        <PrimaryButton label="Exportar JSON" tone="quiet" onPress={() => void exportData('json')} />
-        <PrimaryButton label="Exportar lecturas CSV" tone="quiet" onPress={() => void exportData('csv')} />
-        <PrimaryButton label={reporting ? 'Preparando reporte…' : 'Imprimir reporte para mi médico'} tone="quiet" disabled={reporting} onPress={() => void exportClinicianReport()} />
+        <PrimaryButton label="Exportar JSON" tone="quiet" onPress={() => requestExport('json')} />
+        <Body>Periodo para CSV y reporte: {exportRangeLabel[exportRange]}</Body>
+        {exportRangeOptions.map((range) => <PrimaryButton key={String(range)} label={`${exportRangeLabel[range]}${exportRange === range ? ' · seleccionado' : ''}`} tone="quiet" onPress={() => setExportRange(range)} />)}
+        <PrimaryButton label="Exportar lecturas CSV" tone="quiet" onPress={() => requestExport('csv', exportRange)} />
+        <PrimaryButton label={reporting ? 'Preparando reporte…' : 'Imprimir reporte para mi médico'} tone="quiet" disabled={reporting} onPress={requestClinicianReport} />
         <PrimaryButton label="Restaurar respaldo JSON" tone="quiet" onPress={() => void importData()} />
         <PrimaryButton label="Borrar datos locales" tone="urgent" onPress={requestDelete} />
       </Panel>

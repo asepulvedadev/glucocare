@@ -25,6 +25,7 @@ beta authorization.
 | Release recovery | Three-release cache, automatic deploy rollback, `glucocare-rollback` | VPS installed and manually verified |
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |
 | Accessibility | Semantic labels, large text, high contrast, simple mode, reduced motion, persistent help | Code coverage; TalkBack/VoiceOver evidence pending |
+| Range export | CSV and printable clinician report expose a selected 7-day, 30-day, or all-history period; JSON remains a complete backup | Automated range-boundary test; native share/print evidence pending |
 
 ## Reproducible checks
 

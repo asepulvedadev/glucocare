@@ -6,6 +6,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { cancelAllScheduledReminders, cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
 import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
+import { exportRangeLabel, exportRangeSince, type ExportRange } from './domain/exportRange';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -15,16 +16,19 @@ type JsonObject = Record<string, unknown>;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS_PER_TABLE = 25_000;
 
-export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared: boolean }> {
+export async function printClinicianReport(db: SQLiteDatabase, range: ExportRange = 'all'): Promise<{ shared: boolean }> {
+  const since = exportRangeSince(range);
+  const rangeClause = (field: string) => since ? ` WHERE ${field} >= ?` : '';
+  const rangeParams = since ? [since] : [];
   const [card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, auditEvents] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
-    db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
+    db.getAllAsync<ClinicianReportReading>(`SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, risk_classification FROM glucose_readings${rangeClause('recorded_at')} ORDER BY recorded_at DESC LIMIT 200`, ...rangeParams),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
-    db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
-    db.getAllAsync<ClinicianReportMeal>('SELECT meal_type, occurred_at, note FROM meal_events ORDER BY occurred_at DESC LIMIT 200'),
-    db.getAllAsync<ClinicianReportMedicationOccurrence>('SELECT medications.name AS medication_name, medications.dose_text, medication_occurrences.scheduled_at, medication_occurrences.status, medication_occurrences.acted_at FROM medication_occurrences INNER JOIN medications ON medications.id = medication_occurrences.medication_id ORDER BY medication_occurrences.scheduled_at DESC LIMIT 300'),
-    db.getAllAsync<ClinicianReportHelpEvent>('SELECT created_at, reason, contact_state FROM help_events ORDER BY created_at DESC LIMIT 100'),
-    db.getAllAsync<{ occurred_at: string; reason: string | null; before_json: string; after_json: string }>('SELECT occurred_at, reason, before_json, after_json FROM glucose_audit_events ORDER BY occurred_at DESC LIMIT 200'),
+    db.getAllAsync<ClinicianReportAppointment>(`SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments${rangeClause('scheduled_at')} ORDER BY scheduled_at ASC LIMIT 100`, ...rangeParams),
+    db.getAllAsync<ClinicianReportMeal>(`SELECT meal_type, occurred_at, note FROM meal_events${rangeClause('occurred_at')} ORDER BY occurred_at DESC LIMIT 200`, ...rangeParams),
+    db.getAllAsync<ClinicianReportMedicationOccurrence>(`SELECT medications.name AS medication_name, medications.dose_text, medication_occurrences.scheduled_at, medication_occurrences.status, medication_occurrences.acted_at FROM medication_occurrences INNER JOIN medications ON medications.id = medication_occurrences.medication_id${rangeClause('medication_occurrences.scheduled_at')} ORDER BY medication_occurrences.scheduled_at DESC LIMIT 300`, ...rangeParams),
+    db.getAllAsync<ClinicianReportHelpEvent>(`SELECT created_at, reason, contact_state FROM help_events${rangeClause('created_at')} ORDER BY created_at DESC LIMIT 100`, ...rangeParams),
+    db.getAllAsync<{ occurred_at: string; reason: string | null; before_json: string; after_json: string }>(`SELECT occurred_at, reason, before_json, after_json FROM glucose_audit_events${rangeClause('occurred_at')} ORDER BY occurred_at DESC LIMIT 200`, ...rangeParams),
   ]);
   const corrections: ClinicianReportCorrection[] = auditEvents.map((event) => {
     let before: Record<string, unknown> = {};
@@ -40,7 +44,7 @@ export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared
       after_unit: typeof after.unit === 'string' ? after.unit : null,
     };
   });
-  const html = buildClinicianReportHtml({ card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, corrections });
+  const html = buildClinicianReportHtml({ card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, corrections, periodLabel: exportRangeLabel[range] });
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });
     return { shared: true };
@@ -141,11 +145,13 @@ async function rows(db: SQLiteDatabase, table: string): Promise<TableRows> {
   return db.getAllAsync<Record<string, unknown>>(`SELECT * FROM ${table}`);
 }
 
-export async function buildExportContent(db: SQLiteDatabase, format: ExportFormat) {
+export async function buildExportContent(db: SQLiteDatabase, format: ExportFormat, range: ExportRange = 'all') {
   const exportedAt = new Date().toISOString();
+  const since = exportRangeSince(range, new Date(exportedAt));
   const bundle = {
     schemaVersion: 2,
     exportedAt,
+    exportRange: range,
     glucoseReadings: await rows(db, 'glucose_readings'),
     glucoseAuditEvents: await rows(db, 'glucose_audit_events'),
     carePlan: await rows(db, 'care_plan'),
@@ -166,15 +172,17 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
   };
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
-  const glucose = bundle.glucoseReadings;
+  const glucose = since
+    ? await db.getAllAsync<Record<string, unknown>>('SELECT * FROM glucose_readings WHERE recorded_at >= ? ORDER BY recorded_at DESC', since)
+    : bundle.glucoseReadings;
   const header = ['recorded_at', 'timezone', 'utc_offset_minutes', 'time_edited', 'value', 'unit', 'value_mg_dl', 'conversion_version', 'context', 'symptoms', 'note'];
   const csvValue = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const body = glucose.map((reading) => header.map((field) => csvValue(reading[field])).join(',')).join('\n');
-  return { content: `${header.join(',')}\n${body}\n`, filename: `glucocare-glucose-${Date.now()}.csv`, mimeType: 'text/csv' };
+  return { content: `${header.join(',')}\n${body}\n`, filename: `glucocare-glucose-${range === 'all' ? 'all' : `${range}d`}-${Date.now()}.csv`, mimeType: 'text/csv' };
 }
 
-export async function shareExport(db: SQLiteDatabase, format: ExportFormat): Promise<{ shared: boolean; filename: string }> {
-  const exported = await buildExportContent(db, format);
+export async function shareExport(db: SQLiteDatabase, format: ExportFormat, range: ExportRange = 'all'): Promise<{ shared: boolean; filename: string }> {
+  const exported = await buildExportContent(db, format, range);
   if (Platform.OS === 'web') {
     if (typeof document === 'undefined') return { shared: false, filename: exported.filename };
     const blob = new Blob([exported.content], { type: exported.mimeType });

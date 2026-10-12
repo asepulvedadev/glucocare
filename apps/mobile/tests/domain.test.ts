@@ -13,6 +13,16 @@ import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../s
 import { medicationReminderDates } from '../src/domain/medicationReminder';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
 import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
+import { exportRangeSince } from '../src/domain/exportRange';
+
+describe('export ranges', () => {
+  it('returns a deterministic rolling UTC lower bound and preserves all-history exports', () => {
+    const now = new Date('2026-10-12T15:00:00.000Z');
+    expect(exportRangeSince(7, now)).toBe('2026-10-05T15:00:00.000Z');
+    expect(exportRangeSince(30, now)).toBe('2026-09-12T15:00:00.000Z');
+    expect(exportRangeSince('all', now)).toBeNull();
+  });
+});
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
