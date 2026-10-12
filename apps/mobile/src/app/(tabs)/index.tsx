@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Eyebrow, Heading, Body, Caption } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
@@ -30,9 +30,6 @@ export default function TodayScreen() {
         <Eyebrow>Glucocare</Eyebrow>
         <Heading>Tu control, en calma.</Heading>
         <Body>Registra lo que ocurre y sigue el plan que acordaste con tu equipo de salud.</Body>
-        <Pressable accessibilityRole="button" accessibilityLabel="Abrir ayuda urgente" onPress={() => router.push('/help')} style={styles.helpLink}>
-          <Text style={styles.helpText}>Necesito ayuda</Text>
-        </Pressable>
       </View>
       {!consent?.localDataConsent ? <Panel tone="urgent">
         <Caption>PRIVACIDAD</Caption>
@@ -82,8 +79,6 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   header: { paddingTop: spacing.sm, gap: spacing.sm, position: 'relative' },
   energy: { position: 'absolute', width: 4, height: 148, left: -spacing.sm, top: 4, borderRadius: 3, backgroundColor: colors.amber },
-  helpLink: { alignSelf: 'flex-start', marginTop: spacing.xs, minHeight: 44, justifyContent: 'center' },
-  helpText: { color: colors.urgent, fontSize: 16, fontWeight: '700' },
   cardTitle: { color: colors.textPrimary, fontSize: 21, fontWeight: '700' },
   latestRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   value: { color: colors.textPrimary, fontSize: 32, fontWeight: '700' },

@@ -96,7 +96,7 @@ export default function HelpScreen() {
     ]);
   }
   return (
-    <Screen>
+    <Screen showHelp={false}>
       <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
       <Eyebrow>Ayuda inmediata</Eyebrow>
       <Heading>Si te sientes muy mal</Heading>
