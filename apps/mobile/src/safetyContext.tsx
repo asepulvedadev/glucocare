@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getEmergencyCard, insertTrustedContact, listTrustedContacts, revokeTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
+import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
 import type { EmergencyCard, NewEmergencyCard, NewTrustedContact, TrustedContact } from './types/safety';
 import { newId } from './ids';
 
@@ -10,6 +10,7 @@ type SafetyContextValue = {
   isLoading: boolean;
   saveEmergencyCard: (input: NewEmergencyCard) => Promise<void>;
   addTrustedContact: (input: NewTrustedContact) => Promise<void>;
+  grantTrustedContactConsent: (contactId: string) => Promise<void>;
   revokeTrustedContact: (contactId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -52,7 +53,12 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     setTrustedContacts((current) => current.filter((contact) => contact.id !== contactId));
   }, [db]);
 
-  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, revokeContact, refresh]);
+  const grantContactConsent = useCallback(async (contactId: string) => {
+    const contact = await grantTrustedContactConsent(db, contactId);
+    setTrustedContacts((current) => current.map((item) => item.id === contact.id ? contact : item));
+  }, [db]);
+
+  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, grantTrustedContactConsent: grantContactConsent, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, grantContactConsent, revokeContact, refresh]);
   return <SafetyContext.Provider value={value}>{children}</SafetyContext.Provider>;
 }
 

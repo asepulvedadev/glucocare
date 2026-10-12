@@ -20,7 +20,7 @@ import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictR
 import { usePrivacy } from '../../privacyContext';
 
 export default function ProfileScreen() {
-  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, revokeTrustedContact } = useSafety();
+  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, grantTrustedContactConsent, revokeTrustedContact } = useSafety();
   const db = useSQLiteContext();
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
@@ -95,6 +95,16 @@ export default function ProfileScreen() {
     ]);
   }
 
+  function requestGrantContact(contactId: string, name: string) {
+    Alert.alert('Confirmar consentimiento', `Confirma que ${name} aceptó seguir recibiendo avisos de ayuda.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Confirmar', onPress: () => void (async () => {
+        try { await grantTrustedContactConsent(contactId); Alert.alert('Consentimiento activo', 'Este contacto puede recibir nuevos avisos cuando uses la ayuda.'); }
+        catch { Alert.alert('No se pudo actualizar', 'Vuelve a intentarlo.'); }
+      })() },
+    ]);
+  }
+
   function requestDelete() {
     Alert.alert('Borrar datos locales', 'Esta acción elimina lecturas, planes, tomas, medicamentos, citas, contactos, tarjeta y eventos de ayuda de este dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
@@ -113,7 +123,7 @@ export default function ProfileScreen() {
       </Panel>
       <Panel>
         <Caption>PERSONA DE APOYO</Caption>
-        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text><PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /></Panel>)}
+        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>{contact.consentGranted ? <PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /> : <PrimaryButton label="Confirmar consentimiento" tone="quiet" onPress={() => requestGrantContact(contact.id, contact.name)} />}</Panel>)}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
       </Panel>
       <Panel>

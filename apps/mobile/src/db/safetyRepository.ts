@@ -57,3 +57,22 @@ export async function revokeTrustedContact(db: SQLiteDatabase, contactId: string
     });
   });
 }
+
+export async function grantTrustedContactConsent(db: SQLiteDatabase, contactId: string) {
+  const row = await db.getFirstAsync<ContactRow>('SELECT * FROM trusted_contacts WHERE id = ?', contactId);
+  if (!row) throw new Error('Trusted contact not found.');
+  const contact: TrustedContact = {
+    id: row.id,
+    name: row.name,
+    relationship: row.relationship ?? undefined,
+    phone: row.phone ?? undefined,
+    email: row.email ?? undefined,
+    consentGranted: true,
+    createdAt: row.created_at,
+  };
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('UPDATE trusted_contacts SET consent_granted = 1 WHERE id = ?', contactId);
+    await enqueueOutbox(db, { id: newId(), entityType: 'trusted_contact', entityId: contactId, eventType: 'contact.consent.updated.v1', payload: contact });
+  });
+  return contact;
+}
