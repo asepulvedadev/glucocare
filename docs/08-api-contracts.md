@@ -24,7 +24,7 @@
 | `POST` | `/v1/auth/signup` / `/v1/auth/signin` | Create or open a revocable VPS API session. |
 | `POST` | `/v1/sync/events` | Idempotent upload of one local outbox event. |
 | `GET` | `/v1/sync?since=...` | Pull the patient-scoped record projection after a cursor. |
-| `POST` | `/v1/contact-invitations` | Send verified contact invitation. |
+| `POST` | `/v1/contact-invitations` | Create a verified contact invitation and attempt provider delivery. |
 | `GET` | `/v1/contact-invitations/accept?token=...` | Accept scoped contact consent. |
 | `GET` | `/v1/contact-invitations` | Read the patient's pending/accepted invitation states. |
 | `POST` | `/v1/contact-invitations/revoke` | Revoke a contact invitation and future alerts. |
@@ -74,6 +74,16 @@ matches an address stored on that contact (email uses `email`; SMS/voice use
 Repeating the same patient/incident request is idempotent: the API returns the
 existing alert and delivery ledger without deleting and recreating provider
 work. A new incident ID is required to intentionally start another alert.
+
+## Contact invitation delivery
+
+`POST /v1/contact-invitations` validates that the selected channel has a
+matching contact address. It always creates the expiring invitation record, then
+reports `deliveryStatus` as `provider_accepted`, `failed`, or `not_configured`.
+A `provider_accepted` invitation means only that the email/SMS provider
+accepted the request; the patient can still share the returned URL manually
+when a provider is unavailable. Production provider delivery is attempted only
+when `PUBLIC_API_URL` is HTTPS, so invitations never contain a localhost link.
 
 ## Sync event upload and pull
 

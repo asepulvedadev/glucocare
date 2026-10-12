@@ -22,6 +22,11 @@ function messageFor(contact: Contact, incidentId: string) {
   return `${name} registró una solicitud de ayuda en GlucoCare (incidente ${incidentId}). Comunícate directamente con esa persona y, si hay peligro inmediato, llama a emergencias.`;
 }
 
+function invitationMessage(contact: Contact, acceptUrl: string) {
+  const name = contact.name?.trim() || 'tu persona de apoyo';
+  return `Hola ${name}. Te invitaron a recibir avisos de ayuda de GlucoCare. Acepta la invitación, válida por 72 horas, aquí: ${acceptUrl}`;
+}
+
 async function responseId(response: Response) {
   const body = await response.text();
   if (!response.ok) throw new Error(`PROVIDER_HTTP_${response.status}`);
@@ -63,8 +68,40 @@ async function sendSms(contact: Contact, incidentId: string): Promise<ProviderRe
   return { providerMessageId: await responseId(response) };
 }
 
+async function sendInvitationEmail(contact: Contact, acceptUrl: string): Promise<ProviderResult> {
+  if (!isAlertChannelConfigured('email') || !contact.email) throw new Error('PROVIDER_NOT_CONFIGURED');
+  const response = await fetch(resendApiUrl, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      from: resendFrom,
+      to: [contact.email],
+      subject: 'Invitación de persona de apoyo en GlucoCare',
+      text: invitationMessage(contact, acceptUrl),
+    }),
+  });
+  return { providerMessageId: await responseId(response) };
+}
+
+async function sendInvitationSms(contact: Contact, acceptUrl: string): Promise<ProviderResult> {
+  if (!isAlertChannelConfigured('sms') || !contact.phone) throw new Error('PROVIDER_NOT_CONFIGURED');
+  const basic = Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
+  const body = new URLSearchParams({ To: contact.phone, From: twilioFrom!, Body: invitationMessage(contact, acceptUrl) });
+  const response = await fetch(`${twilioApiBaseUrl.replace(/\/$/, '')}/2010-04-01/Accounts/${encodeURIComponent(twilioSid!)}/Messages.json`, {
+    method: 'POST',
+    headers: { authorization: `Basic ${basic}`, 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  return { providerMessageId: await responseId(response) };
+}
+
 export async function sendAlert(channel: AlertChannel, contact: Contact, incidentId: string) {
   if (channel === 'email') return sendEmail(contact, incidentId);
   if (channel === 'sms') return sendSms(contact, incidentId);
   throw new Error('PROVIDER_NOT_CONFIGURED');
+}
+
+/** Sends a minimal invitation only when the selected provider is configured. */
+export async function sendContactInvitation(channel: 'email' | 'sms', contact: Contact, acceptUrl: string) {
+  return channel === 'email' ? sendInvitationEmail(contact, acceptUrl) : sendInvitationSms(contact, acceptUrl);
 }

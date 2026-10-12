@@ -51,7 +51,10 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
 const incidentId = crypto.randomUUID();
 const blockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
 if (blockedAlert.status !== 400) throw new Error('unaccepted contact was allowed to receive an alert');
-const invitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
+const unavailableInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
+if (unavailableInvitation.status !== 400) throw new Error('invitation allowed a channel without a contact address');
+const invitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'sms' }) });
+if (invitation.deliveryStatus !== 'not_configured') throw new Error(`unexpected invitation delivery state: ${invitation.deliveryStatus}`);
 const acceptedInvitation = new URL(invitation.acceptUrl);
 const invitationAcceptance = await call(`${acceptedInvitation.pathname}${acceptedInvitation.search}`);
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');

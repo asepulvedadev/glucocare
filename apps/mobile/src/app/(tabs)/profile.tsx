@@ -261,9 +261,14 @@ export default function ProfileScreen() {
         try {
           const invitation = await sendTrustedContactInvitation(contact.id, channel);
           setInvitationStatuses((current) => ({ ...current, [contact.id]: 'pending' }));
-          const message = `GlucoCare: acepta esta invitación para recibir avisos de ayuda. No tendrás acceso al historial clínico.\n\n${invitation.acceptUrl}`;
+          const deliveryMessage = invitation.deliveryStatus === 'provider_accepted'
+            ? 'El proveedor aceptó el envío.'
+            : invitation.deliveryStatus === 'failed'
+              ? 'El proveedor no pudo enviar el mensaje; comparte el enlace manualmente.'
+              : 'El proveedor no está configurado; comparte el enlace manualmente.';
+          const message = `GlucoCare: acepta esta invitación para recibir avisos de ayuda. No tendrás acceso al historial clínico.\n${deliveryMessage}\n\n${invitation.acceptUrl}`;
           if (Platform.OS === 'web') {
-            Alert.alert('Enlace listo', `Comparte este enlace con ${contact.name}:\n${invitation.acceptUrl}`);
+            Alert.alert('Invitación lista', `Comparte este enlace con ${contact.name}.\n${deliveryMessage}\n\n${invitation.acceptUrl}`);
           } else {
             await Share.share({ message, title: 'Invitación de GlucoCare' });
           }

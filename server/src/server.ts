@@ -4,6 +4,7 @@ import { URL } from 'node:url';
 import { pool, runMigrations, closeDatabase } from './db.js';
 import { authenticate, bearerToken, deleteAccount, revokeSession, signIn, signUp, type AuthUser } from './auth.js';
 import { consumeRateLimit } from './rateLimit.js';
+import { isAlertChannelConfigured, sendContactInvitation } from './alertProviders.js';
 
 const port = Number(process.env.PORT ?? 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES ?? 1_048_576);
@@ -232,10 +233,16 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
   const contactId = stringValue(body.contactId, 256);
   const channel = body.channel === 'sms' ? 'sms' : body.channel === 'email' ? 'email' : null;
   if (!contactId || !channel) { fail(response, 400, 'INVALID_INVITATION', 'El contacto y el canal son obligatorios.'); return; }
-  const contact = await pool.query(
+  const contact = await pool.query<{ payload: JsonObject }>(
     `SELECT payload FROM health_records WHERE patient_id = $1 AND entity_type = 'trusted_contact' AND entity_id = $2`, [user.id, contactId],
   );
   if (!contact.rows[0]) { fail(response, 404, 'CONTACT_NOT_FOUND', 'El contacto no existe.'); return; }
+  const contactPayload = contact.rows[0].payload;
+  const destination = channel === 'email' ? contactPayload.email : contactPayload.phone;
+  if (typeof destination !== 'string' || !destination.trim()) {
+    fail(response, 400, 'INVITATION_CHANNEL_UNAVAILABLE', 'El contacto no tiene un dato válido para el canal seleccionado.');
+    return;
+  }
   const token = randomBytes(32).toString('base64url');
   const id = randomUUID();
   await pool.query(
@@ -245,7 +252,19 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
     `INSERT INTO contact_invitations (id, patient_id, contact_id, channel, token_hash, expires_at) VALUES ($1, $2, $3, $4, $5, now() + interval '72 hours')`,
     [id, user.id, contactId, channel, hashToken(token)],
   );
-  send(response, 201, { invitationId: id, status: 'pending', deliveryStatus: 'not_configured', acceptUrl: `${apiBaseUrl}/v1/contact-invitations/accept?token=${encodeURIComponent(token)}` });
+  const acceptUrl = `${apiBaseUrl}/v1/contact-invitations/accept?token=${encodeURIComponent(token)}`;
+  let deliveryStatus: 'provider_accepted' | 'not_configured' | 'failed' = 'not_configured';
+  // Never send an invitation containing a localhost link. The patient can
+  // still share the returned URL manually in a reviewed public deployment.
+  if (apiBaseUrl.startsWith('https://') && isAlertChannelConfigured(channel)) {
+    try {
+      await sendContactInvitation(channel, { ...contactPayload, [channel === 'email' ? 'email' : 'phone']: destination }, acceptUrl);
+      deliveryStatus = 'provider_accepted';
+    } catch {
+      deliveryStatus = 'failed';
+    }
+  }
+  send(response, 201, { invitationId: id, status: 'pending', deliveryStatus, acceptUrl });
 }
 
 async function invitationStatuses(user: AuthUser, response: ServerResponse) {
