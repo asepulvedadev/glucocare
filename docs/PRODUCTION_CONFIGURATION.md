@@ -30,7 +30,10 @@ EXPO_PUBLIC_API_URL=https://api.example.com ./scripts/deploy-vps-direct.sh
 ```
 
 The variable is baked into the Expo web bundle. Native EAS builds must receive
-the same value through the EAS environment, never through committed files.
+the same value through the `EXPO_PUBLIC_API_URL` secret in the GitHub
+`production` environment, never through committed files. The manual EAS
+workflow rejects a production build unless that value is a non-empty `https://`
+URL; preview builds may remain local-first until a reviewed TLS endpoint exists.
 
 ## 2. Alert providers
 

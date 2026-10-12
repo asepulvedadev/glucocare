@@ -34,6 +34,7 @@ jobs:
         working-directory: apps/mobile
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -50,6 +51,16 @@ jobs:
 
       - name: Require EAS authentication
         run: test -n "$EXPO_TOKEN"
+
+      - name: Require HTTPS API for production builds
+        if: inputs.profile == 'production'
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_PUBLIC_API_URL"
+          case "$EXPO_PUBLIC_API_URL" in
+            https://*) ;;
+            *) echo 'Production native builds require an HTTPS EXPO_PUBLIC_API_URL.' >&2; exit 1 ;;
+          esac
 
       - name: Link or verify EAS project
         shell: bash
