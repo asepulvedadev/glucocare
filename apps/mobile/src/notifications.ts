@@ -75,6 +75,21 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
   return permission;
 }
 
+/** Sends a generic local notification so the user can verify current settings. */
+export async function sendTestNotification(): Promise<ReminderPermission> {
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return permission;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Prueba de recordatorios',
+      body: 'Las notificaciones locales de GlucoCare están activas.',
+      data: { url: '/care', test: true },
+    },
+    trigger: null,
+  });
+  return permission;
+}
+
 export async function cancelReminder(notificationId?: string | string[]) {
   if (!notificationId || Platform.OS === 'web') return;
   const ids = Array.isArray(notificationId) ? notificationId : [notificationId];

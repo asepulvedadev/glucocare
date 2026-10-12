@@ -21,6 +21,7 @@ import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictR
 import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
 import { supabase } from '../../supabase';
+import { openNotificationSettings, sendTestNotification } from '../../notifications';
 
 type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -116,6 +117,15 @@ export default function ProfileScreen() {
       Alert.alert(result.shared ? 'Reporte listo' : 'Reporte preparado', result.shared ? 'Puedes imprimirlo o compartirlo con tu equipo de salud.' : 'El reporte se abrió en la vista de impresión.');
     } catch { Alert.alert('No se pudo preparar el reporte', 'Vuelve a intentarlo.'); }
     finally { setReporting(false); }
+  }
+
+  async function testNotifications() {
+    try {
+      const state = await sendTestNotification();
+      if (state === 'granted') Alert.alert('Prueba enviada', 'Si no aparece en unos segundos, revisa el modo No molestar y los ajustes de notificaciones del dispositivo.');
+      else if (state === 'permission_denied') Alert.alert('Permiso desactivado', 'Activa las notificaciones para probar los recordatorios.', [{ text: 'Ahora no', style: 'cancel' }, { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() }]);
+      else Alert.alert('No disponible', 'Las notificaciones locales requieren Android o iOS.');
+    } catch { Alert.alert('No se pudo enviar la prueba', 'Vuelve a intentarlo desde un dispositivo Android o iOS.'); }
   }
 
   async function readPickedJson(asset: DocumentPicker.DocumentPickerAsset) {
@@ -223,6 +233,11 @@ export default function ProfileScreen() {
         <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
         <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
         <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
+      </Panel>
+      <Panel>
+        <Caption>RECORDATORIOS</Caption>
+        <Body>Prueba una notificación genérica sin datos clínicos para confirmar que el dispositivo puede mostrar avisos.</Body>
+        <PrimaryButton label="Probar notificaciones" tone="quiet" onPress={() => void testNotifications()} />
       </Panel>
       <Panel>
         <Caption>PRIVACIDAD Y CONSENTIMIENTO</Caption>
