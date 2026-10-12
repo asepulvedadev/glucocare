@@ -16,6 +16,7 @@ beta authorization.
 | Cloud authorization | Supabase migrations, RLS negative tests, private functions | Local Supabase CI evidence exists; hosted credentials/deploy pending |
 | Consent boundary | Trusted-contact outbox events are blocked without emergency-sharing consent; revocations remain uploadable; privacy withdrawal requests remote revocation | Automated domain coverage and schema migration present |
 | Reminder integrity | Medication and glucose-check reminders use bounded 14-day one-shot windows, honor validity/weekday/meal windows, and deep-link taps to the relevant screen | Automated domain coverage; native device timing evidence pending |
+| Appointment lifecycle | Requested/authorization/scheduled/completed/missed/denied/cancelled states are synchronized across local storage, cloud pulls, conflict restore, and reminder reconciliation; reopening a denied/missed appointment reschedules its reminder | Automated typecheck/domain coverage; native timing evidence pending |
 | Web staging | Docker Compose, health checks, COOP/COEP headers | VPS verified healthy on `127.0.0.1:18080/18082` |
 | Release recovery | Three-release cache, automatic deploy rollback, `glucocare-rollback` | VPS installed and manually verified |
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |
