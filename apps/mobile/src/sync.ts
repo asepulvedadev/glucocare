@@ -1,12 +1,13 @@
 import type { Session } from '@supabase/supabase-js';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { markOutboxAcked, markOutboxFailed, listPendingOutbox } from './db/outboxRepository';
+import { markOutboxAcked, markOutboxBlocked, markOutboxFailed, listPendingOutbox, unblockOutboxByEntityType } from './db/outboxRepository';
 import { supabase } from './supabase';
 import type { Json } from './types/supabase';
 import { getLastPulledAt } from './db/syncMetadataRepository';
 import { pullCloudData } from './syncPull';
 import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
 import { getPrivacyConsent } from './db/privacyRepository';
+import { canUploadEventForConsent } from './syncConsent';
 
 type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'consent_required' | 'failed';
@@ -212,6 +213,7 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
   if (!session?.user.id) return { state: 'signed_out', uploaded: 0, failed: 0, downloaded: 0 };
   const consent = await getPrivacyConsent(db);
   if (!consent?.localDataConsent || !consent.cloudSyncConsent) return { state: 'consent_required', uploaded: 0, failed: 0, downloaded: 0 };
+  if (consent.emergencySharingConsent) await unblockOutboxByEntityType(db, 'trusted_contact');
 
   const { error: patientError } = await supabase.from('patients').upsert({ id: session.user.id, display_name: session.user.email ?? '' }, { onConflict: 'id', ignoreDuplicates: true });
   if (patientError) throw patientError;
@@ -232,6 +234,10 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
   const pending = await listPendingOutbox(db);
   let uploaded = 0;
   for (const event of pending) {
+    if (!canUploadEventForConsent(event, consent)) {
+      await markOutboxBlocked(db, event.id);
+      continue;
+    }
     try {
       await uploadEvent(event, session.user.id);
 

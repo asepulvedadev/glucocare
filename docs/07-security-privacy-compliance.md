@@ -10,6 +10,7 @@ This document is an engineering baseline, not legal advice. Colombian counsel an
 
 - Colombia’s [Law 1581 of 2012](https://www1.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981) classifies health information as sensitive personal data and requires appropriate security and confidentiality controls.
 - Consent must be prior, express, and informed where required; optional contact alerts, location sharing, analytics, and cloud sync need granular choices.
+- Contact records remain local when cloud sync is enabled without emergency-sharing consent; a revocation event is the only contact event allowed through that boundary so remote consent can still be withdrawn.
 - The right to access, correct, export where promised, revoke authorization where applicable, and request deletion must have an operational workflow.
 - The patient’s initial emergency care cannot depend on prior authorization or a provider contract; official Ministry material states that initial emergency care must be provided across Colombia. See [Ministry of Health emergency coverage information](https://www2.minsalud.gov.co/salud/Documents/Contenidos/PQR-POS.aspx).
 - INVIMA states that whether software is a medical device depends on its intended use, application, and purpose under Decree 4725 of 2005. See [INVIMA device software FAQ](https://www.invima.gov.co/node/184). The “risk notification” claim therefore needs a formal classification assessment before commercialization.

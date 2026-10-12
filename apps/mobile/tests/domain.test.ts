@@ -9,6 +9,7 @@ import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '
 import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
+import { canUploadEventForConsent } from '../src/syncConsent';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -137,6 +138,19 @@ describe('emergency configuration', () => {
     const config = getEmergencyConfig({ emergencyNumber: '  ', emergencyRegion: '' });
     expect(config.number).toBeTruthy();
     expect(config.region).toBeTruthy();
+  });
+});
+
+describe('consent-aware cloud sync', () => {
+  const consent = { id: 'default' as const, policyVersion: '2026-10-12', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: false, updatedAt: '2026-10-12T00:00:00.000Z' };
+
+  it('blocks trusted-contact data while emergency sharing is disabled', () => {
+    expect(canUploadEventForConsent({ entityType: 'trusted_contact', payload: { name: 'Support' } }, consent)).toBe(false);
+    expect(canUploadEventForConsent({ entityType: 'glucose_reading', payload: { value: 100 } }, consent)).toBe(true);
+  });
+
+  it('allows a contact revocation to reach the cloud even after consent is withdrawn', () => {
+    expect(canUploadEventForConsent({ entityType: 'trusted_contact', payload: { revoked: true } }, consent)).toBe(true);
   });
 });
 

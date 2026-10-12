@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export type OutboxStatus = 'pending' | 'sending' | 'acked' | 'failed' | 'dead_letter';
+export type OutboxStatus = 'pending' | 'sending' | 'acked' | 'failed' | 'dead_letter' | 'blocked';
 
 export type OutboxEvent = {
   id: string;
@@ -61,7 +61,7 @@ export async function listPendingSyncEntities(db: SQLiteDatabase): Promise<Pendi
   const rows = await db.getAllAsync<Pick<OutboxRow, 'id' | 'entity_type' | 'entity_id' | 'payload_json'>>(
     `SELECT id, entity_type, entity_id, payload_json
      FROM sync_outbox
-     WHERE status IN ('pending', 'sending', 'failed')
+     WHERE status IN ('pending', 'sending', 'failed', 'blocked')
      ORDER BY created_at ASC`,
   );
   return rows.map((row) => ({
@@ -82,9 +82,17 @@ export async function markOutboxFailed(db: SQLiteDatabase, eventId: string, atte
   await db.runAsync(`UPDATE sync_outbox SET status = ?, attempt_count = ?, next_attempt_at = ? WHERE id = ?`, status, attemptCount, nextAttemptAt, eventId);
 }
 
+export async function markOutboxBlocked(db: SQLiteDatabase, eventId: string) {
+  await db.runAsync(`UPDATE sync_outbox SET status = 'blocked' WHERE id = ?`, eventId);
+}
+
+export async function unblockOutboxByEntityType(db: SQLiteDatabase, entityType: string) {
+  await db.runAsync(`UPDATE sync_outbox SET status = 'pending', next_attempt_at = ? WHERE entity_type = ? AND status = 'blocked'`, new Date().toISOString(), entityType);
+}
+
 export async function discardPendingOutboxForEntity(db: SQLiteDatabase, entityType: string, entityId: string) {
   await db.runAsync(
-    `DELETE FROM sync_outbox WHERE entity_type = ? AND entity_id = ? AND status IN ('pending', 'sending', 'failed', 'dead_letter')`,
+    `DELETE FROM sync_outbox WHERE entity_type = ? AND entity_id = ? AND status IN ('pending', 'sending', 'failed', 'dead_letter', 'blocked')`,
     entityType, entityId,
   );
 }
