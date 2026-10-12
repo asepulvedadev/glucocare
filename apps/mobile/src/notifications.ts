@@ -4,6 +4,9 @@ import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
 import type { GlucoseRiskClassification } from './types/carePlan';
 import { isMedicationActive } from './domain/medication';
+import { listMedications, updateMedicationReminder } from './db/careRepository';
+import { listAppointments, updateAppointmentReminder } from './db/appointmentsRepository';
+import type { SQLiteDatabase } from 'expo-sqlite';
 
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
@@ -200,4 +203,20 @@ export async function reconcileAppointmentReminder(appointment: Appointment) {
   if (permission !== 'granted') return { state: permission as ReminderPermission };
   if (await hasScheduledNotifications(appointment.notificationId ? [appointment.notificationId] : [])) return { state: 'granted' as const, notificationId: appointment.notificationId };
   return scheduleAppointmentReminder(appointment);
+}
+
+/** Rebuilds already scheduled native reminders after a sound/vibration change. */
+export async function refreshNotificationSchedules(db: SQLiteDatabase) {
+  if (Platform.OS === 'web') return;
+  const [medications, appointments] = await Promise.all([listMedications(db), listAppointments(db)]);
+  await Promise.all(medications.map(async (medication) => {
+    await cancelReminder(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []));
+    const scheduled = await scheduleMedicationReminder(medication);
+    await updateMedicationReminder(db, medication.id, scheduled.state === 'granted' ? 'scheduled' : scheduled.state === 'permission_denied' ? 'permission_denied' : 'unavailable', scheduled.notificationId, scheduled.notificationIds);
+  }));
+  await Promise.all(appointments.map(async (appointment) => {
+    await cancelReminder(appointment.notificationId);
+    const scheduled = await scheduleAppointmentReminder(appointment);
+    await updateAppointmentReminder(db, appointment.id, scheduled.state === 'granted' ? 'scheduled' : scheduled.state === 'permission_denied' ? 'permission_denied' : 'unavailable', scheduled.notificationId);
+  }));
 }

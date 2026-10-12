@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import { configureNotificationPreferences } from './notifications';
+import { configureNotificationPreferences, refreshNotificationSchedules } from './notifications';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getAccessibilityPreferences, upsertAccessibilityPreferences } from './db/preferencesRepository';
 import type { AccessibilityPreferenceKey, AccessibilityPreferences } from './types/preferences';
@@ -46,6 +46,9 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     await upsertAccessibilityPreferences(db, next);
     setPreferences(next);
     configureNotificationPreferences(next);
+    if (key === 'notificationSound' || key === 'notificationVibration') {
+      try { await refreshNotificationSchedules(db); } catch { /* Keep local preferences even if native scheduling is unavailable. */ }
+    }
   }, [db, preferences]);
 
   const value = useMemo(() => ({ preferences, isLoading, setPreference, refresh }), [preferences, isLoading, setPreference, refresh]);
