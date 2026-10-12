@@ -56,6 +56,10 @@ that a contact read the message. The callback secret enables the signed
 HTTPS reverse proxy and an adapter that verifies the provider's own signature
 before computing the GlucoCare HMAC.
 
+The API and worker fail closed when `GLUCOCARE_PUBLIC_API_URL` is empty or uses
+HTTP. Provider credentials alone cannot activate real delivery on a local or
+unreviewed staging origin.
+
 ## 3. Verification gate
 
 ```bash

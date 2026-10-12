@@ -10,6 +10,11 @@ const twilioToken = process.env.TWILIO_AUTH_TOKEN?.trim();
 const twilioFrom = process.env.TWILIO_FROM?.trim();
 const resendApiUrl = process.env.RESEND_API_URL?.trim() || 'https://api.resend.com/emails';
 const twilioApiBaseUrl = process.env.TWILIO_API_BASE_URL?.trim() || 'https://api.twilio.com';
+const publicApiUrl = process.env.PUBLIC_API_URL?.trim() || '';
+// Provider delivery is a production-only capability. If the API has not been
+// assigned a reviewed HTTPS origin, fail closed even when credentials happen
+// to be present in a development or staging environment.
+const providerDeliveryAllowed = publicApiUrl.startsWith('https://');
 const configuredProviderRequestTimeoutMs = Number(process.env.PROVIDER_REQUEST_TIMEOUT_MS ?? 10_000);
 // An invalid operator value must fail closed to the documented default rather
 // than turning setTimeout(NaN) into an immediate abort for every provider call.
@@ -31,6 +36,7 @@ async function fetchProvider(input: string, init: RequestInit) {
 }
 
 export function isAlertChannelConfigured(channel: AlertChannel) {
+  if (!providerDeliveryAllowed) return false;
   if (channel === 'email') return Boolean(resendKey && resendFrom);
   if (channel === 'sms') return Boolean(twilioSid && twilioToken && twilioFrom);
   return false;

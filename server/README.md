@@ -32,7 +32,7 @@ DATABASE_URL=postgresql://glucocare_app:local-only-password@127.0.0.1:5432/gluco
 | `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` | conexión por campos; preferida en Compose para no depender del escaping de la contraseña |
 | `PORT` | puerto HTTP interno, por defecto 8080 |
 | `SESSION_DAYS` | duración máxima de una sesión revocable |
-| `PUBLIC_API_URL` | URL usada en invitaciones; no contiene secretos |
+| `PUBLIC_API_URL` | URL pública HTTPS revisada usada en invitaciones y como requisito para habilitar proveedores; una URL local/HTTP mantiene la entrega en `not_configured` |
 | `CORS_ORIGIN` | origen web permitido; Compose lo recibe como `GLUCOCARE_CORS_ORIGIN` y debe ser concreto en producción |
 | `PROVIDER_CALLBACK_SECRET` | secreto HMAC privado para `POST /v1/internal/provider-callback`; vacío desactiva callbacks y conserva solo `provider_accepted` |
 | `PROVIDER_REQUEST_TIMEOUT_MS` | límite de espera para Resend/Twilio; entre 1 y 60 segundos, por defecto 10 segundos |

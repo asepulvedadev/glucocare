@@ -172,5 +172,5 @@ jobs:
           PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node scripts/smoke-provider-callback.mjs
           ALERT_WORKER_ONCE=true node dist/alertWorker.js >/tmp/glucocare-alert-worker.log 2>&1
           npm run test:worker
-          node scripts/smoke-provider-retry.mjs
+          PUBLIC_API_URL=https://synthetic.example.invalid node scripts/smoke-provider-retry.mjs
           grep -q 'glucocare-alert-worker' /tmp/glucocare-alert-worker.log
