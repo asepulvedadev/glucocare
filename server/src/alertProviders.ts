@@ -10,6 +10,20 @@ const twilioToken = process.env.TWILIO_AUTH_TOKEN?.trim();
 const twilioFrom = process.env.TWILIO_FROM?.trim();
 const resendApiUrl = process.env.RESEND_API_URL?.trim() || 'https://api.resend.com/emails';
 const twilioApiBaseUrl = process.env.TWILIO_API_BASE_URL?.trim() || 'https://api.twilio.com';
+const providerRequestTimeoutMs = Math.min(Math.max(Number(process.env.PROVIDER_REQUEST_TIMEOUT_MS ?? 10_000), 1_000), 60_000);
+
+async function fetchProvider(input: string, init: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), providerRequestTimeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('PROVIDER_TIMEOUT');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export function isAlertChannelConfigured(channel: AlertChannel) {
   if (channel === 'email') return Boolean(resendKey && resendFrom);
@@ -43,7 +57,7 @@ async function responseId(response: Response) {
 
 async function sendEmail(contact: Contact, incidentId: string): Promise<ProviderResult> {
   if (!isAlertChannelConfigured('email') || !contact.email) throw new Error('PROVIDER_NOT_CONFIGURED');
-  const response = await fetch(resendApiUrl, {
+  const response = await fetchProvider(resendApiUrl, {
     method: 'POST',
     headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -60,7 +74,7 @@ async function sendSms(contact: Contact, incidentId: string): Promise<ProviderRe
   if (!isAlertChannelConfigured('sms') || !contact.phone) throw new Error('PROVIDER_NOT_CONFIGURED');
   const basic = Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
   const body = new URLSearchParams({ To: contact.phone, From: twilioFrom!, Body: messageFor(contact, incidentId) });
-  const response = await fetch(`${twilioApiBaseUrl.replace(/\/$/, '')}/2010-04-01/Accounts/${encodeURIComponent(twilioSid!)}/Messages.json`, {
+  const response = await fetchProvider(`${twilioApiBaseUrl.replace(/\/$/, '')}/2010-04-01/Accounts/${encodeURIComponent(twilioSid!)}/Messages.json`, {
     method: 'POST',
     headers: { authorization: `Basic ${basic}`, 'content-type': 'application/x-www-form-urlencoded' },
     body,
@@ -70,7 +84,7 @@ async function sendSms(contact: Contact, incidentId: string): Promise<ProviderRe
 
 async function sendInvitationEmail(contact: Contact, acceptUrl: string): Promise<ProviderResult> {
   if (!isAlertChannelConfigured('email') || !contact.email) throw new Error('PROVIDER_NOT_CONFIGURED');
-  const response = await fetch(resendApiUrl, {
+  const response = await fetchProvider(resendApiUrl, {
     method: 'POST',
     headers: { authorization: `Bearer ${resendKey}`, 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -87,7 +101,7 @@ async function sendInvitationSms(contact: Contact, acceptUrl: string): Promise<P
   if (!isAlertChannelConfigured('sms') || !contact.phone) throw new Error('PROVIDER_NOT_CONFIGURED');
   const basic = Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64');
   const body = new URLSearchParams({ To: contact.phone, From: twilioFrom!, Body: invitationMessage(contact, acceptUrl) });
-  const response = await fetch(`${twilioApiBaseUrl.replace(/\/$/, '')}/2010-04-01/Accounts/${encodeURIComponent(twilioSid!)}/Messages.json`, {
+  const response = await fetchProvider(`${twilioApiBaseUrl.replace(/\/$/, '')}/2010-04-01/Accounts/${encodeURIComponent(twilioSid!)}/Messages.json`, {
     method: 'POST',
     headers: { authorization: `Basic ${basic}`, 'content-type': 'application/x-www-form-urlencoded' },
     body,

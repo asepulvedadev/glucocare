@@ -35,6 +35,7 @@ DATABASE_URL=postgresql://glucocare_app:local-only-password@127.0.0.1:5432/gluco
 | `PUBLIC_API_URL` | URL usada en invitaciones; no contiene secretos |
 | `CORS_ORIGIN` | origen web permitido; Compose lo recibe como `GLUCOCARE_CORS_ORIGIN` y debe ser concreto en producción |
 | `PROVIDER_CALLBACK_SECRET` | secreto HMAC privado para `POST /v1/internal/provider-callback`; vacío desactiva callbacks y conserva solo `provider_accepted` |
+| `PROVIDER_REQUEST_TIMEOUT_MS` | límite de espera para Resend/Twilio; entre 1 y 60 segundos, por defecto 10 segundos |
 | `RESEND_API_KEY`, `RESEND_FROM` | habilitan el adaptador de correo; déjalas vacías para mantener `not_configured` |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | habilitan el adaptador SMS; déjalas vacías para mantener `not_configured` |
 | `ALERT_WORKER_INTERVAL_MS`, `ALERT_WORKER_BATCH_SIZE`, `ALERT_WORKER_MAX_ATTEMPTS` | frecuencia, lote y reintentos del worker privado |
