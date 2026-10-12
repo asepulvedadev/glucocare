@@ -332,7 +332,7 @@ Decisions already captured in the repository:
 
 Open questions that must be answered before the corresponding gate:
 
-- Which emergency numbers and care pathways are configurable for each launch region?
+- Which emergency numbers and care pathways are configurable for each launch region? The mobile build now reads `EXPO_PUBLIC_EMERGENCY_REGION` and `EXPO_PUBLIC_EMERGENCY_NUMBER`, defaulting to Colombia/123 for this launch.
 - Which Supabase region, retention period, and backup policy satisfy counsel’s decision?
 - Which exact Android/iOS versions are in the beta support matrix?
 - Will remote alerts use SMS, WhatsApp, push, or a provider abstraction at beta?

@@ -12,6 +12,7 @@ import { recordHelpEvent } from '../db/helpRepository';
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
 import { queueEmergencyAlert } from '../alerts';
+import { emergencyConfig } from '../config';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
@@ -20,7 +21,7 @@ export default function HelpScreen() {
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   const [processing, setProcessing] = useState(false);
   async function callEmergency() {
-    const url = 'tel:123';
+    const url = `tel:${emergencyConfig.number}`;
     const supported = await Linking.canOpenURL(url);
     if (supported) await Linking.openURL(url);
     else Alert.alert('Llama a emergencias', 'No pudimos abrir el marcador. Usa el número local de emergencias.');
@@ -73,7 +74,7 @@ export default function HelpScreen() {
       <Panel tone="urgent">
         <Caption>EMERGENCIA</Caption>
         <Text style={styles.title}>Llama al número local de emergencias</Text>
-        <Body>Si estás en Colombia, el número general es 123. Si estás en otro lugar, usa el número local.</Body>
+        <Body>En {emergencyConfig.region}, el número configurado es {emergencyConfig.number}. Si estás en otro lugar, usa el número local de emergencias.</Body>
         <PrimaryButton label="Llamar a emergencias" tone="urgent" onPress={() => void callEmergency()} />
       </Panel>
       <Panel>
