@@ -179,10 +179,13 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
          DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at, deleted_at = NULL`,
         [user.id, entityType, entityId, JSON.stringify(payload), occurredAt],
       );
-      // A local contact edit/removal carries `revoked: true`. Revoke the
-      // server-side invitation in the same transaction so a stale accepted
-      // invitation can never keep the contact eligible for a future alert.
-      if (entityType === 'trusted_contact' && payload.revoked === true) {
+      // A local contact edit/removal or consent event carries a revocation
+      // marker. Revoke the server-side invitation in the same transaction so
+      // a stale accepted invitation can never keep the contact eligible for a
+      // future alert.
+      const contactRevoked = entityType === 'trusted_contact'
+        && (payload.revoked === true || payload.consentGranted === false || payload.consent_status === 'revoked' || eventType.includes('revoked'));
+      if (contactRevoked) {
         await client.query(
           `UPDATE contact_invitations SET status = 'revoked'
            WHERE patient_id = $1 AND contact_id = $2 AND status IN ('pending', 'accepted')`,
