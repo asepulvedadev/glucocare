@@ -222,8 +222,8 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
   eventId: crypto.randomUUID(), eventType: 'privacy.consent.updated.v1', entityType: 'privacy_consent', entityId: 'default',
   payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', localDataConsent: true, cloudSyncConsent: false, emergencySharingConsent: false, updatedAt: new Date().toISOString() },
 }) });
-const privacyBlockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [contactId], channels: ['sms'] }) });
-if (privacyBlockedAlert.status !== 400) throw new Error('privacy withdrawal did not block a remote alert');
+const privacyBlockedInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'sms' }) });
+if (privacyBlockedInvitation.status !== 403) throw new Error('privacy withdrawal did not block a new remote invitation');
 const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
 const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });
