@@ -6,7 +6,7 @@ import { newId } from '../ids';
 const DATABASE_KEY_NAME = 'glucocare.sqlcipher.key.v1';
 
 function sqlLiteral(value: string) {
-  return value.replaceAll("'", "''");
+  return value.replace(/'/g, "''");
 }
 
 /**
