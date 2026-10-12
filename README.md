@@ -48,4 +48,4 @@ GlucoCare is a lightweight, accessible Expo application for people living with d
 
 ## Status
 
-Discovery and architecture definition. No production app has been implemented yet.
+The Expo foundation and first offline glucose vertical slice are implemented in [apps/mobile](apps/mobile). Medication, appointments, trusted contacts, sync, and production backend work remain on the development plan.
