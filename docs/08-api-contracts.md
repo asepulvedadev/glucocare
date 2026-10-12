@@ -14,19 +14,22 @@
 
 - Core local mode: no cloud API required.
 - Sync mode: revocable VPS API session stored in SecureStore.
-- Privileged dispatch: Edge Function verifies JWT, consent, relationship, and request schema.
-- Trusted-contact acknowledgement: short-lived, single-purpose signed token; it grants no record access.
+- Privileged dispatch: the VPS API verifies the session, contact ownership, accepted invitation, and request schema.
+- Trusted-contact acknowledgement: a short-lived invitation token changes consent state; it grants no record access.
 
 ## Representative endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/v1/sync/batch` | Idempotent upload/download cursor exchange. |
+| `POST` | `/v1/auth/signup` / `/v1/auth/signin` | Create or open a revocable VPS API session. |
+| `POST` | `/v1/sync/events` | Idempotent upload of one local outbox event. |
+| `GET` | `/v1/sync?since=...` | Pull the patient-scoped record projection after a cursor. |
 | `POST` | `/v1/contact-invitations` | Send verified contact invitation. |
-| `POST` | `/v1/contact-invitations/{token}/accept` | Accept scoped contact consent. |
-| `POST` | `/v1/emergency-alerts` | Dispatch consented contact alerts. |
-| `POST` | `/v1/emergency-alerts/{token}/acknowledge` | Contact acknowledgement. |
-| `POST` | `/v1/exports` | Request encrypted report generation if server-side export is enabled. |
+| `GET` | `/v1/contact-invitations/accept?token=...` | Accept scoped contact consent. |
+| `GET` | `/v1/contact-invitations` | Read the patient's pending/accepted invitation states. |
+| `POST` | `/v1/contact-invitations/revoke` | Revoke a contact invitation and future alerts. |
+| `POST` | `/v1/emergency-alerts` | Queue alerts only for accepted contacts. |
+| `GET` | `/v1/emergency-alerts/{incidentId}/deliveries` | Read delivery states for the patient's incident. |
 | `DELETE` | `/v1/account` | Start verified account deletion workflow. |
 
 CRUD for health records passes through the versioned VPS API; sensitive multi-step actions remain server-side and the API scopes every query by the authenticated patient.
@@ -50,7 +53,9 @@ CRUD for health records passes through the versioned VPS API; sensitive multi-st
 }
 ```
 
-Response `202 Accepted` means queued, not delivered:
+Response `202 Accepted` means queued, not delivered. The API returns `400
+INVALID_ALERT_CONTACTS` unless every contact has a non-expired accepted
+invitation:
 
 ```json
 {
@@ -62,27 +67,24 @@ Response `202 Accepted` means queued, not delivered:
 }
 ```
 
-## Sync batch
+## Sync event upload and pull
 
 ```json
 {
   "schemaVersion": 1,
-  "deviceId": "device-public-id",
-  "cursor": "opaque-server-cursor",
-  "events": [
-    {
-      "id": "01J...",
-      "type": "glucose.reading.recorded",
-      "occurredAt": "2026-10-12T03:15:00Z",
-      "aggregateId": "01J...",
-      "aggregateVersion": 1,
-      "payload": {}
-    }
-  ]
+  "eventId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventType": "glucose.reading.recorded.v1",
+  "entityType": "glucose_reading",
+  "entityId": "01J...",
+  "payload": {}
 }
 ```
 
-Server returns per-event acceptance/rejection and an opaque next cursor. One invalid event must not make the client discard unrelated valid local writes.
+The server returns `accepted` or `already_accepted`. Reusing an event UUID
+with different data returns `409 IDEMPOTENCY_CONFLICT`; one invalid event does
+not make the client discard unrelated valid local writes. Pull responses return
+`{ "until": "...", "records": [...] }` and are filtered by the authenticated
+patient.
 
 ## Domain event catalog
 
@@ -104,8 +106,8 @@ Server returns per-event acceptance/rejection and an opaque next cursor. One inv
 ```json
 {
   "error": {
-    "code": "CONTACT_CONSENT_REQUIRED",
-    "message": "This contact has not accepted alerts.",
+    "code": "INVALID_ALERT_CONTACTS",
+    "message": "Uno o más contactos no tienen una invitación aceptada.",
     "retryable": false,
     "correlationId": "safe-random-id"
   }
@@ -124,7 +126,7 @@ Do not return another patient’s existence or sensitive record details in error
 
 ## Rate limits
 
-- Stricter limits for invitations, contact alerts, login, export, and acknowledgement.
+- Stricter limits for invitations, contact alerts, and login are enforced in the single VPS API process; export/acknowledgement limits remain required when those routes are added.
 - Emergency alert limiting prevents abuse but must return a direct-call fallback rather than a dead end.
 - Limit response includes safe retry timing; never expose internal provider details.
 

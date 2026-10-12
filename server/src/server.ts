@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { URL } from 'node:url';
 import { pool, runMigrations, closeDatabase } from './db.js';
 import { authenticate, bearerToken, deleteAccount, revokeSession, signIn, signUp, type AuthUser } from './auth.js';
+import { consumeRateLimit } from './rateLimit.js';
 
 const port = Number(process.env.PORT ?? 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES ?? 1_048_576);
@@ -38,6 +39,14 @@ function fail(response: ServerResponse, status: number, code: string, message: s
   send(response, status, errorBody(code, message, retryable));
 }
 
+function rateLimited(response: ServerResponse, retryAfterSeconds: number) {
+  send(response, 429, errorBody('RATE_LIMITED', 'Demasiadas solicitudes. Intenta de nuevo más tarde.', true), { 'retry-after': String(retryAfterSeconds) });
+}
+
+function requestAddress(request: IncomingMessage) {
+  return request.socket.remoteAddress ?? 'unknown';
+}
+
 async function readJson(request: IncomingMessage): Promise<JsonObject> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -69,6 +78,18 @@ function eventDate(payload: JsonObject) {
 
 function hashToken(value: string) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as JsonObject).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => [key, canonicalJson(item)]));
+  }
+  return value;
+}
+
+function hashJson(value: unknown) {
+  return createHash('sha256').update(JSON.stringify(canonicalJson(value))).digest('hex');
 }
 
 async function requireUser(request: AuthenticatedRequest, response: ServerResponse) {
@@ -137,6 +158,19 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
        ON CONFLICT (id) DO NOTHING RETURNING id`,
       [eventId, user.id, eventType, entityType, entityId, JSON.stringify(payload), occurredAt],
     );
+    if (!inserted.rowCount) {
+      const existing = await client.query<{ patient_id: string; payload: JsonObject }>(
+        `SELECT patient_id, payload FROM sync_events WHERE id = $1`, [eventId],
+      );
+      const matchingEvent = existing.rows[0]?.patient_id === user.id && hashJson(existing.rows[0]?.payload) === hashJson(payload);
+      await client.query('ROLLBACK');
+      if (!matchingEvent) {
+        fail(response, 409, 'IDEMPOTENCY_CONFLICT', 'El identificador de evento ya fue usado con otros datos.');
+        return;
+      }
+      send(response, 200, { status: 'already_accepted', eventId });
+      return;
+    }
     if (inserted.rowCount) {
       await client.query(
         `INSERT INTO health_records (patient_id, entity_type, entity_id, payload, updated_at, deleted_at)
@@ -191,7 +225,7 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
   const token = randomBytes(32).toString('base64url');
   const id = randomUUID();
   await pool.query(
-    `UPDATE contact_invitations SET status = 'revoked' WHERE patient_id = $1 AND contact_id = $2 AND status = 'pending'`, [user.id, contactId],
+    `UPDATE contact_invitations SET status = 'revoked' WHERE patient_id = $1 AND contact_id = $2 AND status IN ('pending', 'accepted')`, [user.id, contactId],
   );
   await pool.query(
     `INSERT INTO contact_invitations (id, patient_id, contact_id, channel, token_hash, expires_at) VALUES ($1, $2, $3, $4, $5, now() + interval '72 hours')`,
@@ -202,7 +236,9 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
 
 async function invitationStatuses(user: AuthUser, response: ServerResponse) {
   const result = await pool.query(
-    `SELECT contact_id, status, expires_at FROM contact_invitations WHERE patient_id = $1 AND status = 'pending' AND expires_at > now()`, [user.id],
+    `SELECT contact_id, status, expires_at FROM contact_invitations
+     WHERE patient_id = $1 AND (status = 'accepted' OR (status = 'pending' AND expires_at > now()))
+     ORDER BY created_at DESC`, [user.id],
   );
   send(response, 200, { invitations: result.rows });
 }
@@ -210,8 +246,19 @@ async function invitationStatuses(user: AuthUser, response: ServerResponse) {
 async function revokeInvitation(user: AuthUser, body: JsonObject, response: ServerResponse) {
   const contactId = stringValue(body.contactId, 256);
   if (!contactId) { fail(response, 400, 'INVALID_INVITATION', 'El contacto es obligatorio.'); return; }
-  await pool.query(`UPDATE contact_invitations SET status = 'revoked' WHERE patient_id = $1 AND contact_id = $2 AND status = 'pending'`, [user.id, contactId]);
+  await pool.query(`UPDATE contact_invitations SET status = 'revoked' WHERE patient_id = $1 AND contact_id = $2 AND status IN ('pending', 'accepted')`, [user.id, contactId]);
   send(response, 200, { status: 'revoked' });
+}
+
+async function acceptInvitation(token: string | null, response: ServerResponse) {
+  if (!token || token.length > 512) { fail(response, 400, 'INVALID_INVITATION_TOKEN', 'El enlace de invitación no es válido.'); return; }
+  const accepted = await pool.query<{ id: string; contact_id: string }>(
+    `UPDATE contact_invitations SET status = 'accepted'
+     WHERE token_hash = $1 AND status = 'pending' AND expires_at > now()
+     RETURNING id, contact_id`, [hashToken(token)],
+  );
+  if (!accepted.rows[0]) { fail(response, 410, 'INVITATION_EXPIRED', 'La invitación ya no está disponible.'); return; }
+  send(response, 200, { invitationId: accepted.rows[0].id, contactId: accepted.rows[0].contact_id, status: 'accepted' });
 }
 
 async function emergencyAlert(user: AuthUser, body: JsonObject, response: ServerResponse) {
@@ -220,7 +267,13 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
   const channels = Array.isArray(body.channels) ? [...new Set(body.channels.filter((value): value is string => ['email', 'sms', 'push', 'voice'].includes(String(value))).map(String))] : [];
   if (!incidentId || !contactIds.length || !channels.length) { fail(response, 400, 'INVALID_ALERT', 'El incidente, los contactos y los canales son obligatorios.'); return; }
   const contacts = await pool.query(
-    `SELECT entity_id FROM health_records WHERE patient_id = $1 AND entity_type = 'trusted_contact' AND entity_id = ANY($2::text[])`,
+    `SELECT r.entity_id FROM health_records r
+     WHERE r.patient_id = $1 AND r.entity_type = 'trusted_contact' AND r.entity_id = ANY($2::text[])
+       AND EXISTS (
+         SELECT 1 FROM contact_invitations i
+         WHERE i.patient_id = r.patient_id AND i.contact_id = r.entity_id
+           AND i.status = 'accepted'
+       )`,
     [user.id, contactIds],
   );
   if (contacts.rowCount !== contactIds.length) { fail(response, 400, 'INVALID_ALERT_CONTACTS', 'Uno o más contactos no pertenecen a tu cuenta.'); return; }
@@ -242,12 +295,13 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
       }
     }
     await client.query('COMMIT');
+    send(response, 202, { alertId: persistedAlertId, status: 'queued', deliveries: contactIds.flatMap((contactId) => channels.map((channel) => ({ contactId, channel, status: 'not_configured' }))) });
+    return;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     fail(response, 500, 'ALERT_WRITE_FAILED', 'No se pudo registrar la alerta. Intenta usar la llamada de emergencia.', true);
     return;
   } finally { client.release(); }
-  send(response, 202, { alertId, status: 'queued', deliveries: contactIds.flatMap((contactId) => channels.map((channel) => ({ contactId, channel, status: 'not_configured' }))) });
 }
 
 async function deliveries(user: AuthUser, incidentId: string, response: ServerResponse) {
@@ -266,19 +320,31 @@ async function route(request: AuthenticatedRequest, response: ServerResponse) {
     try { await pool.query('SELECT 1'); send(response, 200, { status: 'ok', database: 'ok' }); } catch { fail(response, 503, 'DATABASE_UNAVAILABLE', 'La base de datos no está disponible.', true); }
     return;
   }
-  if (request.method === 'POST' && (url.pathname === '/v1/auth/signup' || url.pathname === '/v1/auth/signin')) { await authRoute(request, response, url.pathname); return; }
+  if (request.method === 'POST' && (url.pathname === '/v1/auth/signup' || url.pathname === '/v1/auth/signin')) {
+    const limit = consumeRateLimit(`auth:${requestAddress(request)}`, 10, 60_000);
+    if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
+    await authRoute(request, response, url.pathname); return;
+  }
   if (request.method === 'POST' && url.pathname === '/v1/auth/signout') { await revokeSession(bearerTokenFromNodeRequest(request)); send(response, 204, {}); return; }
-  if (request.method === 'GET' && url.pathname === '/v1/contact-invitations/accept') { fail(response, 501, 'INVITATION_UI_REQUIRED', 'La aceptación debe completarse desde el enlace de invitación.'); return; }
+  if (request.method === 'GET' && url.pathname === '/v1/contact-invitations/accept') { await acceptInvitation(url.searchParams.get('token'), response); return; }
 
   const user = await requireUser(request, response);
   if (!user) return;
   if (request.method === 'DELETE' && url.pathname === '/v1/account') { await deleteAccount(user.id, request.token); send(response, 204, {}); return; }
   if (request.method === 'GET' && url.pathname === '/v1/sync') { await pullSync(user, url, response); return; }
   if (request.method === 'POST' && url.pathname === '/v1/sync/events') { try { await acceptSyncEvent(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'El evento no contiene JSON válido.'); } return; }
-  if (request.method === 'POST' && url.pathname === '/v1/contact-invitations') { try { await createInvitation(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'La invitación no es válida.'); } return; }
+  if (request.method === 'POST' && url.pathname === '/v1/contact-invitations') {
+    const limit = consumeRateLimit(`invitation:${user.id}`, 10, 60 * 60_000);
+    if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
+    try { await createInvitation(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'La invitación no es válida.'); } return;
+  }
   if (request.method === 'POST' && url.pathname === '/v1/contact-invitations/revoke') { try { await revokeInvitation(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'La revocación no es válida.'); } return; }
   if (request.method === 'GET' && url.pathname === '/v1/contact-invitations') { await invitationStatuses(user, response); return; }
-  if (request.method === 'POST' && url.pathname === '/v1/emergency-alerts') { try { await emergencyAlert(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'La alerta no es válida.'); } return; }
+  if (request.method === 'POST' && url.pathname === '/v1/emergency-alerts') {
+    const limit = consumeRateLimit(`alert:${user.id}`, 5, 10 * 60_000);
+    if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
+    try { await emergencyAlert(user, await readJson(request), response); } catch { fail(response, 400, 'INVALID_JSON', 'La alerta no es válida.'); } return;
+  }
   const deliveriesMatch = request.method === 'GET' ? url.pathname.match(/^\/v1\/emergency-alerts\/([^/]+)\/deliveries$/) : null;
   if (deliveriesMatch) { await deliveries(user, decodeURIComponent(deliveriesMatch[1]), response); return; }
   fail(response, 404, 'NOT_FOUND', 'Ruta no encontrada.');

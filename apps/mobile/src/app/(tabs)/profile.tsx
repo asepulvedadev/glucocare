@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import type { AuthSession } from '../../cloudApi';
-import { Alert, Platform, StyleSheet, Text } from 'react-native';
+import { Alert, Platform, Share, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -254,14 +254,19 @@ export default function ProfileScreen() {
       ...(contact.email ? [{ label: 'Correo', channel: 'email' as const }] : []),
       ...(contact.phone ? [{ label: 'SMS', channel: 'sms' as const }] : []),
     ];
-    Alert.alert('Enviar invitación', `La invitación para ${contact.name} expirará en 48 horas y no dará acceso a tu historial.`, [
+    Alert.alert('Crear invitación', `Generaremos un enlace válido durante 72 horas. No dará acceso a tu historial y deberás compartirlo con ${contact.name}.`, [
       { text: 'Cancelar', style: 'cancel' },
       ...channels.map(({ label, channel }) => ({ text: label, onPress: () => void (async () => {
         setInvitingContactId(contact.id);
         try {
-          await sendTrustedContactInvitation(contact.id, channel);
+          const invitation = await sendTrustedContactInvitation(contact.id, channel);
           setInvitationStatuses((current) => ({ ...current, [contact.id]: 'pending' }));
-          Alert.alert('Invitación enviada', `${contact.name} debe aceptar antes de recibir avisos.`);
+          const message = `GlucoCare: acepta esta invitación para recibir avisos de ayuda. No tendrás acceso al historial clínico.\n\n${invitation.acceptUrl}`;
+          if (Platform.OS === 'web') {
+            Alert.alert('Enlace listo', `Comparte este enlace con ${contact.name}:\n${invitation.acceptUrl}`);
+          } else {
+            await Share.share({ message, title: 'Invitación de GlucoCare' });
+          }
         } catch { Alert.alert('No se pudo enviar', 'El proveedor de correo/SMS puede no estar configurado. Tu contacto sigue guardado localmente.'); }
         finally { setInvitingContactId(null); }
       })() })),

@@ -4,6 +4,11 @@ Este servicio expone autenticación, sincronización idempotente, invitaciones d
 contactos y registro de estados de alertas sobre PostgreSQL propio. La captura
 clínica continúa funcionando sin red en SQLite.
 
+Las invitaciones solo habilitan alertas después de que la persona de apoyo abre
+el enlace de aceptación. Las rutas de autenticación, invitaciones y alertas
+tienen límites básicos por IP o paciente; un despliegue con varias réplicas
+debe mover este contador a un almacén compartido antes de abrir tráfico público.
+
 ## Desarrollo local
 
 ```bash

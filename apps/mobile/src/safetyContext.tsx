@@ -16,7 +16,7 @@ type SafetyContextValue = {
   addTrustedContact: (input: NewTrustedContact) => Promise<void>;
   updateTrustedContact: (contactId: string, input: NewTrustedContact) => Promise<void>;
   grantTrustedContactConsent: (contactId: string) => Promise<void>;
-  sendTrustedContactInvitation: (contactId: string, channel: TrustedContactInvitationChannel) => Promise<void>;
+  sendTrustedContactInvitation: (contactId: string, channel: TrustedContactInvitationChannel) => Promise<{ invitationId: string; status: string; deliveryStatus: string; acceptUrl: string }>;
   revokeTrustedContact: (contactId: string) => Promise<void>;
   revokeAllTrustedContactConsent: () => Promise<number>;
   refresh: () => Promise<void>;
@@ -81,7 +81,7 @@ export function SafetyProvider({ children }: PropsWithChildren) {
 
   const sendContactInvitation = useCallback(async (contactId: string, channel: TrustedContactInvitationChannel) => {
     if (!session) throw new Error('Cloud sync is not configured for this build.');
-    await cloudApi.createInvitation(contactId, channel, session);
+    return cloudApi.createInvitation(contactId, channel, session);
   }, [session]);
 
   const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, updateTrustedContact: updateContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, revokeAllTrustedContactConsent: revokeAllContactConsent, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, updateContact, grantContactConsent, sendContactInvitation, revokeContact, revokeAllContactConsent, refresh]);
