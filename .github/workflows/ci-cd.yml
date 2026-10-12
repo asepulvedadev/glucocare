@@ -75,6 +75,9 @@ jobs:
       - name: Expo doctor
         run: npx expo-doctor
 
+      - name: Validate native prebuild configuration
+        run: CI=1 npx expo prebuild --no-install
+
       - name: Typecheck and lint
         run: |
           npm run typecheck

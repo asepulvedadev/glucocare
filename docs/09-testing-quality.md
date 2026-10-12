@@ -142,6 +142,7 @@ Targets are product goals and may be revised with measured evidence.
 - Database migration tests.
 - API authorization and backend integration tests.
 - Component accessibility tests.
+- Expo native prebuild configuration for Android/iOS plugins and identifiers.
 - Build Android/iOS development artifacts.
 - Dependency/secret scan.
 - Documentation links and Mermaid validation where tooling permits.
