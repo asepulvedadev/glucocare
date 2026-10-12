@@ -33,7 +33,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - The offline help view projects enabled medicines and consented contact phone/email into the responder view at display time, labels the medication list as informational, and never copies it into the emergency-card record.
 - Trusted contacts can be edited; changing their details resets consent until the person confirms again.
 - Help-event recording with an explicit call fallback; alert delivery is never overstated.
-- JSON bundle and glucose CSV export, plus replace-style local JSON restore and data deletion with medication, appointment, and measurement-reminder cleanup. Restored contacts require consent again; cloud consent and sync queues are never restored from a file.
+- Complete JSON backup plus selectable 7-day/30-day/all-history glucose CSV and clinician report exports, each preceded by an explicit included-fields confirmation, plus replace-style local JSON restore and data deletion with medication, appointment, and measurement-reminder cleanup. Restored contacts require consent again; cloud consent and sync queues are never restored from a file.
 - The printable clinician report includes glucose, meals, medication adherence, appointments, help requests, and corrected-reading summaries, with the non-diagnostic disclaimer preserved.
 - Versioned local privacy consent with separate controls for on-device storage, optional cloud sync, and emergency-contact sharing.
 - Configurable measurement plan with one, two, or three daily times, per-reading context (fasting/before/after meal/bedtime), weekday exceptions, temporary validity dates, and optional care-team instructions.
