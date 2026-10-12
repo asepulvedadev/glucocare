@@ -2,7 +2,7 @@
 
 ## Current state
 
-This repository currently contains GlucoCare product/design documentation and a static staging landing page. It does **not** contain the Expo application yet. The deployment therefore publishes the blueprint safely without pretending that the mobile app is production-ready.
+This repository contains GlucoCare product/design documentation, the Expo mobile application source, and a static documentation staging image. The VPS workflow currently deploys only the documentation image; the Expo app is not yet published as a native release or public web app.
 
 ## VPS target
 
@@ -39,4 +39,4 @@ docker compose -f /srv/glucocare/release/deploy/compose.yml ps
 
 ## Next deployment boundary
 
-When the Expo app exists, replace the static image with the approved web build or add a separate mobile release workflow. Native Android/iOS binaries are distributed through EAS/App Store/Google Play; they are not served by this VPS container.
+Next, add a separate reviewed web-build deployment (if web parity is approved) and EAS workflows for native preview/production builds. Native Android/iOS binaries are distributed through EAS/App Store/Google Play; they are not served by this VPS container.
