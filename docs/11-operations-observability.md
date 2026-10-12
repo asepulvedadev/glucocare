@@ -107,6 +107,12 @@ checks container health, both localhost health endpoints, and the COOP/COEP
 headers needed by the web SQLite worker. Install its systemd timer before beta;
 the timer is a detection mechanism, not a substitute for on-call alerting.
 
+The private alert queue has a checked-in five-minute GitHub Actions scheduler
+(`.github/workflows/alert-worker.yml`). It requires `ALERT_WORKER_URL` and
+`ALERT_WORKER_SECRET` in the protected `production` environment; until those
+secrets and a provider are configured, no delivery is attempted and the mobile
+app continues to show the queued/unavailable state.
+
 ## Release strategy
 
 - Internal dogfood with synthetic data.

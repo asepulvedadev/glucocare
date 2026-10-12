@@ -28,9 +28,10 @@ curl --fail-with-body --silent --show-error \
   --data '{}'
 ```
 
-Use a scheduler that stores both values as secrets (for example, a hosted
-cron/job runner or Supabase's private scheduling facilities). Do not use a
-public unauthenticated URL. The worker claims at most 50 rows per invocation,
+Use a scheduler that stores both values as secrets (for example, the checked-in
+GitHub Actions `Process emergency alert queue` workflow, a hosted cron/job
+runner, or Supabase's private scheduling facilities). Do not use a public
+unauthenticated URL. The worker claims at most 50 rows per invocation,
 retries transient provider failures with bounded backoff, and recovers queued
 claims abandoned for more than 10 minutes.
 
