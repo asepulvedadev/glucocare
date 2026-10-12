@@ -38,7 +38,7 @@ try {
   const callback = await call('/v1/internal/provider-callback', { method: 'POST', headers: { 'x-glucocare-callback-signature': signature }, body: deliveredPayload });
   if (callback.status !== 'accepted') throw new Error('provider callback was not accepted');
   const deliveries = await call(`/v1/emergency-alerts/callback-${suffix}/deliveries`, { headers: { authorization: `Bearer ${session.session.accessToken}` } });
-  if (deliveries.deliveries.length !== 1 || deliveries.deliveries[0].status !== 'delivered' || !deliveries.deliveries[0].deliveredAt) throw new Error(`delivery was not marked delivered: ${JSON.stringify(deliveries)}`);
+  if (deliveries.deliveries.length !== 1 || deliveries.deliveries[0].status !== 'delivered' || !deliveries.deliveries[0].delivered_at) throw new Error(`delivery was not marked delivered: ${JSON.stringify(deliveries)}`);
 
   const failedPayload = JSON.stringify({ providerMessageId, status: 'failed', failureCode: 'late-provider-event' });
   const failedSignature = createHmac('sha256', secret).update(failedPayload).digest('hex');
