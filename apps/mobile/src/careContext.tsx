@@ -1,12 +1,12 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { insertMedication, listMedications } from './db/careRepository';
-import { insertAppointment, listAppointments, updateAppointmentStatus as updateStoredAppointmentStatus } from './db/appointmentsRepository';
+import { insertMedication, listMedications, updateMedicationReminder } from './db/careRepository';
+import { insertAppointment, listAppointments, updateAppointmentReminder, updateAppointmentStatus as updateStoredAppointmentStatus } from './db/appointmentsRepository';
 import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
 import { getCarePlan, upsertCarePlan } from './db/carePlanRepository';
 import { ensureTodaysMedicationOccurrences, listTodaysMedicationOccurrences, recordMedicationOccurrence } from './db/medicationOccurrenceRepository';
 import { ensureTodaysMeasurementOccurrences, listTodaysMeasurementOccurrences, recordMeasurementOccurrence } from './db/measurementOccurrenceRepository';
-import { cancelReminder, scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
+import { cancelReminder, reconcileAppointmentReminder, reconcileMedicationReminder, scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
@@ -45,43 +45,67 @@ export function CareProvider({ children }: PropsWithChildren) {
   const [carePlan, setCarePlan] = useState<CarePlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const reconcileStoredReminders = useCallback(async (storedMedications: Medication[], storedAppointments: Appointment[]) => {
+    const [medicationResults, appointmentResults] = await Promise.all([
+      Promise.all(storedMedications.filter((medication) => medication.enabled).map(async (medication) => ({ medication, scheduled: await reconcileMedicationReminder(medication) }))),
+      Promise.all(storedAppointments.map(async (appointment) => ({ appointment, scheduled: await reconcileAppointmentReminder(appointment) }))),
+    ]);
+    const updatedMedications = storedMedications.map((medication) => {
+      const result = medicationResults.find((item) => item.medication.id === medication.id);
+      if (!result) return medication;
+      const next = { ...medication, notificationId: result.scheduled.notificationId, reminderState: result.scheduled.state === 'granted' ? 'scheduled' as const : result.scheduled.state };
+      if (next.reminderState !== medication.reminderState || next.notificationId !== medication.notificationId) void updateMedicationReminder(db, medication.id, next.reminderState, next.notificationId);
+      return next;
+    });
+    const updatedAppointments = storedAppointments.map((appointment) => {
+      const result = appointmentResults.find((item) => item.appointment.id === appointment.id);
+      if (!result) return appointment;
+      const next = { ...appointment, notificationId: result.scheduled.notificationId, reminderState: result.scheduled.state === 'granted' ? 'scheduled' as const : result.scheduled.state };
+      if (next.reminderState !== appointment.reminderState || next.notificationId !== appointment.notificationId) void updateAppointmentReminder(db, appointment.id, next.reminderState, next.notificationId);
+      return next;
+    });
+    return { medications: updatedMedications, appointments: updatedAppointments };
+  }, [db]);
+
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
       const [storedMedications, storedAppointments, storedPlan, storedCarePlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]);
-      await ensureTodaysMedicationOccurrences(db, storedMedications);
+      const reconciled = await reconcileStoredReminders(storedMedications, storedAppointments);
+      await ensureTodaysMedicationOccurrences(db, reconciled.medications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
       const storedMeasurementOccurrences = await listTodaysMeasurementOccurrences(db);
-      setMedications(storedMedications);
+      setMedications(reconciled.medications);
       setMedicationOccurrences(storedOccurrences);
       setMeasurementOccurrences(storedMeasurementOccurrences);
       setCarePlan(storedCarePlan);
-      setAppointments(storedAppointments);
+      setAppointments(reconciled.appointments);
       setMeasurementPlan(storedPlan);
     } finally { setIsLoading(false); }
-  }, [db]);
+  }, [db, reconcileStoredReminders]);
 
   useEffect(() => {
     let active = true;
     void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]).then(async ([storedMedications, storedAppointments, storedPlan, storedCarePlan]) => {
-      await ensureTodaysMedicationOccurrences(db, storedMedications);
+      const reconciled = await reconcileStoredReminders(storedMedications, storedAppointments);
+      await ensureTodaysMedicationOccurrences(db, reconciled.medications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
       const storedMeasurementOccurrences = await listTodaysMeasurementOccurrences(db);
       if (active) {
-        setMedications(storedMedications);
+        setMedications(reconciled.medications);
         setMedicationOccurrences(storedOccurrences);
         setMeasurementOccurrences(storedMeasurementOccurrences);
         setCarePlan(storedCarePlan);
-        setAppointments(storedAppointments);
+        setAppointments(reconciled.appointments);
         setMeasurementPlan(storedPlan);
       }
     }).finally(() => {
       if (active) setIsLoading(false);
     });
     return () => { active = false; };
-  }, [db]);
+  }, [db, reconcileStoredReminders]);
 
   const addMedication = useCallback(async (input: NewMedication) => {
     const medication: Medication = {

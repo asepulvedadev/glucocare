@@ -62,3 +62,7 @@ export async function updateAppointmentStatus(db: SQLiteDatabase, appointmentId:
   });
   return updated;
 }
+
+export async function updateAppointmentReminder(db: SQLiteDatabase, appointmentId: string, reminderState: AppointmentReminderState, notificationId?: string) {
+  await db.runAsync('UPDATE appointments SET reminder_state = ?, notification_id = ? WHERE id = ?', reminderState, notificationId ?? null, appointmentId);
+}

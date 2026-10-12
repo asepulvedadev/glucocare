@@ -49,3 +49,7 @@ export async function insertMedication(db: SQLiteDatabase, medication: Medicatio
     await enqueueOutbox(db, { id: newId(), entityType: 'medication', entityId: medication.id, eventType: 'medication.created.v1', payload: medication });
   });
 }
+
+export async function updateMedicationReminder(db: SQLiteDatabase, medicationId: string, reminderState: ReminderState, notificationId?: string) {
+  await db.runAsync('UPDATE medications SET reminder_state = ?, notification_id = ? WHERE id = ?', reminderState, notificationId ?? null, medicationId);
+}

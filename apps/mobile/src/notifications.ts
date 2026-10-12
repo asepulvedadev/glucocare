@@ -58,6 +58,20 @@ export async function cancelReminder(notificationId?: string) {
 
 export const cancelMedicationReminder = cancelReminder;
 
+async function hasScheduledNotification(notificationId?: string) {
+  if (!notificationId || Platform.OS === 'web') return false;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  return scheduled.some((request) => request.identifier === notificationId);
+}
+
+export async function reconcileMedicationReminder(medication: Medication) {
+  if (Platform.OS === 'web') return { state: 'unavailable' as const };
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return { state: permission as ReminderPermission };
+  if (await hasScheduledNotification(medication.notificationId)) return { state: 'granted' as const, notificationId: medication.notificationId };
+  return scheduleMedicationReminder(medication);
+}
+
 export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
   const appointmentAt = new Date(appointment.scheduledAt);
   const reminderAt = new Date(appointmentAt.getTime() - 24 * 60 * 60 * 1000);
@@ -75,4 +89,16 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: MEDICATION_CHANNEL },
   });
   return { state: permission, notificationId };
+}
+
+export async function reconcileAppointmentReminder(appointment: Appointment) {
+  if (appointment.status === 'completed' || appointment.status === 'cancelled') {
+    await cancelReminder(appointment.notificationId);
+    return { state: 'unavailable' as const };
+  }
+  if (Platform.OS === 'web') return { state: 'unavailable' as const };
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return { state: permission as ReminderPermission };
+  if (await hasScheduledNotification(appointment.notificationId)) return { state: 'granted' as const, notificationId: appointment.notificationId };
+  return scheduleAppointmentReminder(appointment);
 }
