@@ -1,16 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { openNotificationSettings } from '../notifications';
-import { appointmentStatusLabel, type AppointmentStatus } from '../types/appointments';
 import { colors, radii, spacing } from '../theme/tokens';
-
-const statuses: AppointmentStatus[] = ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'];
 
 function parseDateTime(raw: string) {
   const normalized = raw.trim().replace(' ', 'T');
@@ -23,7 +20,6 @@ export default function AppointmentScreen() {
   const [title, setTitle] = useState('');
   const [provider, setProvider] = useState('');
   const [dateTime, setDateTime] = useState('');
-  const [status, setStatus] = useState<AppointmentStatus>('requested');
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -36,7 +32,7 @@ export default function AppointmentScreen() {
     }
     setSaving(true);
     try {
-      const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), scheduledAt: parsed.toISOString(), status, location: location.trim() || undefined, notes: notes.trim() || undefined });
+      const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), scheduledAt: parsed.toISOString(), status: 'requested', location: location.trim() || undefined, notes: notes.trim() || undefined });
       if (reminderState === 'permission_denied') Alert.alert('Cita guardada', 'La cita quedó guardada, pero las notificaciones están deshabilitadas.', [
         { text: 'Ahora no', style: 'cancel' },
         { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
@@ -64,8 +60,8 @@ export default function AppointmentScreen() {
         <Body>Usa la hora local del dispositivo. El recordatorio intenta avisar un día antes.</Body>
       </Panel>
       <Panel>
-        <Caption>ESTADO</Caption>
-        <View style={styles.chips}>{statuses.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: status === option }} onPress={() => setStatus(option)} style={[styles.chip, status === option && styles.chipSelected]}><Text style={[styles.chipText, status === option && styles.chipSelectedText]}>{appointmentStatusLabel[option]}</Text></Pressable>)}</View>
+        <Caption>ESTADO INICIAL</Caption>
+        <Body>La cita se guardará como “Por autorizar”. Después podrás avanzar por las etapas válidas desde Cuidado.</Body>
       </Panel>
       <Panel>
         <Caption>OPCIONAL</Caption>
@@ -82,10 +78,5 @@ const styles = StyleSheet.create({
   input: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16 },
   dateInput: { fontSize: 20, fontWeight: '700' },
   multiline: { minHeight: 84, textAlignVertical: 'top', paddingTop: spacing.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
-  chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber },
-  chipText: { color: colors.textSecondary, fontSize: 14 },
-  chipSelectedText: { color: colors.textPrimary },
   disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg },
 });
