@@ -172,7 +172,7 @@ Use four bottom tabs:
 3. **Care** — medications, glucose plan, appointments, contacts.
 4. **Profile** — emergency card, accessibility, privacy, settings.
 
-The persistent **Get help** action is not a tab. It is a high-visibility action in the Today header and available from the main routes.
+The persistent **Get help** action is not a tab. It is a high-visibility floating action anchored above the bottom navigation on every main route. The help route hides the action to avoid a recursive loop.
 
 ### Bottom tab rules
 
