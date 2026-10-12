@@ -341,7 +341,8 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   if (Platform.OS === 'web') return;
   const [medications, appointments, measurementPlan, meals] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), listMealEvents(db)]);
   await cancelManagedReminders();
-  const schedules = buildManagedSchedules(medications, appointments, measurementPlan, meals);
+  const now = new Date();
+  const schedules = buildManagedSchedules(medications, appointments, measurementPlan, meals, now);
   if (!schedules.length) {
     await Promise.all([
       ...medications.map((medication) => updateMedicationReminder(db, medication.id, 'unavailable', undefined, [])),
@@ -376,7 +377,7 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   }
 
   await Promise.all(medications.map(async (medication) => {
-    const expected = medicationReminderDates(medication).length;
+    const expected = medicationReminderDates(medication, now).length;
     const ids = scheduledIds.get(medication.id) ?? [];
     const state: ReminderScheduleState = expected === 0 ? 'unavailable' : ids.length === expected ? 'scheduled' : ids.length > 0 ? 'scheduled_limited' : 'unavailable';
     await updateMedicationReminder(db, medication.id, state, ids[0], ids);
@@ -384,7 +385,7 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   await Promise.all(appointments.map(async (appointment) => {
     const expected = !isTerminalAppointmentStatus(appointment.status) && (() => {
       const at = new Date(appointment.scheduledAt).getTime();
-      return Number.isFinite(at) && at - 24 * 60 * 60 * 1000 > Date.now();
+      return Number.isFinite(at) && at - 24 * 60 * 60 * 1000 > now.getTime();
     })();
     const ids = scheduledIds.get(appointment.id) ?? [];
     const state: ReminderScheduleState = !expected ? 'unavailable' : ids.length ? 'scheduled' : 'scheduled_limited';

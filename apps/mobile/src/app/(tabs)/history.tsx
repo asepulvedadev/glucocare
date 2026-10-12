@@ -58,7 +58,10 @@ export default function HistoryScreen() {
   const filteredMedicationHistory = medicationHistory.filter((occurrence) => withinRange(occurrence.scheduledAt));
   const filteredAppointments = appointments.filter((appointment) => withinRange(appointment.scheduledAt));
   const filteredHelpHistory = helpHistory.filter((event) => withinRange(event.createdAt));
-  const summary = summarizeGlucose(filteredReadings);
+  // `filteredReadings` already represents the selected range; pass the same
+  // range to the summarizer so the 30-day and all-time views do not silently
+  // fall back to the default seven-day window.
+  const summary = summarizeGlucose(filteredReadings, new Date(now), dateRange === 'all' ? 36500 : dateRange);
   const maxPoint = Math.max(...summary.points.map((point) => point.mgDl), 1);
   return (
     <Screen>
