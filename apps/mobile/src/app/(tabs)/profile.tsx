@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
@@ -14,22 +14,28 @@ import { deleteAllLocalData, shareExport } from '../../dataLifecycle';
 import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
 import { useAccessibility } from '../../accessibilityContext';
+import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictRepository';
 
 export default function ProfileScreen() {
-  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety } = useSafety();
+  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, revokeTrustedContact } = useSafety();
   const db = useSQLiteContext();
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const { preferences, setPreference } = useAccessibility();
   const [syncing, setSyncing] = useState(false);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+
+  const refreshSyncConflicts = useCallback(async () => {
+    setSyncConflicts(await listOpenSyncConflicts(db));
+  }, [db]);
 
   async function syncNow() {
     if (!session) return;
     setSyncing(true);
     try {
       const result = await syncPendingData(db, session);
-      await Promise.all([refreshGlucose(), refreshCare(), refreshSafety()]);
+      await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts()]);
       if (result.state === 'disabled') Alert.alert('Sincronización no disponible', 'Este build no tiene configurada la conexión cloud.');
       else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
       else Alert.alert('Sincronización lista', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}.`);
@@ -42,6 +48,16 @@ export default function ProfileScreen() {
       const result = await shareExport(db, format);
       Alert.alert(result.shared ? 'Exportación lista' : 'Exportación preparada', result.shared ? `Se creó ${result.filename}.` : `No se pudo abrir el menú de compartir. Archivo: ${result.filename}`);
     } catch { Alert.alert('No se pudo exportar', 'Vuelve a intentarlo.'); }
+  }
+
+  function requestRevokeContact(contactId: string, name: string) {
+    Alert.alert('Revocar contacto', `Dejar de compartir avisos con ${name}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Revocar', style: 'destructive', onPress: () => void (async () => {
+        try { await revokeTrustedContact(contactId); Alert.alert('Contacto revocado', 'No se enviarán nuevos avisos a esta persona.'); }
+        catch { Alert.alert('No se pudo revocar', 'Vuelve a intentarlo.'); }
+      })() },
+    ]);
   }
 
   function requestDelete() {
@@ -62,7 +78,7 @@ export default function ProfileScreen() {
       </Panel>
       <Panel>
         <Caption>PERSONA DE APOYO</Caption>
-        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Text key={contact.id} style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>)}
+        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text><PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /></Panel>)}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
       </Panel>
       <Panel>
@@ -79,6 +95,12 @@ export default function ProfileScreen() {
         <PrimaryButton label={session ? 'Administrar cuenta' : 'Conectar cuenta'} tone="quiet" onPress={() => router.push('/auth')} />
         {session ? <PrimaryButton label={syncing ? 'Sincronizando…' : 'Sincronizar ahora'} tone="quiet" disabled={syncing} onPress={() => void syncNow()} /> : null}
       </Panel>
+      {syncConflicts.length > 0 ? <Panel tone="urgent">
+        <Caption>CAMBIOS EN DOS DISPOSITIVOS</Caption>
+        <Text style={styles.title}>{syncConflicts.length} cambio{syncConflicts.length === 1 ? '' : 's'} pendiente{syncConflicts.length === 1 ? '' : 's'}</Text>
+        <Body>Conservamos tu cambio local para no sobrescribir información sin tu permiso. La aplicación intentará enviarlo de nuevo cuando haya conexión.</Body>
+        {syncConflicts.slice(0, 3).map((conflict) => <Text key={conflict.id} style={styles.contact}>{conflict.entityType} · detectado {new Date(conflict.detectedAt).toLocaleString('es-CO')}</Text>)}
+      </Panel> : null}
       <Panel>
         <Caption>TUS DATOS</Caption>
         <Body>Exporta una copia legible o elimina la información guardada en este dispositivo.</Body>

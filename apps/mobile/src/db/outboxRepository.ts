@@ -17,6 +17,13 @@ export type PendingOutboxEvent = OutboxEvent & {
   createdAt: string;
 };
 
+export type PendingSyncEntity = {
+  eventId: string;
+  entityType: string;
+  entityId: string;
+  payload: Record<string, unknown>;
+};
+
 type OutboxRow = {
   id: string;
   entity_type: string;
@@ -47,6 +54,21 @@ export async function listPendingOutbox(db: SQLiteDatabase, limit = 20): Promise
     id: row.id, entityType: row.entity_type, entityId: row.entity_id, eventType: row.event_type,
     payload: JSON.parse(row.payload_json) as Record<string, unknown>, status: row.status,
     attemptCount: row.attempt_count, nextAttemptAt: row.next_attempt_at, createdAt: row.created_at,
+  }));
+}
+
+export async function listPendingSyncEntities(db: SQLiteDatabase): Promise<PendingSyncEntity[]> {
+  const rows = await db.getAllAsync<Pick<OutboxRow, 'id' | 'entity_type' | 'entity_id' | 'payload_json'>>(
+    `SELECT id, entity_type, entity_id, payload_json
+     FROM sync_outbox
+     WHERE status IN ('pending', 'sending', 'failed')
+     ORDER BY created_at ASC`,
+  );
+  return rows.map((row) => ({
+    eventId: row.id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    payload: JSON.parse(row.payload_json) as Record<string, unknown>,
   }));
 }
 

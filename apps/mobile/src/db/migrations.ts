@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 12;
+const DATABASE_VERSION = 13;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -208,6 +208,26 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       );
     `);
     currentVersion = 12;
+  }
+
+  if (currentVersion < 13) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sync_conflicts (
+        id TEXT PRIMARY KEY NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        local_event_id TEXT,
+        local_payload_json TEXT NOT NULL,
+        remote_payload_json TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+        resolution TEXT,
+        detected_at TEXT NOT NULL,
+        resolved_at TEXT,
+        UNIQUE (entity_type, entity_id, status)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sync_conflicts_open ON sync_conflicts(status, detected_at DESC);
+    `);
+    currentVersion = 13;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

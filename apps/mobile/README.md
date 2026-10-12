@@ -21,6 +21,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.
 - Device-local accessibility preferences for large text, high contrast, simple mode, and reduced motion.
 - Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.
+- Cursor sync performs a pull-before-push pass. If a remote edit arrives while a local event is still pending, the local record is preserved, an explicit conflict is stored locally, and the local event remains the deterministic winner after a successful upload.
 - Cloud account deletion workflow that leaves local data available until the user separately deletes it.
 - SQLCipher config enabled for native builds; web SQLite uses the documented WASM/COOP/COEP setup.
 
@@ -41,6 +42,8 @@ Use a development build for native modules and notifications. Expo Go is useful 
 `eas.json` defines development, preview, and production channels. Signing credentials, EAS project ID, and store metadata remain release-environment configuration and must not be committed.
 
 Cloud sync is opt-in and disabled until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are supplied. See [`../../supabase/README.md`](../../supabase/README.md) before linking a hosted project.
+
+Conflict records are intentionally visible from Profile after a sync failure. They contain only the local and remote projections needed to explain the decision; the app never silently replaces a pending local health record with a remote copy.
 
 ## Safety boundary
 

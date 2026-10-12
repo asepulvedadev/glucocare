@@ -5,6 +5,8 @@ import type { GlucoseRiskClassification, CarePlan } from './types/carePlan';
 import type { MedicationRoute } from './types/care';
 import type { AppointmentStatus } from './types/appointments';
 import { setLastPulledAt } from './db/syncMetadataRepository';
+import { listPendingSyncEntities } from './db/outboxRepository';
+import { recordSyncConflict } from './db/syncConflictRepository';
 
 function localUnit(unit: string): GlucoseUnit {
   return unit === 'mmol_l' ? 'mmol/L' : 'mg/dL';
@@ -54,6 +56,21 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
   if (errors.length) throw errors[0].error;
 
+  const pending = await listPendingSyncEntities(db);
+  const pendingByEntity = new Map(pending.map((event) => [`${event.entityType}:${event.entityId}`, event]));
+  async function preserveLocalChange(entityType: string, entityId: string, remotePayload: Record<string, unknown>) {
+    const localEvent = pendingByEntity.get(`${entityType}:${entityId}`);
+    if (!localEvent) return false;
+    await recordSyncConflict(db, {
+      entityType,
+      entityId,
+      localEventId: localEvent.eventId,
+      localPayload: localEvent.payload,
+      remotePayload,
+    });
+    return true;
+  }
+
   const schedules = new Map<string, { hour: number; minute: number }>();
   for (const schedule of schedulesResult.data ?? []) {
     if (schedules.has(schedule.medication_id)) continue;
@@ -65,6 +82,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   let downloaded = 0;
   await db.withTransactionAsync(async () => {
     for (const reading of glucoseResult.data ?? []) {
+      if (await preserveLocalChange('glucose_reading', reading.id, reading as unknown as Record<string, unknown>)) continue;
       await db.runAsync(`INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', ?)
         ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, recorded_at = excluded.recorded_at, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
@@ -72,6 +90,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       downloaded += 1;
     }
     for (const medication of medicationsResult.data ?? []) {
+      if (await preserveLocalChange('medication', medication.id, medication as unknown as Record<string, unknown>)) continue;
       const time = schedules.get(medication.id) ?? { hour: 8, minute: 0 };
       await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, hour, minute, enabled, reminder_state, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
@@ -81,13 +100,18 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     }
     const plan = planResult.data;
     if (plan) {
+      if (await preserveLocalChange('measurement_plan', 'default', plan as unknown as Record<string, unknown>)) {
+        // Keep the user's local plan until its pending event is acknowledged.
+      } else {
       await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, instructions, updated_at)
         VALUES ('default', ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
         plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), plan.instructions, plan.created_at);
       downloaded += 1;
+      }
     }
     for (const occurrence of medicationOccurrencesResult.data ?? []) {
+      if (await preserveLocalChange('medication_occurrence', occurrence.id, occurrence as unknown as Record<string, unknown>)) continue;
       await db.runAsync(`INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, acted_at, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, status = excluded.status, acted_at = excluded.acted_at`,
@@ -95,6 +119,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       downloaded += 1;
     }
     for (const appointment of appointmentsResult.data ?? []) {
+      if (await preserveLocalChange('appointment', appointment.id, appointment as unknown as Record<string, unknown>)) continue;
       await db.runAsync(`INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
         ON CONFLICT(id) DO UPDATE SET title = excluded.title, provider = excluded.provider, scheduled_at = excluded.scheduled_at, status = excluded.status, location = excluded.location, notes = excluded.notes`,
@@ -102,6 +127,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       downloaded += 1;
     }
     for (const occurrence of measurementOccurrencesResult.data ?? []) {
+      if (await preserveLocalChange('measurement_occurrence', occurrence.id, occurrence as unknown as Record<string, unknown>)) continue;
       await db.runAsync(`INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, status, completed_reading_id, completed_at, created_at)
         VALUES (?, 'default', ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, status = excluded.status, completed_reading_id = excluded.completed_reading_id, completed_at = excluded.completed_at`,
@@ -110,6 +136,9 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     }
     const carePlan = carePlanResult.data;
     if (carePlan) {
+      if (await preserveLocalChange('care_plan', 'default', carePlan as unknown as Record<string, unknown>)) {
+        // Keep the user's local plan until its pending event is acknowledged.
+      } else {
       const bands = jsonObject(carePlan.target_bands);
       const actions = jsonArray(carePlan.symptom_actions);
       const localPlan: CarePlan = {
@@ -127,16 +156,27 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         ON CONFLICT(id) DO UPDATE SET low_threshold = excluded.low_threshold, urgent_low_threshold = excluded.urgent_low_threshold, high_threshold = excluded.high_threshold, urgent_high_threshold = excluded.urgent_high_threshold, instructions = excluded.instructions, clinician_verified = excluded.clinician_verified, updated_at = excluded.updated_at`,
         localPlan.lowThreshold ?? null, localPlan.urgentLowThreshold ?? null, localPlan.highThreshold ?? null, localPlan.urgentHighThreshold ?? null, localPlan.instructions ?? null, localPlan.clinicianVerified ? 1 : 0, localPlan.updatedAt);
       downloaded += 1;
+      }
     }
     const card = cardResult.data;
     if (card) {
+      if (await preserveLocalChange('emergency_card', 'default', card as unknown as Record<string, unknown>)) {
+        // Keep the user's local card until its pending event is acknowledged.
+      } else {
       await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, emergency_notes, updated_at)
         VALUES ('default', ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
         card.full_name, card.birth_date, card.diabetes_type, card.allergies, card.care_provider, card.emergency_notes, card.updated_at);
       downloaded += 1;
+      }
     }
     for (const contact of contactsResult.data ?? []) {
+      if (await preserveLocalChange('trusted_contact', contact.id, contact as unknown as Record<string, unknown>)) continue;
+      if (contact.consent_status === 'revoked') {
+        await db.runAsync('DELETE FROM trusted_contacts WHERE id = ?', contact.id);
+        downloaded += 1;
+        continue;
+      }
       await db.runAsync(`INSERT INTO trusted_contacts (id, name, relationship, phone, email, consent_granted, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET name = excluded.name, relationship = excluded.relationship, phone = excluded.phone, email = excluded.email, consent_granted = excluded.consent_granted`,

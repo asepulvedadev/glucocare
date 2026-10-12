@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 import type { Json } from './types/supabase';
 import { getLastPulledAt } from './db/syncMetadataRepository';
 import { pullCloudData } from './syncPull';
+import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
 
 type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'failed';
@@ -140,10 +141,11 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
     }
     case 'trusted_contact': {
       if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
+      const revoked = payload.revoked === true;
       const { error } = await supabase.from('trusted_contacts').upsert({
         id: event.entityId, patient_id: patientId, name: stringValue(payload.name), relationship: payload.relationship ? String(payload.relationship) : null,
         phone: payload.phone ? String(payload.phone) : null, email: payload.email ? String(payload.email) : null,
-        consent_status: payload.consentGranted ? 'accepted' : 'pending',
+        consent_status: revoked ? 'revoked' : payload.consentGranted ? 'accepted' : 'pending',
       }, { onConflict: 'id' });
       if (error) throw error;
       return;
@@ -166,9 +168,21 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
   const { error: patientError } = await supabase.from('patients').upsert({ id: session.user.id, display_name: session.user.email ?? '' }, { onConflict: 'id', ignoreDuplicates: true });
   if (patientError) throw patientError;
 
+  let downloaded = 0;
+  let failed = 0;
+
+  // Pull before upload so an existing remote edit is surfaced as a conflict
+  // while the local event is still pending. The local event remains the
+  // deterministic winner and is uploaded only after the user-visible record
+  // has been preserved locally.
+  try {
+    downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db));
+  } catch {
+    failed += 1;
+  }
+
   const pending = await listPendingOutbox(db);
   let uploaded = 0;
-  let failed = 0;
   for (const event of pending) {
     try {
       await uploadEvent(event, session.user.id);
@@ -190,6 +204,7 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
         await db.runAsync(`UPDATE glucose_readings SET sync_state = 'synced' WHERE id = ?`, event.entityId);
       }
       await markOutboxAcked(db, event.id);
+      await resolveSyncConflictsForEntity(db, event.entityType, event.entityId, 'local');
       uploaded += 1;
     } catch {
       await markOutboxFailed(db, event.id, event.attemptCount + 1);
@@ -199,9 +214,8 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
       failed += 1;
     }
   }
-  let downloaded = 0;
   try {
-    downloaded = await pullCloudData(db, session.user.id, await getLastPulledAt(db));
+    downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db));
   } catch {
     failed += 1;
   }
