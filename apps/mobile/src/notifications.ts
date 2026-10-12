@@ -6,6 +6,7 @@ import type { GlucoseRiskClassification } from './types/carePlan';
 import { isMedicationActive } from './domain/medication';
 
 const MEDICATION_CHANNEL = 'medications';
+const APPOINTMENT_CHANNEL = 'appointments';
 const GLUCOSE_RISK_CHANNEL = 'glucose-risk';
 
 Notifications.setNotificationHandler({
@@ -34,6 +35,12 @@ export async function ensurePermission(): Promise<ReminderPermission> {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FFBE55',
+    });
+    await Notifications.setNotificationChannelAsync(APPOINTMENT_CHANNEL, {
+      name: 'Recordatorios de citas',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 180, 120, 180],
+      lightColor: '#54D6C0',
     });
   }
   const current = await Notifications.getPermissionsAsync();
@@ -166,7 +173,7 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
       body: 'Tienes una cita próxima. Abre GlucoCare para ver los detalles.',
       data: { url: '/care', appointmentId: appointment.id },
     },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: MEDICATION_CHANNEL },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: APPOINTMENT_CHANNEL },
   });
   return { state: permission, notificationId };
 }

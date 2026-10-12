@@ -21,6 +21,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Daily medication occurrence ledger with taken/omitted actions and replayable sync events.
 - Medication occurrences also support a ten-minute snooze with a one-shot native reminder, plus an explicit not-recorded state; the app never invents a missed-dose instruction.
 - Native daily reminder scheduling with explicit permission-denied and web-unavailable states.
+- Android separates medication and appointment notification channels so users can control each reminder category independently.
 - Lock-screen notifications use generic copy; medication names, doses, appointment providers, and glucose values stay inside the app.
 - Local emergency card with diabetes history, allergies/critical conditions, care provider/facility, EPS/affiliation data, patient-verified emergency number/region, and consented trusted contacts.
 - Trusted contacts can be edited; changing their details resets consent until the person confirms again.
