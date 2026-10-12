@@ -56,6 +56,16 @@ Deno.serve(async (request) => {
   if (body.occurredAt && !isIsoDate(body.occurredAt)) return response({ error: { code: "INVALID_OCCURRED_AT", message: "The event time is invalid." } }, 400);
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  // An incident UUID is client-generated, so it must be bound to the
+  // authenticated patient before any replay or delivery lookup. Otherwise a
+  // guessed existing UUID could be reused to attach rows to another patient's
+  // incident through the service-role client.
+  const { data: existingIncident, error: incidentLookupError } = await admin.from("emergency_incidents")
+    .select("patient_id")
+    .eq("id", body.incidentId)
+    .maybeSingle();
+  if (incidentLookupError) return response({ error: { code: "INCIDENT_LOOKUP_FAILED", message: "The incident could not be checked." } }, 500);
+  if (existingIncident && existingIncident.patient_id !== userId) return response({ error: { code: "INCIDENT_NOT_FOUND", message: "The incident is not available." } }, 404);
   // The mobile sync may upload the local incident before this function runs.
   // Treat it as a replay only when this alert already created a delivery row;
   // checking emergency_incidents alone would bypass the rate limit.

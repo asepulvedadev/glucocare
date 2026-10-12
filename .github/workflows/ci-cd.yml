@@ -128,6 +128,9 @@ jobs:
       - name: Smoke-test contact invitation RLS
         run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-contact-invitation.sql
 
+      - name: Smoke-test alert patient binding
+        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-alert-patient-binding.sql
+
       - name: Smoke-test private alert delivery worker
         run: |
           set -euo pipefail

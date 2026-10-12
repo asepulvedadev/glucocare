@@ -2,6 +2,11 @@
 
 `POST /functions/v1/emergency-alert` validates the authenticated patient, verifies accepted trusted-contact consent, creates an append-only incident, and queues delivery ledger rows. `202 Accepted` means queued only; an external provider worker must later update `alert_deliveries` to `provider_accepted`, `delivered`, `failed`, or `unknown`.
 
+The function also verifies that a client-generated incident ID is owned by the
+authenticated patient before treating the request as a replay. The database
+binds `(incident_id, patient_id)` on delivery rows to the same patient-owned
+incident, preventing cross-patient service-role writes.
+
 The function intentionally never accepts or forwards a glucose value by default. Provider credentials belong in Supabase Function secrets, not the mobile app.
 
 New incident IDs are rate-limited to five requests per patient in a rolling
