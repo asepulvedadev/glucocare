@@ -164,7 +164,7 @@ denied -> requested
 
 ### Emergency card
 
-The local emergency card includes diabetes history, allergies/critical conditions, insurer/affiliation data, the patient's preferred care facility, and an optional verified emergency number and region. If the number fields are empty, the build's reviewed launch fallback is shown explicitly; the app never claims that the fallback is correct for every municipality.
+The local emergency card includes diabetes history, optional identity document type/number, blood type/RH, allergies/critical conditions, insurer/affiliation data, the patient's preferred care facility and address, and an optional verified emergency number and region. These fields are user-entered and are not identity or blood-type verification. If the number fields are empty, the build's reviewed launch fallback is shown explicitly; the app never claims that the fallback is correct for every municipality.
 
 One current card plus revision history. Fields are described in the PRD. The on-device projection must be readable offline without querying the cloud.
 

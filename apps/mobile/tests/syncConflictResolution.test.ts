@@ -68,6 +68,11 @@ describe('reviewed sync conflict resolution', () => {
     const db = databaseMock();
     const remote = conflict('emergency_card', {
       full_name: 'Patiente Sintética',
+      document_type: 'CC',
+      document_number: '123456789',
+      blood_type: 'O',
+      rh_factor: 'positive',
+      care_address: 'Carrera 7 # 1-2',
       diagnosis_year: '2020',
       insulin_use: 'yes',
       critical_conditions: 'Hipertensión',
@@ -82,6 +87,8 @@ describe('reviewed sync conflict resolution', () => {
     const insert = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO emergency_card'));
     expect(insert?.[0]).toContain('diagnosis_year');
     expect(insert?.[0]).toContain('emergency_number');
+    expect(insert?.[0]).toContain('document_number');
+    expect(insert?.[0]).toContain('care_address');
     expect(JSON.stringify(insert)).toContain('EPS Demo');
   });
 

@@ -86,6 +86,16 @@ def migration_sql(version: int) -> str:
             ALTER TABLE glucose_readings ADD COLUMN risk_plan_updated_at TEXT;
             """
         )
+    elif version == 41:
+        return textwrap.dedent(
+            """
+            ALTER TABLE emergency_card ADD COLUMN document_type TEXT;
+            ALTER TABLE emergency_card ADD COLUMN document_number TEXT;
+            ALTER TABLE emergency_card ADD COLUMN blood_type TEXT;
+            ALTER TABLE emergency_card ADD COLUMN rh_factor TEXT;
+            ALTER TABLE emergency_card ADD COLUMN care_address TEXT;
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -160,6 +170,7 @@ def main() -> int:
     db.executescript(
         """
         CREATE TABLE medications (id TEXT PRIMARY KEY NOT NULL);
+        CREATE TABLE emergency_card (id TEXT PRIMARY KEY NOT NULL, full_name TEXT NOT NULL);
         CREATE TABLE medication_occurrences (
           id TEXT PRIMARY KEY NOT NULL,
           medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
@@ -213,7 +224,12 @@ def main() -> int:
     risk_columns = {row[1] for row in db.execute("PRAGMA table_info(glucose_readings)").fetchall()}
     if not {"risk_rule_id", "risk_plan_updated_at"}.issubset(risk_columns):
         raise SystemExit(f"Unexpected risk provenance migration columns: {risk_columns!r}")
-    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, and risk provenance v40 migrations passed.")
+    db.executescript(migration_sql(41))
+    emergency_columns = {row[1] for row in db.execute("PRAGMA table_info(emergency_card)").fetchall()}
+    expected_emergency_columns = {"document_type", "document_number", "blood_type", "rh_factor", "care_address"}
+    if not expected_emergency_columns.issubset(emergency_columns):
+        raise SystemExit(f"Unexpected emergency card migration columns: {emergency_columns!r}")
+    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, and emergency card legal fields v41 migrations passed.")
     return 0
 
 

@@ -78,11 +78,12 @@ Fields include specialty, provider, EPS/insurer, authorization number, requested
 Available offline and from the lock-screen-safe app entry point after explicit opt-in:
 
 - Preferred name and photo (optional).
+- Identity document type/number, blood type, and RH factor (optional user-entered emergency data; never treated as verified identity or laboratory data).
 - Diabetes type, year diagnosed, insulin use.
 - Allergies and critical conditions.
 - Current medication summary.
 - Trusted contacts.
-- EPS/insurer, policy/member number, preferred/assigned IPS.
+- EPS/insurer, policy/member number, preferred/assigned IPS, and care-facility address.
 - Configured emergency number and care-team contact.
 - Last updated date and a warning that data may be incomplete.
 

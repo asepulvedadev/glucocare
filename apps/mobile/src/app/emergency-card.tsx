@@ -6,20 +6,26 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useSafety } from '../safetyContext';
+import type { BloodType, EmergencyDocumentType, RhFactor } from '../types/safety';
 import { colors, radii, spacing } from '../theme/tokens';
 import { emergencyConfig } from '../config';
 
 export default function EmergencyCardScreen() {
-  const { emergencyCard, saveEmergencyCard } = useSafety();
+const { emergencyCard, saveEmergencyCard } = useSafety();
   const [fullName, setFullName] = useState(emergencyCard?.fullName ?? '');
   const [birthDate, setBirthDate] = useState(emergencyCard?.birthDate ?? '');
+  const [documentType, setDocumentType] = useState<EmergencyDocumentType>(emergencyCard?.documentType ?? 'CC');
+  const [documentNumber, setDocumentNumber] = useState(emergencyCard?.documentNumber ?? '');
   const [diabetesType, setDiabetesType] = useState(emergencyCard?.diabetesType ?? '');
   const [diagnosisYear, setDiagnosisYear] = useState(emergencyCard?.diagnosisYear ?? '');
   const [insulinUse, setInsulinUse] = useState<'yes' | 'no' | 'unknown'>(emergencyCard?.insulinUse ?? 'unknown');
+  const [bloodType, setBloodType] = useState<BloodType>(emergencyCard?.bloodType ?? 'unknown');
+  const [rhFactor, setRhFactor] = useState<RhFactor>(emergencyCard?.rhFactor ?? 'unknown');
   const [allergies, setAllergies] = useState(emergencyCard?.allergies ?? '');
   const [criticalConditions, setCriticalConditions] = useState(emergencyCard?.criticalConditions ?? '');
   const [careProvider, setCareProvider] = useState(emergencyCard?.careProvider ?? '');
   const [careFacility, setCareFacility] = useState(emergencyCard?.careFacility ?? '');
+  const [careAddress, setCareAddress] = useState(emergencyCard?.careAddress ?? '');
   const [insurer, setInsurer] = useState(emergencyCard?.insurer ?? '');
   const [policyNumber, setPolicyNumber] = useState(emergencyCard?.policyNumber ?? '');
   const [emergencyNumber, setEmergencyNumber] = useState(emergencyCard?.emergencyNumber ?? '');
@@ -37,13 +43,18 @@ export default function EmergencyCardScreen() {
       await saveEmergencyCard({
         fullName: fullName.trim(),
         birthDate: birthDate.trim() || undefined,
+        documentType,
+        documentNumber: documentNumber.trim() || undefined,
         diabetesType: diabetesType.trim() || undefined,
         diagnosisYear: diagnosisYear.trim() || undefined,
         insulinUse,
+        bloodType,
+        rhFactor,
         allergies: allergies.trim() || undefined,
         criticalConditions: criticalConditions.trim() || undefined,
         careProvider: careProvider.trim() || undefined,
         careFacility: careFacility.trim() || undefined,
+        careAddress: careAddress.trim() || undefined,
         insurer: insurer.trim() || undefined,
         policyNumber: policyNumber.trim() || undefined,
         emergencyNumber: emergencyNumber.trim() || undefined,
@@ -69,6 +80,9 @@ export default function EmergencyCardScreen() {
         <TextInput accessibilityLabel="Nombre completo" value={fullName} onChangeText={setFullName} placeholder="Tu nombre" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>FECHA DE NACIMIENTO</Caption>
         <TextInput accessibilityLabel="Fecha de nacimiento" value={birthDate} onChangeText={setBirthDate} placeholder="AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Caption>DOCUMENTO DE IDENTIDAD (OPCIONAL)</Caption>
+        <View style={styles.chips}>{([['CC', 'Cédula'], ['TI', 'Tarjeta'], ['CE', 'Extranjería'], ['PPT', 'PPT'], ['PASSPORT', 'Pasaporte'], ['OTHER', 'Otro']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: documentType === value }} onPress={() => setDocumentType(value)} style={[styles.chip, documentType === value && styles.chipSelected]}><Text style={[styles.chipText, documentType === value && styles.chipSelectedText]}>{label}</Text></Pressable>)}</View>
+        <TextInput accessibilityLabel="Número de documento" value={documentNumber} onChangeText={setDocumentNumber} placeholder="Número de documento" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>TIPO DE DIABETES</Caption>
         <TextInput accessibilityLabel="Tipo de diabetes" value={diabetesType} onChangeText={setDiabetesType} placeholder="Según tu diagnóstico" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Año de diagnóstico" value={diagnosisYear} onChangeText={setDiagnosisYear} placeholder="Año de diagnóstico (opcional)" placeholderTextColor={colors.textDisabled} keyboardType="number-pad" style={styles.input} />
@@ -77,10 +91,15 @@ export default function EmergencyCardScreen() {
       </Panel>
       <Panel>
         <Caption>DATOS IMPORTANTES</Caption>
+        <Caption>TIPO DE SANGRE</Caption>
+        <View style={styles.chips}>{([['A', 'A'], ['B', 'B'], ['AB', 'AB'], ['O', 'O'], ['unknown', 'No sé']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: bloodType === value }} onPress={() => setBloodType(value)} style={[styles.chip, bloodType === value && styles.chipSelected]}><Text style={[styles.chipText, bloodType === value && styles.chipSelectedText]}>{label}</Text></Pressable>)}</View>
+        <Caption>FACTOR RH</Caption>
+        <View style={styles.chips}>{([['positive', 'Positivo (+)'], ['negative', 'Negativo (-)'], ['unknown', 'No sé']] as const).map(([value, label]) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: rhFactor === value }} onPress={() => setRhFactor(value)} style={[styles.chip, rhFactor === value && styles.chipSelected]}><Text style={[styles.chipText, rhFactor === value && styles.chipSelectedText]}>{label}</Text></Pressable>)}</View>
         <TextInput accessibilityLabel="Alergias" value={allergies} onChangeText={setAllergies} placeholder="Alergias conocidas" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Condiciones críticas" value={criticalConditions} onChangeText={setCriticalConditions} placeholder="Otras condiciones importantes" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Profesional o centro de atención" value={careProvider} onChangeText={setCareProvider} placeholder="Profesional o centro de atención" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Lugar habitual de atención" value={careFacility} onChangeText={setCareFacility} placeholder="Hospital, clínica o dirección" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Dirección del lugar de atención" value={careAddress} onChangeText={setCareAddress} placeholder="Dirección o sede de atención" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Asegurador o EPS" value={insurer} onChangeText={setInsurer} placeholder="EPS o asegurador (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Número de póliza" value={policyNumber} onChangeText={setPolicyNumber} placeholder="Número de póliza o afiliación (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Notas de emergencia" value={emergencyNotes} onChangeText={setEmergencyNotes} placeholder="Indicaciones para quien te ayude" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
