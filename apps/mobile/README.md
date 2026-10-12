@@ -61,6 +61,19 @@ npx expo export --platform web
 npx eas-cli@latest build --profile preview
 ```
 
+### Direct VPS staging deploy
+
+The VPS is deployed locally, not from GitHub Actions. From the repository root,
+run the strict release order from a clean, pushed `main` checkout:
+
+```bash
+./scripts/deploy-vps-direct.sh
+```
+
+The command validates the repository and mobile app, exports the web bundle,
+streams it to the VPS, and verifies both staging health endpoints. See
+[`../../DEPLOYMENT.md`](../../DEPLOYMENT.md) for rollback and operator details.
+
 Use a development build for native modules and notifications. Expo Go is useful for early UI review but is not the release artifact.
 
 ### Native EAS builds
