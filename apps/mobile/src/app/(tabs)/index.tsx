@@ -8,10 +8,12 @@ import { useGlucose } from '../../context';
 import { useCare } from '../../careContext';
 import { glucoseContextLabel } from '../../types/domain';
 import { colors, radii, spacing } from '../../theme/tokens';
+import { useAccessibility } from '../../accessibilityContext';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
   const { measurementPlan, medications, appointments } = useCare();
+  const { preferences } = useAccessibility();
   const latest = readings[0];
   const latestTime = latest ? new Date(latest.recordedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
 
@@ -32,7 +34,7 @@ export default function TodayScreen() {
         <Body>La hora se guardará automáticamente. Puedes corregirla después.</Body>
         <PrimaryButton label="Registrar glucosa" onPress={() => router.push('/log')} />
       </Panel>
-      <Panel>
+      {!preferences.simpleMode ? <Panel>
         <Caption>ÚLTIMO REGISTRO</Caption>
         {latest ? (
           <View style={styles.latestRow}>
@@ -43,7 +45,7 @@ export default function TodayScreen() {
             <Text style={styles.localBadge}>{latest.syncState === 'synced' ? 'Sincronizado' : latest.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
           </View>
         ) : <Body>Aún no hay registros. Tu primer registro aparecerá aquí.</Body>}
-      </Panel>
+      </Panel> : null}
       <Panel>
         <Caption>HOY</Caption>
         <View style={styles.timelineItem}><View style={styles.dot} /><Body>{measurementPlan ? `${measurementPlan.readingsPerDay} ${measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} previstas: ${measurementPlan.times.join(' · ')}` : 'Plan de medición pendiente de configurar'}</Body></View>

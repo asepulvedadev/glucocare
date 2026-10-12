@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 7;
+const DATABASE_VERSION = 8;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -130,6 +130,20 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending ON sync_outbox(status, next_attempt_at);
     `);
     currentVersion = 7;
+  }
+
+  if (currentVersion < 8) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS accessibility_preferences (
+        id TEXT PRIMARY KEY NOT NULL,
+        simple_mode INTEGER NOT NULL DEFAULT 0,
+        large_text INTEGER NOT NULL DEFAULT 0,
+        high_contrast INTEGER NOT NULL DEFAULT 0,
+        reduce_motion INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    currentVersion = 8;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

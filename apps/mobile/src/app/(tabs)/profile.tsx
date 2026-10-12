@@ -13,6 +13,7 @@ import { useAuth } from '../../authContext';
 import { deleteAllLocalData, shareExport } from '../../dataLifecycle';
 import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
+import { useAccessibility } from '../../accessibilityContext';
 
 export default function ProfileScreen() {
   const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety } = useSafety();
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
+  const { preferences, setPreference } = useAccessibility();
   const [syncing, setSyncing] = useState(false);
 
   async function syncNow() {
@@ -61,6 +63,14 @@ export default function ProfileScreen() {
         <Caption>PERSONA DE APOYO</Caption>
         {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Text key={contact.id} style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>)}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
+      </Panel>
+      <Panel>
+        <Caption>ACCESIBILIDAD</Caption>
+        <Body>Elige una lectura más cómoda. Estos ajustes se guardan solo en este dispositivo.</Body>
+        <PrimaryButton label={`Texto grande: ${preferences.largeText ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('largeText', !preferences.largeText)} />
+        <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
+        <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
+        <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
       </Panel>
       <Panel>
         <Caption>SINCRONIZACIÓN OPCIONAL</Caption>

@@ -15,7 +15,7 @@ async function rows(db: SQLiteDatabase, table: string): Promise<TableRows> {
 export async function buildExportContent(db: SQLiteDatabase, format: ExportFormat) {
   const exportedAt = new Date().toISOString();
   const bundle = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt,
     glucoseReadings: await rows(db, 'glucose_readings'),
     medications: await rows(db, 'medications'),
@@ -25,6 +25,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     helpEvents: await rows(db, 'help_events'),
     measurementPlan: await rows(db, 'measurement_plans'),
     syncOutbox: await rows(db, 'sync_outbox'),
+    accessibilityPreferences: await rows(db, 'accessibility_preferences'),
   };
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
@@ -66,5 +67,6 @@ export async function deleteAllLocalData(db: SQLiteDatabase) {
     await db.runAsync('DELETE FROM help_events');
     await db.runAsync('DELETE FROM measurement_plans');
     await db.runAsync('DELETE FROM sync_outbox');
+    await db.runAsync('DELETE FROM accessibility_preferences');
   });
 }
