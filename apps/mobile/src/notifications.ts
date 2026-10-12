@@ -198,6 +198,12 @@ export async function cancelReminder(notificationId?: string | string[]) {
   await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
 }
 
+/** Removes every local reminder owned by this app during a replace/delete flow. */
+export async function cancelAllScheduledReminders() {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 export const cancelMedicationReminder = cancelReminder;
 
 async function hasScheduledNotifications(notificationIds: string[]) {

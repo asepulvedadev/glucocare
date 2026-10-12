@@ -3,7 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
+import { cancelAllScheduledReminders, cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
 import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 
@@ -193,6 +193,7 @@ export async function shareExport(db: SQLiteDatabase, format: ExportFormat): Pro
 }
 
 async function cancelStoredReminders(db: SQLiteDatabase) {
+  await cancelAllScheduledReminders().catch(() => undefined);
   const scheduled = await db.getAllAsync<{ notification_id: string | null; notification_ids_json: string | null }>(
     `SELECT notification_id, notification_ids_json FROM medications WHERE notification_id IS NOT NULL OR notification_ids_json != '[]'
      UNION ALL SELECT notification_id, NULL AS notification_ids_json FROM appointments WHERE notification_id IS NOT NULL`,
