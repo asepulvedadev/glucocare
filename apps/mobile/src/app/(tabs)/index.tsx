@@ -5,11 +5,13 @@ import { Eyebrow, Heading, Body, Caption } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useGlucose } from '../../context';
+import { useCare } from '../../careContext';
 import { glucoseContextLabel } from '../../types/domain';
 import { colors, radii, spacing } from '../../theme/tokens';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
+  const { measurementPlan, medications, appointments } = useCare();
   const latest = readings[0];
   const latestTime = latest ? new Date(latest.recordedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
 
@@ -44,8 +46,8 @@ export default function TodayScreen() {
       </Panel>
       <Panel>
         <Caption>HOY</Caption>
-        <View style={styles.timelineItem}><View style={styles.dot} /><Body>Plan de medición pendiente de configurar</Body></View>
-        <View style={styles.timelineItem}><View style={[styles.dot, styles.dotMuted]} /><Body>Medicamentos y citas aparecerán cuando los agregues</Body></View>
+        <View style={styles.timelineItem}><View style={styles.dot} /><Body>{measurementPlan ? `${measurementPlan.readingsPerDay} ${measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} previstas: ${measurementPlan.times.join(' · ')}` : 'Plan de medición pendiente de configurar'}</Body></View>
+        <View style={styles.timelineItem}><View style={[styles.dot, styles.dotMuted]} /><Body>{medications.length || appointments.length ? `${medications.length} medicamento(s) y ${appointments.length} cita(s) configurados` : 'Medicamentos y citas aparecerán cuando los agregues'}</Body></View>
       </Panel>
       <Text style={styles.disclaimer}>GlucoCare no diagnostica ni calcula dosis. Si te sientes muy mal, llama a emergencias.</Text>
     </Screen>

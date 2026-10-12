@@ -2,16 +2,20 @@ import { PropsWithChildren, createContext, useCallback, useContext, useEffect, u
 import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications } from './db/careRepository';
 import { insertAppointment, listAppointments } from './db/appointmentsRepository';
+import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
 import { scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
+import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
 
 type CareContextValue = {
   medications: Medication[];
   appointments: Appointment[];
+  measurementPlan: MeasurementPlan | null;
   isLoading: boolean;
   addMedication: (input: NewMedication) => Promise<ReminderPermission>;
   addAppointment: (input: NewAppointment) => Promise<ReminderPermission>;
+  saveMeasurementPlan: (input: NewMeasurementPlan) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -21,23 +25,26 @@ export function CareProvider({ children }: PropsWithChildren) {
   const db = useSQLiteContext();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [measurementPlan, setMeasurementPlan] = useState<MeasurementPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [storedMedications, storedAppointments] = await Promise.all([listMedications(db), listAppointments(db)]);
+      const [storedMedications, storedAppointments, storedPlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]);
       setMedications(storedMedications);
       setAppointments(storedAppointments);
+      setMeasurementPlan(storedPlan);
     } finally { setIsLoading(false); }
   }, [db]);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([listMedications(db), listAppointments(db)]).then(([storedMedications, storedAppointments]) => {
+    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]).then(([storedMedications, storedAppointments, storedPlan]) => {
       if (active) {
         setMedications(storedMedications);
         setAppointments(storedAppointments);
+        setMeasurementPlan(storedPlan);
       }
     }).finally(() => {
       if (active) setIsLoading(false);
@@ -81,7 +88,13 @@ export function CareProvider({ children }: PropsWithChildren) {
     return scheduled.state;
   }, [db]);
 
-  const value = useMemo(() => ({ medications, appointments, isLoading, addMedication, addAppointment, refresh }), [medications, appointments, isLoading, addMedication, addAppointment, refresh]);
+  const saveMeasurementPlan = useCallback(async (input: NewMeasurementPlan) => {
+    const plan: MeasurementPlan = { id: 'default', ...input, updatedAt: new Date().toISOString() };
+    await upsertMeasurementPlan(db, plan);
+    setMeasurementPlan(plan);
+  }, [db]);
+
+  const value = useMemo(() => ({ medications, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, refresh }), [medications, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 

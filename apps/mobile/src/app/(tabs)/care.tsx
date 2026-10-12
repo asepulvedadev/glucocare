@@ -14,7 +14,7 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, appointments, isLoading } = useCare();
+  const { medications, appointments, measurementPlan, isLoading } = useCare();
   return (
     <Screen>
       <Eyebrow>Cuidado</Eyebrow>
@@ -55,8 +55,11 @@ export default function CareScreen() {
         })}
       </Panel>
       <Panel>
-        <Caption>PLAN DE MEDICIÓN</Caption>
-        <View style={styles.planRow}><View style={styles.indicator} /><Body>Configúralo con instrucciones de tu equipo de salud</Body></View>
+        <View style={styles.sectionHeader}>
+          <Caption>PLAN DE MEDICIÓN</Caption>
+          <PrimaryButton label={measurementPlan ? 'Editar' : 'Configurar'} tone="quiet" onPress={() => router.push('/measurement-plan')} />
+        </View>
+        {measurementPlan ? <><Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text><Body>{measurementPlan.times.join(' · ')}</Body>{measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}</> : <View style={styles.planRow}><View style={styles.indicator} /><Body>Configúralo con instrucciones de tu equipo de salud</Body></View>}
       </Panel>
     </Screen>
   );
