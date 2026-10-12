@@ -192,7 +192,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       createdAt: current.createdAt,
       reminderState: 'unavailable',
     };
-    const scheduled = appointment.status === 'completed' || appointment.status === 'cancelled'
+    const scheduled = ['completed', 'missed', 'denied', 'cancelled'].includes(appointment.status)
       ? { state: 'unavailable' as const, notificationId: undefined }
       : await scheduleAppointmentReminder(appointment);
     const stored: Appointment = {
@@ -252,7 +252,7 @@ export function CareProvider({ children }: PropsWithChildren) {
 
   const updateAppointmentStatus = useCallback(async (appointmentId: string, status: Appointment['status']) => {
     const updated = await updateStoredAppointmentStatus(db, appointmentId, status);
-    if (status === 'completed' || status === 'cancelled') await cancelReminder(updated.notificationId);
+    if (['completed', 'missed', 'denied', 'cancelled'].includes(status)) await cancelReminder(updated.notificationId);
     setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
   }, [db]);
 

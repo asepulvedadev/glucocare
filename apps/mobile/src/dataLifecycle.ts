@@ -299,7 +299,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
     }
 
     for (const row of appointments) {
-      const status = enumValue(row, 'status', ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'] as const);
+      const status = enumValue(row, 'status', ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'missed', 'denied', 'cancelled'] as const);
       await db.runAsync(
         `INSERT INTO appointments (id, title, provider, specialty, insurer, authorization_number, facility, scheduled_at, requested_at, status, location, virtual_url, preparation_notes, notes, reminder_state, notification_id, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', NULL, ?)`,

@@ -93,7 +93,7 @@ export async function updateAppointmentStatus(db: SQLiteDatabase, appointmentId:
   if (!row) throw new Error('Appointment not found.');
   const current = mapRow(row);
   transitionAppointment(current.status, status);
-  const terminal = status === 'completed' || status === 'cancelled';
+  const terminal = status === 'completed' || status === 'missed' || status === 'denied' || status === 'cancelled';
   const updated = { ...current, status, reminderState: terminal ? 'unavailable' as const : current.reminderState };
   await db.withTransactionAsync(async () => {
     await db.runAsync('UPDATE appointments SET status = ?, reminder_state = ? WHERE id = ?', status, updated.reminderState, appointmentId);

@@ -69,7 +69,7 @@ export default function CareScreen() {
     }
   }
 
-  async function updateAppointment(appointmentId: string, status: 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'cancelled') {
+  async function updateAppointment(appointmentId: string, status: 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'missed' | 'denied' | 'cancelled' | 'requested') {
     setActingAppointmentId(appointmentId);
     try {
       await updateAppointmentStatus(appointmentId, status);
@@ -141,14 +141,14 @@ export default function CareScreen() {
         {isLoading ? <Body>Cargando citas…</Body> : appointments.length === 0 ? (
           <>
             <Text style={styles.title}>Sin próximas citas</Text>
-            <Body>Las citas mostrarán si están por autorizar, autorizadas, agendadas o completadas.</Body>
+            <Body>Las citas mostrarán si están por autorizar, autorizadas, agendadas, completadas o no asistidas.</Body>
           </>
         ) : appointments.map((appointment) => {
           const date = new Date(appointment.scheduledAt);
           return <View key={appointment.id} style={styles.appointmentRow}>
             <View style={styles.appointmentCopy}><Text style={styles.medicationName}>{appointment.title}</Text><Body>{appointment.provider}{appointment.specialty ? ` · ${appointment.specialty}` : ''} · {date.toLocaleDateString('es-CO')} {date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Body>{appointment.facility ? <Caption>{appointment.facility}</Caption> : null}{appointment.location ? <Caption>{appointment.location}</Caption> : null}{appointment.authorizationNumber ? <Caption>Autorización: {appointment.authorizationNumber}</Caption> : null}{appointment.preparationNotes ? <Caption>Preparación: {appointment.preparationNotes}</Caption> : null}{appointment.virtualUrl ? <Caption>Consulta virtual disponible</Caption> : null}<Text style={styles.status}>{appointmentStatusLabel[appointment.status]} · {appointment.reminderState === 'scheduled' ? 'Recordatorio activo' : 'Sin recordatorio'}</Text>
               <PrimaryButton label="Editar cita" tone="quiet" onPress={() => router.push({ pathname: '/appointment', params: { id: appointment.id } })} />
-              {availableAppointmentTransitions(appointment.status).length > 0 ? <View style={styles.occurrenceActions}>{availableAppointmentTransitions(appointment.status).map((nextStatus) => <PrimaryButton key={nextStatus} label={`Marcar ${appointmentStatusLabel[nextStatus].toLowerCase()}`} tone="quiet" disabled={actingAppointmentId === appointment.id} onPress={() => void updateAppointment(appointment.id, nextStatus as 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'cancelled')} />)}</View> : null}
+              {availableAppointmentTransitions(appointment.status).length > 0 ? <View style={styles.occurrenceActions}>{availableAppointmentTransitions(appointment.status).map((nextStatus) => <PrimaryButton key={nextStatus} label={`Marcar ${appointmentStatusLabel[nextStatus].toLowerCase()}`} tone="quiet" disabled={actingAppointmentId === appointment.id} onPress={() => void updateAppointment(appointment.id, nextStatus)} />)}</View> : null}
             </View>
           </View>;
         })}

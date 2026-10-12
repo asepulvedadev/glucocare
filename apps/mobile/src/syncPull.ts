@@ -30,7 +30,7 @@ function localRoute(route: string): MedicationRoute {
 }
 
 function localAppointmentStatus(status: string): AppointmentStatus {
-  return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'].includes(status) ? status as AppointmentStatus : 'requested';
+  return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'missed', 'denied', 'cancelled'].includes(status) ? status as AppointmentStatus : 'requested';
 }
 
 function localMealType(value: string): MealType {

@@ -1,11 +1,13 @@
 import type { AppointmentStatus } from '../types/appointments';
 
 const transitions: Record<AppointmentStatus, AppointmentStatus[]> = {
-  requested: ['pending_authorization', 'cancelled'],
-  pending_authorization: ['authorized', 'cancelled'],
+  requested: ['pending_authorization', 'authorized', 'cancelled'],
+  pending_authorization: ['authorized', 'denied', 'cancelled'],
   authorized: ['scheduled', 'cancelled'],
-  scheduled: ['completed', 'cancelled'],
+  scheduled: ['completed', 'missed', 'cancelled'],
   completed: [],
+  missed: ['requested'],
+  denied: ['requested'],
   cancelled: [],
 };
 

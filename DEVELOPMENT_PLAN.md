@@ -16,7 +16,7 @@ The first controlled beta is complete when a user can:
 4. see medication doses and reminders exactly as configured by the user/clinician;
 5. acknowledge, skip, or record a medication occurrence;
 6. add a consented trusted contact and send an urgent alert or place a call;
-7. view appointments and reminder states (`requested`, `pending_authorization`, `authorized`, `scheduled`, `completed`, `cancelled`);
+7. view appointments and reminder states (`requested`, `pending_authorization`, `authorized`, `scheduled`, `completed`, `missed`, `denied`, `cancelled`);
 8. review history, export it, and delete the account/data;
 9. use every safety-critical flow with TalkBack/VoiceOver, large text, reduced motion, and offline conditions.
 

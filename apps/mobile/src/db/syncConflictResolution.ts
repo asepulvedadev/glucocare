@@ -49,7 +49,7 @@ function localRoute(value: unknown) {
 }
 
 function localAppointmentStatus(value: unknown) {
-  return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'].includes(String(value)) ? String(value) : 'requested';
+  return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'missed', 'denied', 'cancelled'].includes(String(value)) ? String(value) : 'requested';
 }
 
 /**

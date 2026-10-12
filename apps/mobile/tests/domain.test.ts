@@ -16,9 +16,17 @@ import { measurementReminderDates } from '../src/domain/measurementReminder';
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
     expect(canTransitionAppointment('requested', 'pending_authorization')).toBe(true);
+    expect(canTransitionAppointment('requested', 'authorized')).toBe(true);
     expect(canTransitionAppointment('pending_authorization', 'authorized')).toBe(true);
     expect(canTransitionAppointment('authorized', 'scheduled')).toBe(true);
     expect(transitionAppointment('scheduled', 'completed')).toBe('completed');
+  });
+
+  it('preserves denied and missed outcomes without silently reopening care', () => {
+    expect(transitionAppointment('pending_authorization', 'denied')).toBe('denied');
+    expect(transitionAppointment('scheduled', 'missed')).toBe('missed');
+    expect(canTransitionAppointment('denied', 'requested')).toBe(true);
+    expect(canTransitionAppointment('missed', 'requested')).toBe(true);
   });
 
   it('rejects reopening a completed appointment', () => {
@@ -27,7 +35,7 @@ describe('appointment state machine', () => {
   });
 
   it('exposes only valid next actions for the appointment UI', () => {
-    expect(availableAppointmentTransitions('requested')).toEqual(['pending_authorization', 'cancelled']);
+    expect(availableAppointmentTransitions('requested')).toEqual(['pending_authorization', 'authorized', 'cancelled']);
     expect(availableAppointmentTransitions('authorized')).toEqual(['scheduled', 'cancelled']);
     expect(availableAppointmentTransitions('completed')).toEqual([]);
   });

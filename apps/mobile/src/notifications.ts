@@ -216,6 +216,9 @@ export async function reconcileMedicationReminder(medication: Medication) {
 }
 
 export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
+  if (appointment.status === 'completed' || appointment.status === 'missed' || appointment.status === 'denied' || appointment.status === 'cancelled') {
+    return { state: 'unavailable' };
+  }
   const appointmentAt = new Date(appointment.scheduledAt);
   const reminderAt = new Date(appointmentAt.getTime() - 24 * 60 * 60 * 1000);
   if (!Number.isFinite(appointmentAt.getTime()) || reminderAt.getTime() <= Date.now()) {
@@ -236,7 +239,7 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
 }
 
 export async function reconcileAppointmentReminder(appointment: Appointment) {
-  if (appointment.status === 'completed' || appointment.status === 'cancelled') {
+  if (appointment.status === 'completed' || appointment.status === 'missed' || appointment.status === 'denied' || appointment.status === 'cancelled') {
     await cancelReminder(appointment.notificationId);
     return { state: 'unavailable' as const };
   }

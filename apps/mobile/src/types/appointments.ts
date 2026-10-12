@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'requested' | 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'requested' | 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'missed' | 'denied' | 'cancelled';
 export type AppointmentReminderState = 'scheduled' | 'permission_denied' | 'unavailable';
 
 export type Appointment = {
@@ -29,5 +29,7 @@ export const appointmentStatusLabel: Record<AppointmentStatus, string> = {
   authorized: 'Autorizada',
   scheduled: 'Agendada',
   completed: 'Completada',
+  missed: 'No asistida',
+  denied: 'No autorizada',
   cancelled: 'Cancelada',
 };
