@@ -38,6 +38,10 @@ trap 'rm -f "$temporary" "$encrypted_temporary"' EXIT
 test -s "$temporary"
 if [ -n "$backup_recipient" ]; then
   command -v gpg >/dev/null 2>&1 || { printf 'glucocare-db-backup: gpg is required when GLUCOCARE_BACKUP_GPG_RECIPIENT is set\n' >&2; exit 1; }
+  gpg --batch --no-tty --list-keys "$backup_recipient" >/dev/null 2>&1 || {
+    printf 'glucocare-db-backup: configured GPG recipient is not present in the VPS keyring\n' >&2
+    exit 1
+  }
   destination="$backup_dir/glucocare-$stamp.dump.gpg"
   gpg --batch --yes --no-tty --trust-model always --recipient "$backup_recipient" \
     --output "$encrypted_temporary" --encrypt "$temporary"
