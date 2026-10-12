@@ -1,11 +1,11 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { markOutboxAcked, markOutboxBlocked, markOutboxFailed, listPendingOutbox, unblockOutboxByEntityType } from './db/outboxRepository';
+import { markOutboxAcked, markOutboxBlocked, markOutboxFailed, listPendingOutbox, listPendingPrivacyConsentOutbox, unblockOutboxByEntityType } from './db/outboxRepository';
 import { cloudApi, type AuthSession } from './cloudApi';
 import { getLastPulledAt } from './db/syncMetadataRepository';
 import { pullCloudData } from './syncPull';
 import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
 import { getPrivacyConsent } from './db/privacyRepository';
-import { canUploadEventForConsent } from './syncConsent';
+import { canUploadEventForConsent, isPrivacyRevocationEvent } from './syncConsent';
 
 export type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'consent_required' | 'failed';
@@ -18,17 +18,33 @@ export async function syncPendingData(db: SQLiteDatabase, session: AuthSession |
   if (!session) return { state: 'signed_out', uploaded: 0, failed: 0, downloaded: 0 };
   if (!cloudApi) return { state: 'disabled', uploaded: 0, failed: 0, downloaded: 0 };
   const consent = await getPrivacyConsent(db);
-  if (!consent?.localDataConsent || !consent.cloudSyncConsent) return { state: 'consent_required', uploaded: 0, failed: 0, downloaded: 0 };
-  if (consent.emergencySharingConsent) await unblockOutboxByEntityType(db, 'trusted_contact');
+  const cloudSyncAllowed = Boolean(consent?.localDataConsent && consent.cloudSyncConsent);
+  const pending = cloudSyncAllowed ? await listPendingOutbox(db) : [];
+  const privacyPending = cloudSyncAllowed ? pending : await listPendingPrivacyConsentOutbox(db);
+  const privacyRevocations = privacyPending.filter(isPrivacyRevocationEvent);
+  // A withdrawal is a safety-critical server authorization change. It must
+  // still reach the VPS after cloud sync is disabled, while ordinary health
+  // records remain local-only until the user opts back in.
+  if (!cloudSyncAllowed && privacyRevocations.length === 0) return { state: 'consent_required', uploaded: 0, failed: 0, downloaded: 0 };
+  if (cloudSyncAllowed && consent?.emergencySharingConsent) await unblockOutboxByEntityType(db, 'trusted_contact');
 
   let downloaded = 0;
   let failed = 0;
-  try { downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db), session); } catch { failed += 1; }
-
-  const pending = await listPendingOutbox(db);
+  if (cloudSyncAllowed) {
+    try { downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db), session); } catch { failed += 1; }
+  }
   let uploaded = 0;
-  for (const event of pending) {
-    if (!canUploadEventForConsent(event, consent)) { await markOutboxBlocked(db, event.id); continue; }
+  const eventsToUpload = cloudSyncAllowed ? pending : privacyRevocations;
+  const consentForUpload = consent ?? {
+    id: 'default' as const,
+    policyVersion: 'unknown',
+    localDataConsent: false,
+    cloudSyncConsent: false,
+    emergencySharingConsent: false,
+    updatedAt: new Date(0).toISOString(),
+  };
+  for (const event of eventsToUpload) {
+    if (!canUploadEventForConsent(event, consentForUpload)) { await markOutboxBlocked(db, event.id); continue; }
     try {
       await cloudApi.uploadEvent({ id: event.id, eventType: event.eventType, entityType: event.entityType, entityId: event.entityId, payload: event.payload }, session);
       if (event.entityType === 'glucose_reading') await db.runAsync(`UPDATE glucose_readings SET sync_state = 'synced' WHERE id = ?`, event.entityId);
@@ -43,6 +59,8 @@ export async function syncPendingData(db: SQLiteDatabase, session: AuthSession |
       failed += 1;
     }
   }
-  try { downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db), session); } catch { failed += 1; }
+  if (cloudSyncAllowed) {
+    try { downloaded += await pullCloudData(db, session.user.id, await getLastPulledAt(db), session); } catch { failed += 1; }
+  }
   return { state: failed > 0 ? 'failed' : 'synced', uploaded, failed, downloaded };
 }

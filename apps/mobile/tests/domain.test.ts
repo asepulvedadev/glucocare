@@ -9,7 +9,7 @@ import { assessGlucose, classifyGlucose, isCarePlanExpired, validateCarePlanThre
 import { conversionVersionForUnit, summarizeGlucose, toCanonicalMgDl, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, isImplausibleGlucoseValue, isValidGlucoseEntry, MAX_GLUCOSE_ENTRY_VALUE, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
-import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
+import { canUploadEventForConsent, cloudTrustedContactConsentStatus, isPrivacyRevocationEvent } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
 import { validateMedicationSchedule } from '../src/domain/medicationSchedule';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
@@ -336,6 +336,22 @@ describe('emergency configuration', () => {
     const config = getEmergencyConfig({ emergencyNumber: '  ', emergencyRegion: '' });
     expect(config.number).toBeTruthy();
     expect(config.region).toBeTruthy();
+  });
+});
+
+describe('privacy consent sync boundary', () => {
+  const cloudConsent = { id: 'default' as const, policyVersion: 'test', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true, updatedAt: '2026-10-12T00:00:00.000Z' };
+
+  it('uploads a privacy withdrawal after cloud sync is disabled', () => {
+    const withdrawal = { entityType: 'privacy_consent', payload: { localDataConsent: true, cloudSyncConsent: false, emergencySharingConsent: false } };
+    expect(isPrivacyRevocationEvent(withdrawal)).toBe(true);
+    expect(canUploadEventForConsent(withdrawal, { ...cloudConsent, cloudSyncConsent: false, emergencySharingConsent: false })).toBe(true);
+  });
+
+  it('does not upload a new remote grant while local cloud consent is disabled', () => {
+    const grant = { entityType: 'privacy_consent', payload: { localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true } };
+    expect(isPrivacyRevocationEvent(grant)).toBe(false);
+    expect(canUploadEventForConsent(grant, { ...cloudConsent, cloudSyncConsent: false, emergencySharingConsent: false })).toBe(false);
   });
 });
 

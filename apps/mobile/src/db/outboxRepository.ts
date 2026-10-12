@@ -50,6 +50,22 @@ export async function listPendingOutbox(db: SQLiteDatabase, limit = 20): Promise
     `SELECT * FROM sync_outbox WHERE status IN ('pending', 'failed') AND next_attempt_at <= ? ORDER BY created_at ASC LIMIT ?`,
     new Date().toISOString(), limit,
   );
+  return mapOutboxRows(rows);
+}
+
+/** Returns every retryable privacy event so a withdrawal cannot be hidden
+ * behind an unrelated backlog of ordinary health records. */
+export async function listPendingPrivacyConsentOutbox(db: SQLiteDatabase): Promise<PendingOutboxEvent[]> {
+  const rows = await db.getAllAsync<OutboxRow>(
+    `SELECT * FROM sync_outbox
+     WHERE entity_type = 'privacy_consent' AND status IN ('pending', 'failed') AND next_attempt_at <= ?
+     ORDER BY created_at ASC`,
+    new Date().toISOString(),
+  );
+  return mapOutboxRows(rows);
+}
+
+function mapOutboxRows(rows: OutboxRow[]): PendingOutboxEvent[] {
   return rows.map((row) => ({
     id: row.id, entityType: row.entity_type, entityId: row.entity_id, eventType: row.event_type,
     payload: JSON.parse(row.payload_json) as Record<string, unknown>, status: row.status,
