@@ -142,6 +142,11 @@ function validateGlucosePayload(payload: JsonObject) {
   // therefore have a canonical mg/dL projection up to 18,018.2; keep the
   // server boundary aligned with that explicit client confirmation path.
   if ('valueMgDl' in payload && payload.valueMgDl !== null && !isFiniteNumber(payload.valueMgDl, 0, 18018.2)) return 'INVALID_GLUCOSE_CANONICAL_VALUE';
+  if (typeof payload.value === 'number' && (payload.unit === 'mg/dL' || payload.unit === 'mmol/L')
+    && typeof payload.valueMgDl === 'number') {
+    const expected = Math.round((payload.unit === 'mmol/L' ? payload.value * 18.0182 : payload.value) * 100) / 100;
+    if (Math.abs(payload.valueMgDl - expected) > 0.01) return 'INVALID_GLUCOSE_CONVERSION_VALUE';
+  }
   if ('conversionVersion' in payload && payload.conversionVersion !== null && !isBoundedString(payload.conversionVersion, 64)) return 'INVALID_GLUCOSE_CONVERSION';
   if ('context' in payload && (typeof payload.context !== 'string' || !glucoseContexts.has(payload.context))) return 'INVALID_GLUCOSE_CONTEXT';
   if ('source' in payload && (typeof payload.source !== 'string' || !glucoseSources.has(payload.source))) return 'INVALID_GLUCOSE_SOURCE';
@@ -167,6 +172,18 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
   if (entityType === 'glucose_reading') {
     const glucoseError = validateGlucosePayload(payload);
     if (glucoseError) return glucoseError;
+    // Corrections emitted by the mobile audit trail wrap the normalized
+    // reading in `before`/`after`. Validate those projections too; otherwise
+    // a malformed nested value could bypass the same boundary checks applied
+    // to a newly recorded reading.
+    for (const field of ['before', 'after']) {
+      if (field in payload) {
+        const nested = objectValue(payload[field]);
+        if (!nested) return 'INVALID_GLUCOSE_CORRECTION';
+        const nestedError = validateGlucosePayload(nested);
+        if (nestedError) return nestedError;
+      }
+    }
   }
   if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
   return null;

@@ -135,6 +135,13 @@ incoming event timestamp is equal to or newer than the stored timestamp; an
 out-of-order stale retry remains in the append-only event log but cannot
 regress the current projection.
 
+For `glucose_reading` events the API bounds the original value, unit, context,
+risk provenance, timestamps, and canonical `valueMgDl`. When both original and
+canonical values are supplied, the server recomputes the deterministic
+`18.0182` mmol/L conversion (rounded to two decimals) and rejects mismatches.
+Correction events that contain `before`/`after` audit projections are validated
+recursively so a malformed nested reading cannot bypass the same boundary.
+
 ## Domain event catalog
 
 | Event | Notes |

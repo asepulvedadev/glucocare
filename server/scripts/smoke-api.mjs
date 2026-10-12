@@ -35,11 +35,21 @@ const invalidGlucoseValue = await fetch(`${baseUrl}/v1/sync/events`, { method: '
   payload: { value: 1001, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting' },
 }) });
 if (invalidGlucoseValue.status !== 400) throw new Error(`invalid glucose value returned ${invalidGlucoseValue.status}`);
+const invalidCanonicalValue = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { value: 100, unit: 'mmol/L', valueMgDl: 100, recordedAt: new Date().toISOString(), context: 'fasting' },
+}) });
+if (invalidCanonicalValue.status !== 400) throw new Error(`invalid glucose conversion returned ${invalidCanonicalValue.status}`);
 const invalidRiskRule = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
   payload: { value: 120, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting', riskClassification: 'urgent', riskRuleId: 'unsafe rule' },
 }) });
 if (invalidRiskRule.status !== 400) throw new Error(`invalid glucose risk metadata returned ${invalidRiskRule.status}`);
+const invalidNestedCorrection = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { before: { value: 120, unit: 'mg/dL' }, after: { value: 100, unit: 'mmol/L', valueMgDl: 100 } },
+}) });
+if (invalidNestedCorrection.status !== 400) throw new Error(`invalid nested glucose correction returned ${invalidNestedCorrection.status}`);
 const acceptedMmolBoundary = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
   payload: { value: 1000, unit: 'mmol/L', valueMgDl: 18018.2, recordedAt: new Date().toISOString(), context: 'other' },
