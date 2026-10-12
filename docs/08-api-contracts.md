@@ -25,7 +25,8 @@
 | `POST` | `/v1/sync/events` | Idempotent upload of one local outbox event. |
 | `GET` | `/v1/sync?since=...` | Pull the patient-scoped record projection after a cursor. |
 | `POST` | `/v1/contact-invitations` | Create a verified contact invitation and attempt provider delivery. |
-| `GET` | `/v1/contact-invitations/accept?token=...` | Accept scoped contact consent. |
+| `GET` | `/v1/contact-invitations/accept?token=...` | Accept scoped contact consent for JSON clients, or render the browser confirmation page when `Accept: text/html`. |
+| `POST` | `/v1/contact-invitations/accept` | Confirm the browser invitation form with its one-time token. |
 | `GET` | `/v1/contact-invitations` | Read the patient's pending/accepted invitation states. |
 | `POST` | `/v1/contact-invitations/revoke` | Revoke a contact invitation and future alerts. |
 | `POST` | `/v1/emergency-alerts` | Queue alerts only for accepted contacts. |
