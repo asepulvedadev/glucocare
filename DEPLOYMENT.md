@@ -53,7 +53,7 @@ exista una ruta TLS revisada.
 Antes del primer despliegue, como root en el VPS:
 
 ```bash
-install -o root -g root -m 0600 /dev/null /srv/glucocare/.env
+install -o glucocare-deploy -g glucocare-deploy -m 0600 /dev/null /srv/glucocare/.env
 ${EDITOR:-vi} /srv/glucocare/.env
 ```
 
@@ -75,6 +75,7 @@ Instala el backup diario después del primer deploy:
 install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-backup /usr/local/sbin/glucocare-db-backup
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.service /etc/systemd/system/glucocare-db-backup.service
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.timer /etc/systemd/system/glucocare-db-backup.timer
+install -o root -g root -m 0700 -d /srv/glucocare/backups
 systemctl daemon-reload
 systemctl enable --now glucocare-db-backup.timer
 systemctl start glucocare-db-backup.service

@@ -19,6 +19,7 @@ set -a
 . "$env_file"
 set +a
 : "${POSTGRES_DB:?POSTGRES_DB is required in $env_file}"
+: "${POSTGRES_USER:?POSTGRES_USER is required in $env_file}"
 
 install -d -o root -g root -m 0700 "$backup_dir"
 umask 077
@@ -29,7 +30,7 @@ trap 'rm -f "$temporary"' EXIT
 
 /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$compose_file" exec -T glucocare-db \
-  pg_dump --format=custom --no-owner --dbname="$POSTGRES_DB" > "$temporary"
+  pg_dump --format=custom --no-owner --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" > "$temporary"
 
 test -s "$temporary"
 mv "$temporary" "$destination"
