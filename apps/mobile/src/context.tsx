@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { insertGlucoseReading, listGlucoseReadings, type NewGlucoseReading } from './db/glucoseRepository';
+import { insertGlucoseReading, listGlucoseReadings, updateGlucoseReading, type NewGlucoseReading } from './db/glucoseRepository';
 import type { GlucoseReading } from './types/domain';
 import { getCarePlan } from './db/carePlanRepository';
 import { classifyGlucose } from './domain/glucoseRisk';
@@ -10,6 +10,7 @@ type GlucoseContextValue = {
   readings: GlucoseReading[];
   isLoading: boolean;
   addReading: (reading: NewGlucoseReading) => Promise<GlucoseReading>;
+  updateReading: (readingId: string, reading: NewGlucoseReading) => Promise<GlucoseReading>;
   refresh: () => Promise<void>;
 };
 
@@ -43,7 +44,23 @@ export function GlucoseProvider({ children }: PropsWithChildren) {
     return saved;
   }, [db]);
 
-  const value = useMemo(() => ({ readings, isLoading, addReading, refresh }), [readings, isLoading, addReading, refresh]);
+  const updateReading = useCallback(async (readingId: string, reading: NewGlucoseReading) => {
+    const before = readings.find((item) => item.id === readingId);
+    if (!before) throw new Error('Glucose reading not found.');
+    const carePlan = await getCarePlan(db);
+    const next: GlucoseReading = {
+      ...reading,
+      id: before.id,
+      syncState: 'pending',
+      riskClassification: classifyGlucose(reading.value, reading.unit, carePlan),
+    };
+    const saved = await updateGlucoseReading(db, before, next);
+    setReadings((current) => current.map((item) => item.id === saved.id ? saved : item).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)));
+    if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') void notifyUrgentGlucoseRisk(saved.riskClassification);
+    return saved;
+  }, [db, readings]);
+
+  const value = useMemo(() => ({ readings, isLoading, addReading, updateReading, refresh }), [readings, isLoading, addReading, updateReading, refresh]);
   return <GlucoseContext.Provider value={value}>{children}</GlucoseContext.Provider>;
 }
 

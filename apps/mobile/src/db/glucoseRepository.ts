@@ -4,6 +4,7 @@ import type { GlucoseRiskClassification } from '../types/carePlan';
 import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
 import { completeNearestMeasurementOccurrence } from './measurementOccurrenceRepository';
+import { insertGlucoseAuditEvent } from './glucoseAuditRepository';
 
 export type NewGlucoseReading = Omit<GlucoseReading, 'id' | 'syncState'>;
 
@@ -73,4 +74,31 @@ export async function insertGlucoseReading(
     // A measurement occurrence is an optional tracking projection; never block saving the reading.
   }
   return stored;
+}
+
+export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseReading, next: GlucoseReading, reason = 'user_corrected') {
+  const occurredAt = new Date().toISOString();
+  const audit = {
+    id: newId(),
+    readingId: next.id,
+    occurredAt,
+    action: 'corrected' as const,
+    reason,
+    before,
+    after: next,
+  };
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE glucose_readings SET value = ?, unit = ?, context = ?, source = ?, meal_offset_minutes = ?, recorded_at = ?, timezone = ?, utc_offset_minutes = ?, time_edited = ?, symptoms = ?, note = ?, sync_state = ?, risk_classification = ? WHERE id = ?`,
+      next.value, next.unit, next.context, next.source ?? 'manual', next.mealOffsetMinutes ?? null, next.recordedAt, next.timezone ?? null, next.utcOffsetMinutes ?? null, next.timeEdited ? 1 : 0, next.symptoms ?? null, next.note ?? null, next.syncState, next.riskClassification ?? null, next.id,
+    );
+    await insertGlucoseAuditEvent(db, audit);
+    await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: next.id, eventType: 'glucose.reading.corrected.v1', payload: audit as unknown as Record<string, unknown> });
+  });
+  try {
+    await completeNearestMeasurementOccurrence(db, next.id, next.recordedAt);
+  } catch {
+    // Measurement tracking remains an optional projection and must not block a correction.
+  }
+  return next;
 }

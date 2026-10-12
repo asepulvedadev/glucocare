@@ -101,7 +101,9 @@ export default function HistoryScreen() {
           {reading.source && reading.source !== 'manual' ? <Body>Origen: {reading.source === 'glucometer' ? 'Glucómetro' : reading.source}</Body> : null}
           {reading.note ? <Body>Nota: {reading.note}</Body> : null}
           {reading.riskClassification && reading.riskClassification !== 'unclassified' ? <Text style={styles.risk}>{glucoseRiskLabel[reading.riskClassification]}</Text> : null}
+          {reading.timeEdited ? <Caption>Hora corregida; se conserva el registro anterior.</Caption> : null}
           <Text style={styles.local}>{reading.syncState === 'synced' ? 'Sincronizado' : reading.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
+          <PrimaryButton label="Editar lectura" tone="quiet" onPress={() => router.push({ pathname: '/log', params: { id: reading.id } })} />
         </Panel>
         ))}
       </>}

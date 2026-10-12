@@ -128,6 +128,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     schemaVersion: 2,
     exportedAt,
     glucoseReadings: await rows(db, 'glucose_readings'),
+    glucoseAuditEvents: await rows(db, 'glucose_audit_events'),
     carePlan: await rows(db, 'care_plan'),
     medications: await rows(db, 'medications'),
     medicationOccurrences: await rows(db, 'medication_occurrences'),
@@ -191,6 +192,7 @@ async function clearLocalTables(db: SQLiteDatabase) {
   await db.runAsync('DELETE FROM measurement_occurrences');
   await db.runAsync('DELETE FROM medication_occurrences');
   await db.runAsync('DELETE FROM glucose_readings');
+  await db.runAsync('DELETE FROM glucose_audit_events');
   await db.runAsync('DELETE FROM care_plan');
   await db.runAsync('DELETE FROM medications');
   await db.runAsync('DELETE FROM appointments');
@@ -216,6 +218,7 @@ async function clearLocalTables(db: SQLiteDatabase) {
 export async function restoreFromExportContent(db: SQLiteDatabase, content: string) {
   const bundle = parseImport(content);
   const glucose = rowsFrom(bundle, 'glucoseReadings');
+  const glucoseAuditEvents = rowsFrom(bundle, 'glucoseAuditEvents');
   const carePlan = rowsFrom(bundle, 'carePlan');
   const medications = rowsFrom(bundle, 'medications');
   const medicationOccurrences = rowsFrom(bundle, 'medicationOccurrences');
@@ -242,6 +245,17 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
         requiredString(row, 'id'), nullableNumber(row, 'value') ?? (() => { throw new Error('Invalid value.'); })(), context, source, mealOffsetMinutes,
         requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
+      );
+    }
+
+    for (const row of glucoseAuditEvents) {
+      const beforeJson = requiredString(row, 'before_json');
+      const afterJson = requiredString(row, 'after_json');
+      JSON.parse(beforeJson);
+      JSON.parse(afterJson);
+      await db.runAsync(
+        `INSERT INTO glucose_audit_events (id, reading_id, occurred_at, action, reason, before_json, after_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'reading_id'), requiredString(row, 'occurred_at'), requiredString(row, 'action'), optionalString(row, 'reason'), beforeJson, afterJson,
       );
     }
 

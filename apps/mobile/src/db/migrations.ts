@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 27;
+const DATABASE_VERSION = 28;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -364,6 +364,22 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!glucoseColumns.some((column) => column.name === 'utc_offset_minutes')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN utc_offset_minutes INTEGER');
     if (!glucoseColumns.some((column) => column.name === 'time_edited')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN time_edited INTEGER NOT NULL DEFAULT 0');
     currentVersion = 27;
+  }
+
+  if (currentVersion < 28) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS glucose_audit_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        reading_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        action TEXT NOT NULL,
+        reason TEXT,
+        before_json TEXT NOT NULL,
+        after_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_glucose_audit_reading ON glucose_audit_events(reading_id, occurred_at DESC);
+    `);
+    currentVersion = 28;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

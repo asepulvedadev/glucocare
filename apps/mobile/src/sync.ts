@@ -41,12 +41,13 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
   switch (event.entityType) {
     case 'glucose_reading': {
       if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
+      const glucosePayload = payload.after && typeof payload.after === 'object' && !Array.isArray(payload.after) ? payload.after as Record<string, unknown> : payload;
       const { error } = await supabase.from('glucose_readings').upsert({
-        id: event.entityId, patient_id: patientId, value_original: Number(payload.value), unit_original: toUnit(payload.unit),
-        measured_at: stringValue(payload.recordedAt, new Date().toISOString()), recorded_at: stringValue(payload.recordedAt, new Date().toISOString()),
-        timezone: stringValue(payload.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), utc_offset_minutes: typeof payload.utcOffsetMinutes === 'number' ? payload.utcOffsetMinutes : null, time_edited: payload.timeEdited === true, context: toContext(payload.context), source: toSource(payload.source), meal_offset_minutes: typeof payload.mealOffsetMinutes === 'number' ? payload.mealOffsetMinutes : null,
-        symptoms: payload.symptoms ? [String(payload.symptoms)] : [], note: payload.note ? String(payload.note) : null,
-        classification: payload.riskClassification ? String(payload.riskClassification) : null,
+        id: event.entityId, patient_id: patientId, value_original: Number(glucosePayload.value), unit_original: toUnit(glucosePayload.unit),
+        measured_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()), recorded_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()),
+        timezone: stringValue(glucosePayload.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), utc_offset_minutes: typeof glucosePayload.utcOffsetMinutes === 'number' ? glucosePayload.utcOffsetMinutes : null, time_edited: glucosePayload.timeEdited === true, context: toContext(glucosePayload.context), source: toSource(glucosePayload.source), meal_offset_minutes: typeof glucosePayload.mealOffsetMinutes === 'number' ? glucosePayload.mealOffsetMinutes : null,
+        symptoms: glucosePayload.symptoms ? [String(glucosePayload.symptoms)] : [], note: glucosePayload.note ? String(glucosePayload.note) : null,
+        classification: glucosePayload.riskClassification ? String(glucosePayload.riskClassification) : null,
       });
       if (error) throw error;
       return;
