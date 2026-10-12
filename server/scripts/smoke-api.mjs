@@ -1,6 +1,8 @@
 import { createHmac } from 'node:crypto';
 
 const baseUrl = process.env.API_URL ?? 'http://127.0.0.1:18084';
+const expectedSmsInvitationStatus = process.env.EXPECTED_SMS_INVITATION_STATUS ?? 'not_configured';
+const expectedEmailInvitationStatus = process.env.EXPECTED_EMAIL_INVITATION_STATUS ?? 'not_configured';
 
 async function call(path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, { ...options, headers: { 'content-type': 'application/json', ...(options.headers ?? {}) } });
@@ -66,11 +68,12 @@ if (blockedAlert.status !== 400) throw new Error('unaccepted contact was allowed
 const unavailableInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
 if (unavailableInvitation.status !== 400) throw new Error('invitation allowed a channel without a contact address');
 const invitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'sms' }) });
-if (invitation.deliveryStatus !== 'not_configured') throw new Error(`unexpected invitation delivery state: ${invitation.deliveryStatus}`);
+if (invitation.deliveryStatus !== expectedSmsInvitationStatus) throw new Error(`unexpected SMS invitation delivery state: ${invitation.deliveryStatus}`);
 const acceptedInvitation = new URL(invitation.acceptUrl);
 const invitationAcceptance = await call(`${acceptedInvitation.pathname}${acceptedInvitation.search}`);
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');
 const emailInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId: emailContactId, channel: 'email' }) });
+if (emailInvitation.deliveryStatus !== expectedEmailInvitationStatus) throw new Error(`unexpected email invitation delivery state: ${emailInvitation.deliveryStatus}`);
 const emailInvitationUrl = new URL(emailInvitation.acceptUrl);
 const invitationPageResponse = await fetch(`${baseUrl}${emailInvitationUrl.pathname}${emailInvitationUrl.search}`, { headers: { accept: 'text/html' } });
 const invitationPage = await invitationPageResponse.text();

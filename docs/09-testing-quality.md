@@ -45,6 +45,12 @@ delivery is requeued with an attempt count and backoff, then returns a provider
 message ID and verifies the delivery and parent alert become
 `provider_accepted`.
 
+The same job starts `server/scripts/synthetic-provider.mjs` and runs the API
+smoke with Resend credentials pointed at that local provider. The smoke proves
+that an email invitation is reported as `provider_accepted` while an SMS
+invitation without Twilio credentials remains `not_configured`; it also keeps
+the provider path deterministic and network-free in CI.
+
 It also runs `server/scripts/smoke-provider-callback.mjs`: a signed synthetic
 callback moves a matching delivery to `delivered`, a late failure cannot regress
 that terminal state, and the callback endpoint rejects invalid signatures.
