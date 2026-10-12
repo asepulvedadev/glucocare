@@ -1,9 +1,8 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { isCloudConfigured, supabase } from './supabase';
+import { cloudApi, isCloudConfigured, type AuthSession } from './cloudApi';
 
 type AuthContextValue = {
-  session: Session | null;
+  session: AuthSession | null;
   isLoading: boolean;
   isConfigured: boolean;
   error: string | null;
@@ -15,58 +14,44 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function requireClient() {
-  if (!supabase) throw new Error('Cloud sync is not configured for this build.');
-  return supabase;
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(isCloudConfigured);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) { setSession(data.session); setIsLoading(false); }
+    if (!isCloudConfigured) return () => { active = false; };
+    void cloudApi.getStoredSession().then((stored) => {
+      if (active) { setSession(stored); setIsLoading(false); }
     }).catch(() => {
       if (active) { setError('No se pudo recuperar la sesión.'); setIsLoading(false); }
     });
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
-    return () => { active = false; subscription.subscription.unsubscribe(); };
+    return () => { active = false; };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const client = requireClient();
+    if (!isCloudConfigured) throw new Error('Cloud sync is not configured for this build.');
     setError(null);
-    const { error: signInError } = await client.auth.signInWithPassword({ email, password });
-    if (signInError) { setError(signInError.message); throw signInError; }
+    try { setSession(await cloudApi.signIn(email, password)); } catch (signInError) { const message = signInError instanceof Error ? signInError.message : 'No se pudo iniciar sesión.'; setError(message); throw signInError; }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const client = requireClient();
+    if (!isCloudConfigured) throw new Error('Cloud sync is not configured for this build.');
     setError(null);
-    const { data, error: signUpError } = await client.auth.signUp({ email, password });
-    if (signUpError) { setError(signUpError.message); throw signUpError; }
-    return { needsEmailConfirmation: !data.session };
+    try { setSession(await cloudApi.signUp(email, password)); return { needsEmailConfirmation: false }; } catch (signUpError) { const message = signUpError instanceof Error ? signUpError.message : 'No se pudo crear la cuenta.'; setError(message); throw signUpError; }
   }, []);
 
   const signOut = useCallback(async () => {
-    const client = requireClient();
     setError(null);
-    const { error: signOutError } = await client.auth.signOut();
-    if (signOutError) { setError(signOutError.message); throw signOutError; }
-  }, []);
+    try { await cloudApi.signOut(session); setSession(null); } catch (signOutError) { const message = signOutError instanceof Error ? signOutError.message : 'No se pudo cerrar sesión.'; setError(message); throw signOutError; }
+  }, [session]);
 
   const deleteAccount = useCallback(async () => {
-    const client = requireClient();
+    if (!session) throw new Error('No hay una sesión activa.');
     setError(null);
-    const { error: functionError } = await client.functions.invoke('delete-account', { body: { confirm: true } });
-    if (functionError) { setError(functionError.message); throw functionError; }
-    setSession(null);
-    await client.auth.signOut().catch(() => undefined);
-  }, []);
+    try { await cloudApi.deleteAccount(session); setSession(null); } catch (functionError) { const message = functionError instanceof Error ? functionError.message : 'No se pudo eliminar la cuenta.'; setError(message); throw functionError; }
+  }, [session]);
 
   const value = useMemo(() => ({ session, isLoading, isConfigured: isCloudConfigured, error, signIn, signUp, signOut, deleteAccount }), [session, isLoading, error, signIn, signUp, signOut, deleteAccount]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

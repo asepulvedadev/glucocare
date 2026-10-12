@@ -4,7 +4,6 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "@supabase/supabase-js": "^2.117.3",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
     "expo-document-picker": "~57.0.3",

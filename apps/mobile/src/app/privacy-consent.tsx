@@ -8,7 +8,7 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { usePrivacy } from '../privacyContext';
 import { useSafety } from '../safetyContext';
 import { useAuth } from '../authContext';
-import { supabase } from '../supabase';
+import { cloudApi } from '../cloudApi';
 import { colors, spacing } from '../theme/tokens';
 
 function ConsentRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
@@ -36,10 +36,9 @@ export default function PrivacyConsentScreen() {
     try {
       const withdrawingContactSharing = consent?.emergencySharingConsent === true && !emergencySharingConsent;
       let remoteRevocationFailures = 0;
-      if (withdrawingContactSharing && session && supabase) {
+      if (withdrawingContactSharing && session) {
         for (const contact of trustedContacts) {
-          const { error } = await supabase.functions.invoke('contact-invitation', { body: { action: 'revoke', contactId: contact.id } });
-          if (error) remoteRevocationFailures += 1;
+          try { await cloudApi.revokeInvitation(contact.id, session); } catch { remoteRevocationFailures += 1; }
         }
       }
       const revokedContacts = withdrawingContactSharing ? await revokeAllTrustedContactConsent() : 0;

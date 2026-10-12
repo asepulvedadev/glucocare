@@ -16,7 +16,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Glucose entries preserve the capture timezone, UTC offset, and whether the timestamp was edited for auditability.
 - Existing readings can be corrected from History; the previous and new snapshots are retained in a local append-only audit record and queued as `glucose.reading.corrected.v1`.
 - Medication, appointment, care-plan, measurement-plan, emergency-card, and trusted-contact edits also retain local before/after snapshots in `change_audit_events`; complete JSON backups preserve this audit trail.
-- When cloud sync is enabled, correction events are persisted through the private `record-glucose-audit` function; a missing function keeps the outbox pending instead of silently dropping the audit trail.
+- When cloud sync is enabled, correction events and care-plan changes are persisted through the private PostgreSQL API; a failed API keeps the outbox pending instead of silently dropping the audit trail.
 - Optional clinician-provided glucose thresholds with deterministic, non-diagnostic risk labels and urgent foreground guidance.
 - Urgent clinician-configured glucose risks also surface a privacy-preserving local notification when notification permission is already granted; saving a reading never requires notification permission.
 - Local history persisted across app restarts.
@@ -48,7 +48,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Native users can optionally enable biometric/device-passcode app lock from Profile. The emergency help route remains available without unlocking; Face ID requires a native development or release build, not Expo Go.
 - The web companion shows an explicit capability notice: it supports recording, review, and export, but does not promise native alarms or delivery while the tab is closed.
 - A redacted error boundary keeps a rendering failure from hiding emergency help or exposing health data in logs.
-- Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.
+- Optional VPS API session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's PostgreSQL records.
 - Cursor sync performs a pull-before-push pass. If a remote edit arrives while a local event is still pending, the local record is preserved and an explicit conflict is stored locally. Profile lets the user either keep the pending local event for retry or explicitly apply a supported remote projection.
 - Cloud account deletion workflow that leaves local data available until the user separately deletes it.
 - SQLCipher config enabled for native builds; web SQLite uses the documented WASM/COOP/COEP setup.
@@ -86,7 +86,7 @@ The repository includes a manual GitHub Actions workflow at [`.github/workflows/
 
 `eas.json` defines development, preview, and production channels. Signing credentials, EAS project ID, and store metadata remain release-environment configuration and must not be committed.
 
-Cloud sync is opt-in and disabled until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are supplied. See [`../../supabase/README.md`](../../supabase/README.md) before linking a hosted project.
+Cloud sync is opt-in and disabled until `EXPO_PUBLIC_API_URL` points to the reviewed GlucoCare API. PostgreSQL credentials remain only on the VPS; see [`../../server/README.md`](../../server/README.md).
 
 Conflict records are intentionally visible from Profile after a sync failure. They contain only the local and remote projections needed to explain the decision; the app never silently replaces a pending local health record with a remote copy. Remote resolution is limited to projections with a tested local mapping.
 

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AuthSession } from '../../cloudApi';
 import { Alert, Platform, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,7 +20,7 @@ import { useAccessibility } from '../../accessibilityContext';
 import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictRepository';
 import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
-import { supabase } from '../../supabase';
+import { cloudApi } from '../../cloudApi';
 import { openNotificationSettings, sendTestNotification } from '../../notifications';
 import * as LocalAuthentication from 'expo-local-authentication';
 import type { GlucoseUnit } from '../../types/domain';
@@ -36,14 +36,11 @@ const invitationStatusLabel: Record<InvitationStatus, string> = {
   expired: 'Invitación vencida',
 };
 
-async function fetchInvitationStatuses(session: Session | null) {
-  if (!session || !supabase) return {} as Record<string, InvitationStatus>;
-  const { data } = await supabase
-    .from('contact_invitations')
-    .select('contact_id,status,created_at')
-    .order('created_at', { ascending: false });
+async function fetchInvitationStatuses(session: AuthSession | null) {
+  if (!session) return {} as Record<string, InvitationStatus>;
+  const { invitations } = await cloudApi.listInvitationStatuses(session);
   const next: Record<string, InvitationStatus> = {};
-  for (const invitation of data ?? []) {
+  for (const invitation of invitations) {
     if (!next[invitation.contact_id]) next[invitation.contact_id] = invitation.status as InvitationStatus;
   }
   return next;

@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { supabase } from './supabase';
+import { cloudApi, type AuthSession } from './cloudApi';
 import type { GlucoseContext, GlucoseSource, GlucoseUnit } from './types/domain';
 import type { GlucoseRiskClassification, CarePlan } from './types/carePlan';
 import type { MedicationRoute } from './types/care';
@@ -9,6 +9,8 @@ import { setLastPulledAt } from './db/syncMetadataRepository';
 import { listPendingSyncEntities } from './db/outboxRepository';
 import { recordSyncConflict } from './db/syncConflictRepository';
 import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
+
+type LegacyRecord = Record<string, any>;
 
 function localUnit(unit: string): GlucoseUnit {
   return unit === 'mmol_l' ? 'mmol/L' : 'mg/dL';
@@ -54,26 +56,39 @@ function localDateOnly(value: string | null | undefined) {
   return typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : undefined;
 }
 
-export async function pullCloudData(db: SQLiteDatabase, patientId: string, since: string) {
-  if (!supabase) return 0;
-  // Freeze the pull window before querying so records committed while this pull
-  // is in flight are picked up by the next run instead of being skipped.
-  const until = new Date().toISOString();
-  const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, mealEventsResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
-    supabase.from('glucose_readings').select('id,value_original,value_mg_dl,conversion_version,unit_original,measured_at,context,source,meal_offset_minutes,symptoms,note,ketone_result,classification,timezone,utc_offset_minutes,time_edited,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('medications').select('id,name,dose_text,route,prescriber_name,instructions,start_date,end_date,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
-    supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('appointments').select('id,title,provider,specialty,insurer,authorization_number,facility,scheduled_at,requested_at,status,location,virtual_url,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,window_index,meal_event_id,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('meal_events').select('id,meal_type,occurred_at,note,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,timings_json,windows_json,weekdays_json,effective_from,effective_to,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,diagnosis_year,insulin_use,allergies,critical_conditions,care_provider,care_facility,insurer,policy_number,emergency_number,emergency_region,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
-    supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-  ]);
-  const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, mealEventsResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
-  if (errors.length) throw errors[0].error;
+export async function pullCloudData(db: SQLiteDatabase, patientId: string, since: string, session: AuthSession) {
+  const snapshot = await cloudApi.pull(since, session);
+  const records = snapshot.records;
+  const collect = (entityType: string): LegacyRecord[] => records.filter((record) => record.entity_type === entityType).map((record) => ({ ...record.payload, id: record.entity_id, updated_at: record.updated_at }));
+  const glucoseResult = { data: collect('glucose_reading').map((record) => {
+    const payload = record.after && typeof record.after === 'object' && !Array.isArray(record.after) ? record.after as Record<string, unknown> : record;
+    return {
+      id: record.id, value_original: payload.value, value_mg_dl: payload.valueMgDl, conversion_version: payload.conversionVersion,
+      unit_original: payload.unit === 'mmol/L' ? 'mmol_l' : 'mg_dl', measured_at: payload.recordedAt, context: payload.context,
+      source: payload.source, meal_offset_minutes: payload.mealOffsetMinutes, symptoms: payload.symptoms ? [String(payload.symptoms)] : [],
+      note: payload.note ?? null, ketone_result: payload.ketoneResult, classification: payload.riskClassification,
+      timezone: payload.timezone, utc_offset_minutes: payload.utcOffsetMinutes, time_edited: payload.timeEdited, updated_at: record.updated_at,
+    };
+  }) };
+  const medicationRecords = collect('medication');
+  const medicationsResult = { data: medicationRecords.map((record) => ({
+    id: record.id, name: record.name, dose_text: record.doseText, route: record.route, prescriber_name: record.prescriberName ?? null,
+    instructions: record.instructions ?? null, start_date: record.startDate ?? null, end_date: record.endDate ?? null,
+    enabled: record.enabled !== false, created_at: record.createdAt ?? record.updated_at,
+  })) };
+  const schedulesResult = { data: medicationRecords.map((record) => ({ medication_id: record.id, times_json: record.times ?? [], revision_number: 1 })) };
+  const medicationOccurrencesResult = { data: collect('medication_occurrence').map((record) => ({ id: record.id, medication_id: record.medicationId, scheduled_at: record.scheduledAt, status: record.status, acted_at: record.actedAt ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const appointmentsResult = { data: collect('appointment').map((record) => ({ id: record.id, title: record.title, provider: record.provider, specialty: record.specialty ?? null, insurer: record.insurer ?? null, authorization_number: record.authorizationNumber ?? null, facility: record.facility ?? null, scheduled_at: record.scheduledAt, requested_at: record.requestedAt ?? record.createdAt, status: record.status, location: record.location ?? null, virtual_url: record.virtualUrl ?? null, preparation_notes: record.preparationNotes ?? record.notes ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const measurementOccurrencesResult = { data: collect('measurement_occurrence').map((record) => ({ id: record.id, plan_revision_id: record.planId ?? 'default', scheduled_at: record.scheduledAt, window_index: record.windowIndex ?? null, meal_event_id: record.mealEventId ?? null, status: record.status, completed_reading_id: record.completedReadingId ?? null, completed_at: record.completedAt ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const mealEventsResult = { data: collect('meal_event').map((record) => ({ id: record.id, meal_type: record.mealType, occurred_at: record.occurredAt, note: record.note ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const planRecords = collect('measurement_plan');
+  const planResult = { data: planRecords.length ? { revision_number: 1, readings_per_day: planRecords[0].readingsPerDay, times_json: planRecords[0].times ?? [], timings_json: planRecords[0].timings ?? [], windows_json: planRecords[0].windows ?? [], weekdays_json: planRecords[0].weekdays ?? [1, 2, 3, 4, 5, 6, 7], effective_from: planRecords[0].effectiveFrom ?? null, effective_to: planRecords[0].effectiveTo ?? null, instructions: planRecords[0].instructions ?? null, created_at: planRecords[0].updatedAt ?? planRecords[0].updated_at } : null };
+  const careRecords = collect('care_plan');
+  const carePlanResult = { data: careRecords.length ? { revision_number: 1, target_bands: { low: careRecords[0].lowThreshold ?? null, urgent_low: careRecords[0].urgentLowThreshold ?? null, high: careRecords[0].highThreshold ?? null, urgent_high: careRecords[0].urgentHighThreshold ?? null }, symptom_actions: careRecords[0].instructions ? [careRecords[0].instructions] : [], clinician_verified: careRecords[0].clinicianVerified === true, created_at: careRecords[0].updatedAt ?? careRecords[0].updated_at, effective_from: careRecords[0].effectiveFrom ?? null, effective_to: careRecords[0].effectiveTo ?? null, source: careRecords[0].source ?? null } : null };
+  const cardRecords = collect('emergency_card');
+  const cardResult = { data: cardRecords.length ? { patient_id: patientId, full_name: cardRecords[0].fullName, birth_date: cardRecords[0].birthDate ?? null, diabetes_type: cardRecords[0].diabetesType ?? null, diagnosis_year: cardRecords[0].diagnosisYear ?? null, insulin_use: cardRecords[0].insulinUse ?? null, allergies: cardRecords[0].allergies ?? null, critical_conditions: cardRecords[0].criticalConditions ?? null, care_provider: cardRecords[0].careProvider ?? null, care_facility: cardRecords[0].careFacility ?? null, insurer: cardRecords[0].insurer ?? null, policy_number: cardRecords[0].policyNumber ?? null, emergency_number: cardRecords[0].emergencyNumber ?? null, emergency_region: cardRecords[0].emergencyRegion ?? null, emergency_notes: cardRecords[0].emergencyNotes ?? null, updated_at: cardRecords[0].updatedAt ?? cardRecords[0].updated_at } : null };
+  const contactsResult = { data: collect('trusted_contact').map((record) => ({ id: record.id, name: record.name, relationship: record.relationship ?? null, phone: record.phone ?? null, email: record.email ?? null, consent_status: record.revoked ? 'revoked' : record.consentGranted ? 'accepted' : 'pending', created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const until = snapshot.until;
 
   const pending = await listPendingSyncEntities(db);
   const pendingByEntity = new Map(pending.map((event) => [`${event.entityType}:${event.entityId}`, event]));

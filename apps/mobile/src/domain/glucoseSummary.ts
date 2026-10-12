@@ -23,7 +23,7 @@ export function toMgDl(value: number, unit: GlucoseUnit) {
   return unit === 'mmol/L' ? value * MG_DL_PER_MMOL_L : value;
 }
 
-/** Canonical storage precision matches Supabase numeric(8,2). */
+/** Canonical storage precision matches the PostgreSQL numeric(8,2) backend. */
 export function toCanonicalMgDl(value: number, unit: GlucoseUnit) {
   return Math.round(toMgDl(value, unit) * 100) / 100;
 }
