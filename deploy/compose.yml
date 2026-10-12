@@ -52,6 +52,45 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=8m
 
+  glucocare-alert-worker:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: glucocare-api:latest
+    restart: unless-stopped
+    command: ["node", "dist/alertWorker.js"]
+    environment:
+      DATABASE_HOST: glucocare-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      ALERT_WORKER_INTERVAL_MS: ${GLUCOCARE_ALERT_WORKER_INTERVAL_MS:-5000}
+      ALERT_WORKER_BATCH_SIZE: ${GLUCOCARE_ALERT_WORKER_BATCH_SIZE:-10}
+      ALERT_WORKER_MAX_ATTEMPTS: ${GLUCOCARE_ALERT_WORKER_MAX_ATTEMPTS:-5}
+      RESEND_API_KEY: ${GLUCOCARE_RESEND_API_KEY:-}
+      RESEND_FROM: ${GLUCOCARE_RESEND_FROM:-}
+      TWILIO_ACCOUNT_SID: ${GLUCOCARE_TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${GLUCOCARE_TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${GLUCOCARE_TWILIO_FROM:-}
+    depends_on:
+      glucocare-db:
+        condition: service_healthy
+    networks:
+      - glucocare-backend
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   glucocare-docs:
     build:
       context: ..

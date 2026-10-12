@@ -107,10 +107,10 @@ checks container health, both localhost health endpoints, and the COOP/COEP
 headers needed by the web SQLite worker. Install its systemd timer before beta;
 the timer is a detection mechanism, not a substitute for on-call alerting.
 
-The API records alert requests and delivery states on the VPS. Provider adapters
-remain disabled until credentials and an operator-owned worker are configured;
-until then no delivery is claimed and the mobile app shows the queued/unavailable
-state.
+The API records alert requests and delivery states on the VPS. The private
+worker is deployed with email and SMS adapters disabled by default; operators
+must provide reviewed credentials before enabling either channel. Until then no
+delivery is claimed and the mobile app shows the queued/unavailable state.
 
 The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
 PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd

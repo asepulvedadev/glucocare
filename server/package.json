@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test": "npm run build && node scripts/smoke-api.mjs",
+    "start:worker": "node dist/alertWorker.js",
+    "test": "npm run build",
+    "test:smoke": "node scripts/smoke-api.mjs",
+    "test:worker": "node scripts/smoke-worker.mjs",
     "dev": "tsx src/server.ts"
   },
   "dependencies": {

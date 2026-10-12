@@ -8,7 +8,8 @@ This repository contains GlucoCare product/design documentation, the Expo mobile
 
 - Host: AutoKing VPS (`2.24.115.58`), shared with other services.
 - Deployment user: dedicated non-root `glucocare-deploy`.
-- Containers: `glucocare-docs`, `glucocare-web`, `glucocare-api`, and `glucocare-db`.
+- Containers: `glucocare-docs`, `glucocare-web`, `glucocare-api`,
+  `glucocare-alert-worker`, and `glucocare-db`.
 - Compose project name: `glucocare` (explicit to avoid collisions with other `deploy` directories on the shared VPS).
 - Host bindings: `127.0.0.1:18080` (docs), `127.0.0.1:18082` (Expo web), and `127.0.0.1:18084` (API health).
 - No nginx public route or new port is opened by this deployment.
@@ -61,9 +62,14 @@ El archivo debe contener los valores de [`deploy/.env.example`](deploy/.env.exam
 con una contraseña aleatoria larga. Nunca se copia al repositorio ni al bundle
 móvil. El deploy estricto aborta si falta el archivo o sus permisos no son 600.
 
-El API ejecuta `server/migrations/001_initial.sql` al arrancar, de forma
-idempotente. El cambio de esquema se verifica con el health check antes de
-aceptar el release.
+El API y el worker ejecutan todas las migraciones numeradas de
+`server/migrations/` al arrancar, de forma idempotente. El cambio de esquema se
+verifica con el health check antes de aceptar el release.
+
+El worker privado procesa entregas únicamente cuando existe un proveedor
+configurado. Las credenciales opcionales permanecen en `/srv/glucocare/.env` y
+nunca llegan al bundle móvil. Sin credenciales, el sistema conserva el estado
+`not_configured` y no afirma que el contacto fue notificado.
 
 ### Backups de PostgreSQL
 

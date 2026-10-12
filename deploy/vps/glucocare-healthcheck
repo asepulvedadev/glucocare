@@ -10,6 +10,7 @@ web_container="glucocare-glucocare-web-1"
 docs_container="glucocare-docs"
 api_container="glucocare-glucocare-api-1"
 db_container="glucocare-glucocare-db-1"
+alert_worker_container="glucocare-glucocare-alert-worker-1"
 
 log() {
   printf '%s glucocare-health %s\n' "$(date -u +%FT%H:%M:%SZ)" "$*"
@@ -45,6 +46,7 @@ require_healthy "$web_container"
 require_healthy "$docs_container"
 require_healthy "$api_container"
 require_healthy "$db_container"
+require_healthy "$alert_worker_container"
 check_http http://127.0.0.1:18080/healthz
 check_http http://127.0.0.1:18082/healthz
 check_http http://127.0.0.1:18084/healthz

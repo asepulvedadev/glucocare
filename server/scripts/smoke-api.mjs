@@ -41,7 +41,7 @@ const acceptedInvitation = new URL(invitation.acceptUrl);
 const invitationAcceptance = await call(`${acceptedInvitation.pathname}${acceptedInvitation.search}`);
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');
 const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
-if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'not_configured') throw new Error('alert was not queued honestly');
+if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'queued') throw new Error('alert was not queued honestly');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 if (deliveries.deliveries.length !== 1) throw new Error('expected one alert delivery');
 console.log('api-smoke=passed');

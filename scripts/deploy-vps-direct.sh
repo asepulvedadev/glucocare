@@ -78,6 +78,7 @@ sshpass -e ssh \
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-docs)" = healthy
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-api-1)" = healthy
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-db-1)" = healthy
+   test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-alert-worker-1)" = healthy
    curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null
    curl --fail --silent http://127.0.0.1:18082/healthz >/dev/null
    curl --fail --silent http://127.0.0.1:18084/healthz | grep -q database

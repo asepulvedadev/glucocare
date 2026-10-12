@@ -39,7 +39,8 @@ wait_for_health() {
     docs_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-docs 2>/dev/null || true)
     api_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-api-1 2>/dev/null || true)
     db_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-db-1 2>/dev/null || true)
-    if [ "$web_status" = healthy ] && [ "$docs_status" = healthy ] && [ "$api_status" = healthy ] && [ "$db_status" = healthy ] && /usr/bin/curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null && /usr/bin/curl --fail --silent http://127.0.0.1:18084/healthz >/dev/null; then
+    worker_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-alert-worker-1 2>/dev/null || true)
+    if [ "$web_status" = healthy ] && [ "$docs_status" = healthy ] && [ "$api_status" = healthy ] && [ "$db_status" = healthy ] && [ "$worker_status" = healthy ] && /usr/bin/curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null && /usr/bin/curl --fail --silent http://127.0.0.1:18084/healthz >/dev/null; then
       return 0
     fi
     sleep 2

@@ -53,9 +53,11 @@ CRUD for health records passes through the versioned VPS API; sensitive multi-st
 }
 ```
 
-Response `202 Accepted` means queued, not delivered. The API returns `400
-INVALID_ALERT_CONTACTS` unless every contact has a non-expired accepted
-invitation:
+Response `202 Accepted` means queued, not delivered. A private VPS worker later
+transitions each channel to `provider_accepted`, `not_configured`, or `failed`;
+provider acceptance still does not prove that a person read the message. The
+API returns `400 INVALID_ALERT_CONTACTS` unless every contact has a non-expired
+accepted invitation:
 
 ```json
 {
@@ -91,7 +93,7 @@ patient.
 | Event | Notes |
 |---|---|
 | `glucose.reading.recorded.v1` | Append-only; includes original/canonical unit values. |
-| `glucose.reading.corrected.v1` | References original and audit reason. Mobile sync persists the immutable cloud audit through the private `record-glucose-audit` function; retries reuse the outbox event UUID. |
+| `glucose.reading.corrected.v1` | References original and audit reason. The VPS API persists the immutable audit event in PostgreSQL; retries reuse the outbox event UUID. |
 | `care_plan.revision.activated.v1` | Immutable revision and effective time. |
 | `medication.occurrence.responded.v1` | Due/snoozed occurrence taken, skipped, snoozed, or marked not recorded with user time; planned doses first emit a due event at their scheduled instant. |
 | `appointment.updated.v1` | Replaces editable appointment details and reschedules the local reminder. |

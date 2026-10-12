@@ -282,20 +282,22 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
   try {
     await client.query('BEGIN');
     const alert = await client.query<{ id: string }>(
-      `INSERT INTO emergency_alerts (id, patient_id, incident_id, status) VALUES ($1, $2, $3, 'not_configured')
-       ON CONFLICT (patient_id, incident_id) DO UPDATE SET status = 'not_configured' RETURNING id`, [alertId, user.id, incidentId],
+      `INSERT INTO emergency_alerts (id, patient_id, incident_id, status) VALUES ($1, $2, $3, 'queued')
+       ON CONFLICT (patient_id, incident_id) DO UPDATE SET status = 'queued' RETURNING id`, [alertId, user.id, incidentId],
     );
     const persistedAlertId = alert.rows[0].id;
     await client.query('DELETE FROM alert_deliveries WHERE alert_id = $1', [persistedAlertId]);
     for (const contactId of contactIds) {
       for (const channel of channels) {
         await client.query(
-          `INSERT INTO alert_deliveries (id, alert_id, contact_id, channel, status, failure_code) VALUES ($1, $2, $3, $4, 'not_configured', 'PROVIDER_NOT_CONFIGURED')`, [randomUUID(), persistedAlertId, contactId, channel],
+          `INSERT INTO alert_deliveries (id, alert_id, contact_id, channel, status, failure_code, next_attempt_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [randomUUID(), persistedAlertId, contactId, channel, 'queued', null, new Date()],
         );
       }
     }
     await client.query('COMMIT');
-    send(response, 202, { alertId: persistedAlertId, status: 'queued', deliveries: contactIds.flatMap((contactId) => channels.map((channel) => ({ contactId, channel, status: 'not_configured' }))) });
+    send(response, 202, { alertId: persistedAlertId, status: 'queued', deliveries: contactIds.flatMap((contactId) => channels.map((channel) => ({ contactId, channel, status: 'queued' }))) });
     return;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
