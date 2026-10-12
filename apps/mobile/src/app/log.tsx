@@ -9,6 +9,7 @@ import { useGlucose } from '../context';
 import { glucoseContextLabel, type GlucoseContext, type GlucoseUnit } from '../types/domain';
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
+import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 
 export default function LogScreen() {
@@ -17,6 +18,7 @@ export default function LogScreen() {
   const [unit, setUnit] = useState<GlucoseUnit>('mg/dL');
   const [context, setContext] = useState<GlucoseContext>('other');
   const [symptoms, setSymptoms] = useState('');
+  const [urgentSymptoms, setUrgentSymptoms] = useState(false);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   async function save() {
@@ -26,7 +28,13 @@ export default function LogScreen() {
     }
     setSaving(true);
     try {
-      const saved = await addReading({ value: numericValue, unit, context, recordedAt: new Date().toISOString(), symptoms: symptoms.trim() || undefined, note: note.trim() || undefined });
+      const symptomsValue = [urgentSymptoms ? URGENT_SYMPTOM_NOTICE : '', symptoms.trim()].filter(Boolean).join('. ');
+      const saved = await addReading({ value: numericValue, unit, context, recordedAt: new Date().toISOString(), symptoms: symptomsValue || undefined, note: note.trim() || undefined });
+      if (hasUrgentSymptoms(saved.symptoms)) {
+        Alert.alert('Busca ayuda ahora', 'Los síntomas graves requieren ayuda humana aunque la lectura parezca normal. Llama a emergencias o usa la pantalla de ayuda.', [{ text: 'Abrir ayuda', onPress: () => router.replace('/help') }, { text: 'Cerrar', style: 'cancel', onPress: () => router.back() }]);
+        if (Platform.OS === 'web') router.replace('/help');
+        return;
+      }
       if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') {
         Alert.alert('Revisa tu plan de ayuda', `${glucoseRiskLabel[saved.riskClassification]}. Sigue las instrucciones de tu equipo de salud o llama a emergencias si te sientes muy mal.`, [{ text: 'Entendido', onPress: () => router.back() }]);
         if (Platform.OS === 'web') router.back();
@@ -59,6 +67,11 @@ export default function LogScreen() {
       </Panel>
       <Panel>
         <Caption>OPCIONAL</Caption>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: urgentSymptoms }} onPress={() => setUrgentSymptoms((current) => !current)} style={styles.symptomFlag}>
+          <Text style={[styles.flagBox, urgentSymptoms && styles.flagBoxSelected]}>{urgentSymptoms ? '✓' : ''}</Text>
+          <Text style={styles.flagText}>Me siento muy mal o tengo síntomas graves</Text>
+        </Pressable>
+        <Body>Si marcas esta opción, te mostraremos ayuda urgente aunque el número no parezca anormal.</Body>
         <TextInput accessibilityLabel="Síntomas" value={symptoms} onChangeText={setSymptoms} placeholder="¿Notas algún síntoma?" placeholderTextColor={colors.textDisabled} style={styles.textInput} />
         <TextInput accessibilityLabel="Nota" value={note} onChangeText={setNote} placeholder="Añade una nota" placeholderTextColor={colors.textDisabled} style={[styles.textInput, styles.multiline]} multiline />
       </Panel>
@@ -67,4 +80,4 @@ export default function LogScreen() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({ close: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }, closeText: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' }, valueRow: { gap: spacing.md }, input: { color: colors.textPrimary, fontSize: 48, fontWeight: '700', minHeight: 68, padding: 0 }, unitToggle: { flexDirection: 'row', gap: spacing.xs }, unitOption: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border }, unitSelected: { backgroundColor: colors.amber, borderColor: colors.amber }, unitText: { color: colors.textSecondary, fontWeight: '600' }, unitSelectedText: { color: colors.canvas }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }, chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border }, chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber }, chipText: { color: colors.textSecondary, fontSize: 14 }, chipSelectedText: { color: colors.textPrimary }, textInput: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16 }, multiline: { minHeight: 84, textAlignVertical: 'top', paddingTop: spacing.sm }, disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg } });
+const styles = StyleSheet.create({ close: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }, closeText: { color: colors.textSecondary, fontSize: 15, fontWeight: '600' }, valueRow: { gap: spacing.md }, input: { color: colors.textPrimary, fontSize: 48, fontWeight: '700', minHeight: 68, padding: 0 }, unitToggle: { flexDirection: 'row', gap: spacing.xs }, unitOption: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border }, unitSelected: { backgroundColor: colors.amber, borderColor: colors.amber }, unitText: { color: colors.textSecondary, fontWeight: '600' }, unitSelectedText: { color: colors.canvas }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }, chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border }, chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber }, chipText: { color: colors.textSecondary, fontSize: 14 }, chipSelectedText: { color: colors.textPrimary }, symptomFlag: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, flagBox: { width: 28, height: 28, lineHeight: 26, textAlign: 'center', color: colors.textSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radii.sm, fontSize: 20 }, flagBoxSelected: { color: colors.canvas, backgroundColor: colors.amber, borderColor: colors.amber }, flagText: { flex: 1, color: colors.textPrimary, fontSize: 16, lineHeight: 22 }, textInput: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16 }, multiline: { minHeight: 84, textAlignVertical: 'top', paddingTop: spacing.sm }, disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg } });

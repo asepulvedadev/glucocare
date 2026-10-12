@@ -6,6 +6,7 @@ import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } fro
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 import { classifyGlucose, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
+import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -79,6 +80,14 @@ describe('clinician-provided glucose risk plan', () => {
 
   it('converts mmol/L using an explicit fixed conversion for comparison', () => {
     expect(classifyGlucose(10.5, 'mmol/L', { id: 'default', ...plan, clinicianVerified: true, updatedAt: new Date().toISOString() })).toBe('high');
+  });
+});
+
+describe('symptom safety escalation', () => {
+  it('preserves an explicit severe-symptom signal independently of glucose value', () => {
+    expect(hasUrgentSymptoms(URGENT_SYMPTOM_NOTICE)).toBe(true);
+    expect(hasUrgentSymptoms(`${URGENT_SYMPTOM_NOTICE}. Me siento confundido`)).toBe(true);
+    expect(hasUrgentSymptoms('Cansancio leve')).toBe(false);
   });
 });
 
