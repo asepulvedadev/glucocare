@@ -1,4 +1,6 @@
-export const colors = {
+import { Appearance } from 'react-native';
+
+const darkColors = {
   canvas: '#0B0D0F',
   surface: '#14181B',
   surfaceRaised: '#1C2226',
@@ -13,6 +15,25 @@ export const colors = {
   info: '#75B7D8',
   border: '#2A3135',
 } as const;
+
+const lightColors = {
+  canvas: '#FFF9EF',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F2EBDD',
+  textPrimary: '#171717',
+  textSecondary: '#514B43',
+  textDisabled: '#77736C',
+  amber: '#9A5F00',
+  amberDeep: '#C17A00',
+  teal: '#087A5A',
+  attention: '#A85F00',
+  urgent: '#B83C36',
+  info: '#23617D',
+  border: '#D8D0C4',
+} as const;
+
+export const isLightTheme = Appearance.getColorScheme() === 'light';
+export const colors = isLightTheme ? lightColors : darkColors;
 
 export const spacing = {
   xs: 8,

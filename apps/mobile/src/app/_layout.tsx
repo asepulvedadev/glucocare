@@ -9,7 +9,7 @@ import { SafetyProvider } from '../safetyContext';
 import { AuthProvider, useAuth } from '../authContext';
 import { AccessibilityProvider, useAccessibility } from '../accessibilityContext';
 import { migrateDbIfNeeded } from '../db/migrations';
-import { colors } from '../theme/tokens';
+import { colors, isLightTheme } from '../theme/tokens';
 import { PrivacyProvider } from '../privacyContext';
 import { syncPendingData } from '../sync';
 
@@ -67,7 +67,7 @@ export default function RootLayout() {
               <SyncBridge />
               <CareProvider>
                 <SafetyProvider>
-                <StatusBar style="light" />
+                <StatusBar style={isLightTheme ? 'dark' : 'light'} />
                 <AppNavigator />
                 </SafetyProvider>
               </CareProvider>

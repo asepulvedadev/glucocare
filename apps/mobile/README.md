@@ -33,6 +33,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.
 - Appointment records with authorization workflow, editable scheduling details, and reminder rescheduling when a date changes.
 - Device-local accessibility preferences for large text, high contrast, simple mode, and reduced motion.
+- Native and web builds follow the operating-system light/dark appearance with accessible theme tokens; high-contrast text remains available in either scheme.
 - Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.
 - Cursor sync performs a pull-before-push pass. If a remote edit arrives while a local event is still pending, the local record is preserved and an explicit conflict is stored locally. Profile lets the user either keep the pending local event for retry or explicitly apply a supported remote projection.
 - Cloud account deletion workflow that leaves local data available until the user separately deletes it.
