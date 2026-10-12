@@ -154,4 +154,5 @@ jobs:
           node scripts/smoke-api.mjs
           ALERT_WORKER_ONCE=true node dist/alertWorker.js >/tmp/glucocare-alert-worker.log 2>&1
           npm run test:worker
+          node scripts/smoke-provider-retry.mjs
           grep -q 'glucocare-alert-worker' /tmp/glucocare-alert-worker.log

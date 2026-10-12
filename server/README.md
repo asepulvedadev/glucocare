@@ -53,3 +53,9 @@ devuelve un identificador. No convierte esa aceptación en `delivered`: los
 callbacks de entrega requieren una integración y una revisión operacional. Sin
 credenciales o sin un dato de contacto válido, la entrega queda explícitamente
 en `not_configured`.
+
+The provider adapter accepts `RESEND_API_URL` and `TWILIO_API_BASE_URL` only as
+test overrides; production keeps the official provider endpoints. CI uses a
+local synthetic HTTP server to prove that a transient provider failure is
+requeued with backoff and later becomes `provider_accepted` only after a
+successful provider response.
