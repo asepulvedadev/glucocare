@@ -34,6 +34,11 @@ public unauthenticated URL. The worker claims at most 50 rows per invocation,
 retries transient provider failures with bounded backoff, and recovers queued
 claims abandoned for more than 10 minutes.
 
+Before every provider request it re-checks the contact's `accepted` consent and
+`emergency` event permission. Revoking a contact therefore prevents a queued
+delivery from being dispatched; the row becomes a non-retryable
+`CONTACT_CONSENT_REVOKED` failure for auditability.
+
 ## Operational checks
 
 - `provider_accepted` means the provider accepted the request, not that a

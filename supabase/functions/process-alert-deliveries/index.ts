@@ -7,7 +7,13 @@ type DeliveryRow = {
   channel: Channel;
   contact_id: string;
   attempt_count: number;
-  trusted_contacts: { name: string; email: string | null; phone: string | null } | null;
+  trusted_contacts: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    consent_status: string;
+    allowed_event_types: string[] | null;
+  } | null;
 };
 
 const jsonHeaders = { "Content-Type": "application/json" };
@@ -64,6 +70,11 @@ async function sendSms(contact: NonNullable<DeliveryRow["trusted_contacts"]>) {
 
 async function sendDelivery(row: DeliveryRow) {
   if (!row.trusted_contacts) return { status: "failed" as const, failureCode: "CONTACT_NOT_FOUND" };
+  // A delivery can remain queued while the patient or contact revokes
+  // consent. Queue creation is not proof that dispatch is still authorized.
+  if (row.trusted_contacts.consent_status !== "accepted" || !(row.trusted_contacts.allowed_event_types ?? []).includes("emergency")) {
+    return { status: "failed" as const, failureCode: "CONTACT_CONSENT_REVOKED" };
+  }
   if (row.channel === "email") return sendEmail(row.trusted_contacts);
   if (row.channel === "sms") return sendSms(row.trusted_contacts);
   return { status: "unknown" as const, failureCode: `${row.channel.toUpperCase()}_PROVIDER_NOT_CONFIGURED` };
@@ -90,7 +101,7 @@ Deno.serve(async (request) => {
     .lt("claimed_at", staleClaimBefore);
   if (leaseError) return json({ error: { code: "CLAIM_RECOVERY_FAILED", message: "Delivery claims could not be recovered." } }, 500);
   const { data: queued, error: loadError } = await admin.from("alert_deliveries")
-    .select("id,channel,contact_id,attempt_count,trusted_contacts(name,email,phone)")
+    .select("id,channel,contact_id,attempt_count,trusted_contacts(name,email,phone,consent_status,allowed_event_types)")
     .eq("status", "queued").lte("next_attempt_at", now).is("claimed_at", null).limit(MAX_BATCH);
   if (loadError) return json({ error: { code: "QUEUE_LOOKUP_FAILED", message: "The queue could not be read." } }, 500);
 
