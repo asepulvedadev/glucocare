@@ -20,6 +20,20 @@ type JsonObject = Record<string, unknown>;
 type AuthenticatedRequest = IncomingMessage & { user?: AuthUser; token?: string };
 
 function send(response: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
+  // A 204 response is explicitly bodyless. Passing `{}` to response.end()
+  // would produce an invalid payload for clients that enforce the HTTP
+  // semantics instead of silently discarding it.
+  if (status === 204) {
+    response.writeHead(status, {
+      'cache-control': 'no-store',
+      'access-control-allow-origin': process.env.CORS_ORIGIN ?? '*',
+      'access-control-allow-headers': 'authorization, content-type, idempotency-key',
+      'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+      ...headers,
+    });
+    response.end();
+    return;
+  }
   const serialized = JSON.stringify(body);
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',

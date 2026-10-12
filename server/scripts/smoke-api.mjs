@@ -208,6 +208,11 @@ const alertConflict = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'P
 if (alertConflict.status !== 409) throw new Error('alert incident accepted a different delivery set');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 if (deliveries.deliveries.length !== 2) throw new Error('expected one delivery per available contact channel');
+const signoutResponse = await fetch(`${baseUrl}/v1/auth/signout`, { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` } });
+const signoutBody = await signoutResponse.text();
+if (signoutResponse.status !== 204 || signoutBody !== '') throw new Error(`signout must return an empty 204 response, got ${signoutResponse.status}: ${signoutBody}`);
+const signedOutSync = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` } });
+if (signedOutSync.status !== 401) throw new Error('signed-out session remained usable');
 const revokedContactId = crypto.randomUUID();
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(),
