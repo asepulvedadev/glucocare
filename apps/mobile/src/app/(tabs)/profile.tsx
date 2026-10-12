@@ -53,7 +53,7 @@ export default function ProfileScreen() {
   const db = useSQLiteContext();
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
-  const { session, isConfigured: isCloudConfigured } = useAuth();
+  const { session, isConfigured: isCloudConfigured, deleteAccount } = useAuth();
   const { preferences, setPreference, setGlucoseUnit, refresh: refreshAccessibility } = useAccessibility();
   const { consent, refresh: refreshPrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
@@ -114,6 +114,29 @@ export default function ProfileScreen() {
       else Alert.alert('Sincronización lista', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}.`);
     } catch { Alert.alert('Sincronización no disponible', 'No se pudo conectar. Tu información local permanece intacta.'); }
     finally { setSyncing(false); }
+  }
+
+  function requestDeleteAccount() {
+    if (!session) return;
+    const run = () => void (async () => {
+      setSyncing(true);
+      try {
+        await deleteAccount();
+        Alert.alert('Cuenta eliminada', 'La cuenta cloud y sus datos remotos fueron solicitados para eliminación. Tus datos locales permanecen en este dispositivo; puedes borrarlos por separado desde esta pantalla.');
+      } catch {
+        Alert.alert('No se pudo borrar la cuenta', 'No confirmamos la eliminación remota. Tus datos locales permanecen intactos.');
+      } finally {
+        setSyncing(false);
+      }
+    })();
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.('Esta acción elimina tu cuenta cloud y sus datos remotos. Los datos locales no se borrarán automáticamente. ¿Continuar?')) run();
+      return;
+    }
+    Alert.alert('Borrar cuenta cloud', 'Esta acción elimina la cuenta y los datos remotos. Los datos locales no se borrarán automáticamente.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar cuenta', style: 'destructive', onPress: run },
+    ]);
   }
 
   function requestRemoteConflict(conflict: SyncConflict) {
@@ -291,6 +314,7 @@ export default function ProfileScreen() {
         {session ? <><Text style={styles.title}>Cuenta conectada</Text><Body>{session.user.email ?? 'Sesión activa'} · tus registros locales pueden sincronizarse.</Body></> : <><Text style={styles.title}>Solo este dispositivo</Text><Body>{isCloudConfigured ? 'Conecta una cuenta para continuar entre dispositivos.' : 'La nube aún no está configurada en este entorno. Tus datos locales siguen disponibles.'}</Body></>}
         <PrimaryButton label={session ? 'Administrar cuenta' : 'Conectar cuenta'} tone="quiet" onPress={() => router.push('/auth')} />
         {session ? <PrimaryButton label={syncing ? 'Sincronizando…' : 'Sincronizar ahora'} tone="quiet" disabled={syncing} onPress={() => void syncNow()} /> : null}
+        {session ? <PrimaryButton label="Borrar cuenta cloud" tone="urgent" disabled={syncing} onPress={requestDeleteAccount} /> : null}
       </Panel>
       {syncConflicts.length > 0 ? <Panel tone="urgent">
         <Caption>CAMBIOS EN DOS DISPOSITIVOS</Caption>
