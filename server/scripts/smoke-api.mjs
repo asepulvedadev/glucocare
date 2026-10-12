@@ -30,6 +30,16 @@ const invalidEventType = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POS
   eventId: crypto.randomUUID(), eventType: 'not valid', entityType: 'glucose_reading', entityId: crypto.randomUUID(), payload: { value: 120, unit: 'mg/dL' },
 }) });
 if (invalidEventType.status !== 400) throw new Error(`invalid event type returned ${invalidEventType.status}`);
+const invalidGlucoseValue = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { value: 1001, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting' },
+}) });
+if (invalidGlucoseValue.status !== 400) throw new Error(`invalid glucose value returned ${invalidGlucoseValue.status}`);
+const invalidRiskRule = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { value: 120, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting', riskClassification: 'urgent', riskRuleId: 'unsafe rule' },
+}) });
+if (invalidRiskRule.status !== 400) throw new Error(`invalid glucose risk metadata returned ${invalidRiskRule.status}`);
 const callbackPayload = JSON.stringify({ providerMessageId: `unknown-${suffix}`, status: 'delivered' });
 const callbackHeaders = { 'content-type': 'application/json' };
 const callbackSecret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
@@ -43,7 +53,7 @@ if (callbackSecret) {
 const eventId = crypto.randomUUID();
 const entityId = crypto.randomUUID();
 const initialRecordedAt = new Date(Date.now() - 3_000).toISOString();
-const event = { eventId, eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId, payload: { value: 120, unit: 'mg/dL', recordedAt: initialRecordedAt, context: 'fasting' } };
+const event = { eventId, eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId, payload: { value: 120, unit: 'mg/dL', recordedAt: initialRecordedAt, context: 'fasting', riskClassification: 'in_range', riskRuleId: 'care-plan.in-range', riskPlanUpdatedAt: initialRecordedAt } };
 const accepted = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}`, 'idempotency-key': eventId }, body: JSON.stringify(event) });
 if (accepted.status !== 'accepted') throw new Error(`expected accepted event, got ${accepted.status}`);
 const repeated = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify(event) });
@@ -58,6 +68,7 @@ const own = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { a
 const ownReading = own.records.find((record) => record.entity_id === entityId);
 if (!ownReading) throw new Error('owner cannot read its own record');
 if (ownReading.payload.value !== 125) throw new Error(`stale event regressed projection: ${JSON.stringify(ownReading.payload)}`);
+if (ownReading.payload.riskRuleId !== 'care-plan.in-range') throw new Error('risk rule provenance was not preserved');
 const secondDeviceView = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` } });
 const secondDeviceReading = secondDeviceView.records.find((record) => record.entity_id === entityId);
 if (secondDeviceReading?.payload.value !== 125) throw new Error('second device did not converge on the newest projection');

@@ -122,11 +122,48 @@ function isValidMedicationSchedule(value: unknown) {
   return false;
 }
 
+const glucoseContexts = new Set(['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms', 'other']);
+const glucoseSources = new Set(['manual', 'import', 'cgm', 'glucometer']);
+const ketoneResults = new Set(['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown']);
+const riskClassifications = new Set(['unclassified', 'in_range', 'low', 'urgent_low', 'high', 'urgent_high']);
+
+function isFiniteNumber(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > minimum && value <= maximum;
+}
+
+function isBoundedString(value: unknown, maximum: number): value is string {
+  return typeof value === 'string' && value.length <= maximum;
+}
+
+function validateGlucosePayload(payload: JsonObject) {
+  if ('value' in payload && !isFiniteNumber(payload.value, 0, 1000)) return 'INVALID_GLUCOSE_VALUE';
+  if ('unit' in payload && payload.unit !== 'mg/dL' && payload.unit !== 'mmol/L') return 'INVALID_GLUCOSE_UNIT';
+  if ('valueMgDl' in payload && payload.valueMgDl !== null && !isFiniteNumber(payload.valueMgDl, 0, 1000)) return 'INVALID_GLUCOSE_CANONICAL_VALUE';
+  if ('conversionVersion' in payload && payload.conversionVersion !== null && !isBoundedString(payload.conversionVersion, 64)) return 'INVALID_GLUCOSE_CONVERSION';
+  if ('context' in payload && (typeof payload.context !== 'string' || !glucoseContexts.has(payload.context))) return 'INVALID_GLUCOSE_CONTEXT';
+  if ('source' in payload && (typeof payload.source !== 'string' || !glucoseSources.has(payload.source))) return 'INVALID_GLUCOSE_SOURCE';
+  if ('mealOffsetMinutes' in payload && payload.mealOffsetMinutes !== null && (!Number.isInteger(payload.mealOffsetMinutes) || Number(payload.mealOffsetMinutes) < 0 || Number(payload.mealOffsetMinutes) > 1440)) return 'INVALID_MEAL_OFFSET';
+  if ('timezone' in payload && payload.timezone !== null && !isBoundedString(payload.timezone, 128)) return 'INVALID_GLUCOSE_TIMEZONE';
+  if ('utcOffsetMinutes' in payload && payload.utcOffsetMinutes !== null && (!Number.isInteger(payload.utcOffsetMinutes) || Number(payload.utcOffsetMinutes) < -840 || Number(payload.utcOffsetMinutes) > 840)) return 'INVALID_GLUCOSE_OFFSET';
+  if ('timeEdited' in payload && typeof payload.timeEdited !== 'boolean') return 'INVALID_GLUCOSE_EDIT_FLAG';
+  if ('symptoms' in payload && !(isBoundedString(payload.symptoms, 4096) || (Array.isArray(payload.symptoms) && payload.symptoms.length <= 32 && payload.symptoms.every((item) => isBoundedString(item, 256))))) return 'INVALID_GLUCOSE_SYMPTOMS';
+  if ('note' in payload && payload.note !== null && !isBoundedString(payload.note, 4096)) return 'INVALID_GLUCOSE_NOTE';
+  if ('ketoneResult' in payload && payload.ketoneResult !== null && (typeof payload.ketoneResult !== 'string' || !ketoneResults.has(payload.ketoneResult))) return 'INVALID_KETONE_RESULT';
+  if ('riskClassification' in payload && payload.riskClassification !== null && (typeof payload.riskClassification !== 'string' || !riskClassifications.has(payload.riskClassification))) return 'INVALID_RISK_CLASSIFICATION';
+  if ('riskRuleId' in payload && payload.riskRuleId !== null && (typeof payload.riskRuleId !== 'string' || !/^[a-z][a-z0-9_.-]{0,127}$/.test(payload.riskRuleId))) return 'INVALID_RISK_RULE';
+  if ('riskPlanUpdatedAt' in payload && payload.riskPlanUpdatedAt !== null && (typeof payload.riskPlanUpdatedAt !== 'string' || Number.isNaN(Date.parse(payload.riskPlanUpdatedAt)))) return 'INVALID_RISK_PLAN_DATE';
+  return null;
+}
+
 function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
   if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
   if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card'))) return 'INVALID_ENTITY_ID';
   for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt']) {
     if (field in payload && (typeof payload[field] !== 'string' || Number.isNaN(Date.parse(String(payload[field]))))) return 'INVALID_EVENT_DATE';
+  }
+  if (entityType === 'glucose_reading') {
+    const glucoseError = validateGlucosePayload(payload);
+    if (glucoseError) return glucoseError;
   }
   if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
   return null;

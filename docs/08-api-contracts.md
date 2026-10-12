@@ -9,7 +9,7 @@
 - Errors use stable machine codes plus safe, localized client copy.
 - Client-provided patient IDs never bypass authorization derived from the authenticated relationship.
 - Clinical values are not placed in URLs, query strings, tracing baggage, or provider metadata.
-- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, and emergency-card IDs), invalid event timestamps, and invalid medication schedule metadata before PostgreSQL persistence.
+- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, and emergency-card IDs), invalid event timestamps, invalid glucose values/units/contexts/risk metadata, and invalid medication schedule metadata before PostgreSQL persistence.
 
 ## Authentication model
 
