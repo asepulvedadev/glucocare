@@ -8,7 +8,7 @@ describe('clinician report', () => {
       generatedAt: '2026-10-12T12:00:00.000Z',
       periodLabel: 'Últimos 7 días',
       card: { full_name: '<Ana>', birth_date: null, diabetes_type: 'Tipo 2', allergies: null, care_provider: null, care_facility: null, emergency_notes: null },
-      readings: [{ value: 120, unit: 'mg/dL', context: 'fasting', recorded_at: '2026-10-12T10:00:00.000Z', symptoms: '<script>', note: null, risk_classification: null }],
+      readings: [{ value: 120, unit: 'mg/dL', context: 'fasting', recorded_at: '2026-10-12T10:00:00.000Z', symptoms: '<script>', note: null, ketone_result: 'moderate', risk_classification: null }],
       medications: [],
       appointments: [],
       meals: [{ meal_type: 'lunch', occurred_at: '2026-10-12T12:00:00.000Z', note: '<note>' }],
@@ -21,6 +21,8 @@ describe('clinician report', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('no calcula dosis');
     expect(html).toContain('Lecturas de glucosa');
+    expect(html).toContain('Cetonas registradas');
+    expect(html).toContain('Moderadas');
     expect(html).toContain('Periodo: Últimos 7 días');
     expect(html).toContain('Historial de tomas');
     expect(html).toContain('Metformin');

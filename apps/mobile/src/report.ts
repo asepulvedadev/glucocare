@@ -1,3 +1,5 @@
+import { ketoneResultLabel } from './types/domain';
+
 export type ClinicianReportReading = {
   value: number;
   unit: string;
@@ -7,6 +9,7 @@ export type ClinicianReportReading = {
   recorded_at: string;
   symptoms: string | null;
   note: string | null;
+  ketone_result?: string | null;
   risk_classification: string | null;
 };
 export type ClinicianReportMedication = { name: string; dose_text: string; route: string; prescriber_name?: string | null; instructions?: string | null; start_date?: string | null; end_date?: string | null; times_json: string | null; enabled: number };
@@ -46,7 +49,7 @@ export function buildClinicianReportHtml(input: {
   corrections?: ClinicianReportCorrection[];
 }) {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const readingRows = input.readings.length ? input.readings.map((reading) => `<tr><td>${reportDate(reading.recorded_at)}</td><td><strong>${escapeHtml(reading.value)} ${escapeHtml(reading.unit)}</strong></td><td>${escapeHtml(reading.context)}${reading.meal_offset_minutes !== null && reading.meal_offset_minutes !== undefined ? `<br>${escapeHtml(reading.meal_offset_minutes)} min después` : ''}</td><td>${escapeHtml(reading.source || 'manual')}</td><td>${escapeHtml(reading.risk_classification || 'Sin clasificación')}</td><td>${escapeHtml(reading.symptoms || reading.note || '—')}</td></tr>`).join('') : '<tr><td colspan="6" class="muted">Sin lecturas registradas.</td></tr>';
+  const readingRows = input.readings.length ? input.readings.map((reading) => `<tr><td>${reportDate(reading.recorded_at)}</td><td><strong>${escapeHtml(reading.value)} ${escapeHtml(reading.unit)}</strong></td><td>${escapeHtml(reading.context)}${reading.meal_offset_minutes !== null && reading.meal_offset_minutes !== undefined ? `<br>${escapeHtml(reading.meal_offset_minutes)} min después` : ''}</td><td>${escapeHtml(reading.source || 'manual')}</td><td>${escapeHtml(reading.risk_classification || 'Sin clasificación')}</td><td>${escapeHtml(reading.ketone_result && reading.ketone_result in ketoneResultLabel ? ketoneResultLabel[reading.ketone_result as keyof typeof ketoneResultLabel] : 'No revisadas')}</td><td>${escapeHtml(reading.symptoms || reading.note || '—')}</td></tr>`).join('') : '<tr><td colspan="7" class="muted">Sin lecturas registradas.</td></tr>';
   const medicationRows = input.medications.length ? input.medications.map((medication) => {
     let times = '—';
     try {
@@ -71,7 +74,7 @@ export function buildClinicianReportHtml(input: {
     @page{size:letter;margin:18mm}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#1d1d1b;font-size:11px;line-height:1.45}h1{font-size:24px;margin:0 0 2px}h2{font-size:15px;margin:22px 0 7px;border-bottom:2px solid #ffbe55;padding-bottom:3px}p{margin:4px 0}.muted{color:#68635b}table{width:100%;border-collapse:collapse;margin-top:6px;page-break-inside:auto}th,td{border:1px solid #d8d2c8;padding:5px;text-align:left;vertical-align:top}th{background:#f5efe6;font-size:10px}tr{page-break-inside:avoid}.meta{color:#68635b;font-size:10px}.warning{background:#fff4df;border-left:4px solid #ffbe55;padding:8px;margin:12px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}.label{font-weight:700;color:#68635b;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
   </style></head><body><h1>Reporte de seguimiento — GlucoCare</h1><p class="meta">Generado el ${reportDate(generatedAt)} · Periodo: ${escapeHtml(input.periodLabel || 'Todo el historial')} · Información proporcionada por la persona usuaria</p><div class="warning">Este documento organiza registros para conversar con el equipo de salud. No es un diagnóstico, no calcula dosis y no reemplaza una atención médica.</div>
   <h2>Datos de la persona</h2><div class="grid"><p><span class="label">Nombre</span><br>${escapeHtml(card?.full_name || '—')}</p><p><span class="label">Fecha de nacimiento</span><br>${escapeHtml(card?.birth_date || '—')}</p><p><span class="label">Tipo de diabetes</span><br>${escapeHtml(card?.diabetes_type || '—')}</p><p><span class="label">Año de diagnóstico</span><br>${escapeHtml(card?.diagnosis_year || '—')}</p><p><span class="label">Uso de insulina</span><br>${escapeHtml(card?.insulin_use || '—')}</p><p><span class="label">Alergias</span><br>${escapeHtml(card?.allergies || '—')}</p><p><span class="label">Condiciones críticas</span><br>${escapeHtml(card?.critical_conditions || '—')}</p><p><span class="label">Profesional</span><br>${escapeHtml(card?.care_provider || '—')}</p><p><span class="label">Centro de atención</span><br>${escapeHtml(card?.care_facility || '—')}</p><p><span class="label">EPS/asegurador</span><br>${escapeHtml(card?.insurer || '—')}</p><p><span class="label">Póliza/afiliación</span><br>${escapeHtml(card?.policy_number || '—')}</p></div>${card?.emergency_notes ? `<p><span class="label">Notas para emergencia</span><br>${escapeHtml(card.emergency_notes)}</p>` : ''}
-  <h2>Lecturas de glucosa</h2><table><thead><tr><th>Fecha/hora</th><th>Valor</th><th>Contexto</th><th>Origen</th><th>Clasificación registrada</th><th>Síntomas/nota</th></tr></thead><tbody>${readingRows}</tbody></table>
+  <h2>Lecturas de glucosa</h2><table><thead><tr><th>Fecha/hora</th><th>Valor</th><th>Contexto</th><th>Origen</th><th>Clasificación registrada</th><th>Cetonas registradas</th><th>Síntomas/nota</th></tr></thead><tbody>${readingRows}</tbody></table>
   <h2>Medicamentos y horarios</h2><table><thead><tr><th>Medicamento</th><th>Dosis indicada</th><th>Vía</th><th>Horarios</th><th>Vigencia</th><th>Origen/instrucciones</th><th>Estado</th></tr></thead><tbody>${medicationRows}</tbody></table>
   <h2>Registro de comidas</h2><table><thead><tr><th>Fecha/hora</th><th>Tipo</th><th>Nota</th></tr></thead><tbody>${mealRows}</tbody></table>
   <h2>Historial de tomas</h2><table><thead><tr><th>Programada</th><th>Medicamento</th><th>Dosis</th><th>Estado</th><th>Registrada</th></tr></thead><tbody>${medicationOccurrenceRows}</tbody></table>

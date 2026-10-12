@@ -14,6 +14,7 @@ import { medicationReminderDates } from '../src/domain/medicationReminder';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
 import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
 import { exportRangeSince } from '../src/domain/exportRange';
+import { ketoneResultLabel } from '../src/types/domain';
 
 describe('export ranges', () => {
   it('returns a deterministic rolling UTC lower bound and preserves all-history exports', () => {
@@ -21,6 +22,14 @@ describe('export ranges', () => {
     expect(exportRangeSince(7, now)).toBe('2026-10-05T15:00:00.000Z');
     expect(exportRangeSince(30, now)).toBe('2026-09-12T15:00:00.000Z');
     expect(exportRangeSince('all', now)).toBeNull();
+  });
+});
+
+describe('structured ketone capture', () => {
+  it('keeps strip results as labels without interpreting them', () => {
+    expect(ketoneResultLabel.not_checked).toBe('No revisadas');
+    expect(ketoneResultLabel.moderate).toBe('Moderadas');
+    expect(Object.keys(ketoneResultLabel)).toHaveLength(7);
   });
 });
 

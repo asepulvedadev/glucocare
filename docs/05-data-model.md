@@ -66,11 +66,11 @@ Relationship-based authorization for `owner`, `caregiver`, `clinician`, or `supp
 | `timezone` / `utc_offset_minutes` | text/int | Original local context. |
 | `recorded_at` | timestamptz | Creation time. |
 | `time_edited` | boolean | Indicates manual correction. |
-| `context` | enum | fasting/pre/post meal/etc. |
+| `context` | enum | fasting/pre/post meal, bedtime, exercise, illness, symptoms, or other. |
 | `meal_offset_minutes` | int nullable | For post-meal interpretation. |
 | `source` | enum | manual/import/cgm/glucometer. |
 | `symptoms` | text[]/join table | Controlled vocabulary + other. |
-| `ketone_value` / `ketone_unit` | nullable | Separate semantics. |
+| `ketone_result` | enum nullable | User-entered strip result; not interpreted by the app. |
 | `care_plan_revision_id` | UUID nullable | Rule set used. |
 | `classification` / `rule_id` | enum/text | Explainable result. |
 

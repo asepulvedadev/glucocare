@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { GlucoseContext, GlucoseReading, GlucoseSource, GlucoseUnit } from '../types/domain';
+import type { GlucoseContext, GlucoseReading, GlucoseSource, GlucoseUnit, KetoneResult } from '../types/domain';
 import type { GlucoseRiskClassification } from '../types/carePlan';
 import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
@@ -24,6 +24,7 @@ type GlucoseRow = {
   time_edited: number;
   symptoms: string | null;
   note: string | null;
+  ketone_result: KetoneResult | null;
   sync_state: 'local' | 'pending' | 'synced' | 'failed';
   risk_classification: GlucoseRiskClassification | null;
 };
@@ -44,6 +45,7 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     timeEdited: row.time_edited === 1,
     symptoms: row.symptoms ?? undefined,
     note: row.note ?? undefined,
+    ketoneResult: row.ketone_result ?? 'not_checked',
     riskClassification: row.risk_classification ?? undefined,
     syncState: row.sync_state,
   };
@@ -70,9 +72,9 @@ export async function insertGlucoseReading(
   const canonicalValueMgDl = toCanonicalMgDl(reading.value, reading.unit);
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stored.id, stored.value, stored.unit, canonicalValueMgDl, conversionVersionForUnit(stored.unit), stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.timezone ?? null, stored.utcOffsetMinutes ?? null, stored.timeEdited ? 1 : 0, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
+      `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, ketone_result, sync_state, risk_classification)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, canonicalValueMgDl, conversionVersionForUnit(stored.unit), stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.timezone ?? null, stored.utcOffsetMinutes ?? null, stored.timeEdited ? 1 : 0, stored.symptoms ?? null, stored.note ?? null, stored.ketoneResult ?? 'not_checked', stored.syncState, stored.riskClassification ?? null,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });
@@ -100,8 +102,8 @@ export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseRe
   };
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `UPDATE glucose_readings SET value = ?, unit = ?, value_mg_dl = ?, conversion_version = ?, context = ?, source = ?, meal_offset_minutes = ?, recorded_at = ?, timezone = ?, utc_offset_minutes = ?, time_edited = ?, symptoms = ?, note = ?, sync_state = ?, risk_classification = ? WHERE id = ?`,
-      normalizedNext.value, normalizedNext.unit, canonicalValueMgDl, conversionVersion, normalizedNext.context, normalizedNext.source ?? 'manual', normalizedNext.mealOffsetMinutes ?? null, normalizedNext.recordedAt, normalizedNext.timezone ?? null, normalizedNext.utcOffsetMinutes ?? null, normalizedNext.timeEdited ? 1 : 0, normalizedNext.symptoms ?? null, normalizedNext.note ?? null, normalizedNext.syncState, normalizedNext.riskClassification ?? null, normalizedNext.id,
+      `UPDATE glucose_readings SET value = ?, unit = ?, value_mg_dl = ?, conversion_version = ?, context = ?, source = ?, meal_offset_minutes = ?, recorded_at = ?, timezone = ?, utc_offset_minutes = ?, time_edited = ?, symptoms = ?, note = ?, ketone_result = ?, sync_state = ?, risk_classification = ? WHERE id = ?`,
+      normalizedNext.value, normalizedNext.unit, canonicalValueMgDl, conversionVersion, normalizedNext.context, normalizedNext.source ?? 'manual', normalizedNext.mealOffsetMinutes ?? null, normalizedNext.recordedAt, normalizedNext.timezone ?? null, normalizedNext.utcOffsetMinutes ?? null, normalizedNext.timeEdited ? 1 : 0, normalizedNext.symptoms ?? null, normalizedNext.note ?? null, normalizedNext.ketoneResult ?? 'not_checked', normalizedNext.syncState, normalizedNext.riskClassification ?? null, normalizedNext.id,
     );
     await insertGlucoseAuditEvent(db, audit);
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: next.id, eventType: 'glucose.reading.corrected.v1', payload: audit as unknown as Record<string, unknown> });

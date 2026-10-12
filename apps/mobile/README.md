@@ -11,6 +11,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Accessible 44 pt touch targets, labels, semantic status colors, and large readable values.
 - Offline glucose entry backed by SQLite, automatic timestamp, unit, context, symptoms, and notes.
 - Glucose records preserve the original value/unit and a deterministic canonical `mg/dL` value with an explicit conversion version for summaries, risk classification, export, and cloud sync.
+- Glucose capture supports exercise, illness, and symptom contexts plus a structured ketone-strip result; these values are stored and shared as user-entered data without clinical interpretation.
 - Unusually high data-entry values request explicit confirmation before saving; this is a typo check, not a clinical threshold or diagnosis.
 - Glucose entries preserve the capture timezone, UTC offset, and whether the timestamp was edited for auditability.
 - Existing readings can be corrected from History; the previous and new snapshots are retained in a local append-only audit record and queued as `glucose.reading.corrected.v1`.

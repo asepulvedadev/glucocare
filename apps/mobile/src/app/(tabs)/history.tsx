@@ -8,7 +8,7 @@ import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useGlucose } from '../../context';
 import { useCare } from '../../careContext';
-import { glucoseContextLabel } from '../../types/domain';
+import { glucoseContextLabel, ketoneResultLabel } from '../../types/domain';
 import { glucoseRiskLabel } from '../../types/carePlan';
 import { mealTypeLabel } from '../../types/meals';
 import { colors, radii, spacing } from '../../theme/tokens';
@@ -25,6 +25,9 @@ const filters: { value: 'all' | GlucoseContext; label: string }[] = [
   { value: 'before_meal', label: 'Antes de comer' },
   { value: 'after_meal', label: 'Después de comer' },
   { value: 'bedtime', label: 'Noche' },
+  { value: 'exercise', label: 'Ejercicio' },
+  { value: 'illness', label: 'Enfermedad' },
+  { value: 'symptoms', label: 'Síntomas' },
   { value: 'other', label: 'Otro' },
 ];
 const dateFilters: { value: 7 | 30 | 'all'; label: string }[] = [
@@ -96,7 +99,7 @@ export default function HistoryScreen() {
           <View style={styles.row}>
             <View>
               <Text style={styles.value}>{reading.value} <Text style={styles.unit}>{reading.unit}</Text></Text>
-              <Caption>{glucoseContextLabel[reading.context]}{reading.mealOffsetMinutes !== undefined ? ` · ${reading.mealOffsetMinutes} min después` : ''}</Caption>
+          <Caption>{glucoseContextLabel[reading.context]}{reading.mealOffsetMinutes !== undefined ? ` · ${reading.mealOffsetMinutes} min después` : ''}{reading.ketoneResult && reading.ketoneResult !== 'not_checked' ? ` · Cetonas: ${ketoneResultLabel[reading.ketoneResult]}` : ''}</Caption>
             </View>
             <Caption>{new Date(reading.recordedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption>
           </View>

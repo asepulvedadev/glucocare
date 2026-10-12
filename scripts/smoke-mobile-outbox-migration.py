@@ -71,6 +71,8 @@ def migration_sql(version: int) -> str:
             CREATE INDEX IF NOT EXISTS idx_change_audit_entity ON change_audit_events(entity_type, entity_id, occurred_at DESC);
             """
         )
+    elif version == 36:
+        return "ALTER TABLE glucose_readings ADD COLUMN ketone_result TEXT NOT NULL DEFAULT 'not_checked' CHECK (ketone_result IN ('not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'));"
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -171,7 +173,11 @@ def main() -> int:
     db.execute("INSERT INTO change_audit_events (id, entity_type, entity_id, occurred_at, action, after_json) VALUES ('audit-1', 'medication', 'medication-1', 'now', 'created', '{}')")
     if db.execute("SELECT COUNT(*) FROM change_audit_events").fetchone() != (1,):
         raise SystemExit("Unexpected change audit migration result")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, and change audit v35 migrations passed.")
+    db.executescript(migration_sql(36))
+    ketone = db.execute("SELECT ketone_result FROM glucose_readings WHERE id = 'reading-1'").fetchone()
+    if ketone != ("not_checked",):
+        raise SystemExit(f"Unexpected ketone migration result: {ketone!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, and ketone v36 migrations passed.")
     return 0
 
 

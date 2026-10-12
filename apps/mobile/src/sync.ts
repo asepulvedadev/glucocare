@@ -22,7 +22,7 @@ function toUnit(unit: unknown) {
 }
 
 function toContext(context: unknown) {
-  return ['fasting', 'before_meal', 'after_meal', 'bedtime'].includes(String(context)) ? String(context) : 'other';
+  return ['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms'].includes(String(context)) ? String(context) : 'other';
 }
 
 function toSource(source: unknown) {
@@ -50,7 +50,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         id: event.entityId, patient_id: patientId, value_original: glucoseValue, unit_original: toUnit(glucoseUnit), value_mg_dl: toCanonicalMgDl(glucoseValue, glucoseUnit), conversion_version: conversionVersionForUnit(glucoseUnit),
         measured_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()), recorded_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()),
         timezone: stringValue(glucosePayload.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), utc_offset_minutes: typeof glucosePayload.utcOffsetMinutes === 'number' ? glucosePayload.utcOffsetMinutes : null, time_edited: glucosePayload.timeEdited === true, context: toContext(glucosePayload.context), source: toSource(glucosePayload.source), meal_offset_minutes: typeof glucosePayload.mealOffsetMinutes === 'number' ? glucosePayload.mealOffsetMinutes : null,
-        symptoms: glucosePayload.symptoms ? [String(glucosePayload.symptoms)] : [], note: glucosePayload.note ? String(glucosePayload.note) : null,
+        symptoms: glucosePayload.symptoms ? [String(glucosePayload.symptoms)] : [], note: glucosePayload.note ? String(glucosePayload.note) : null, ketone_result: String(glucosePayload.ketoneResult ?? 'not_checked'),
         classification: glucosePayload.riskClassification ? String(glucosePayload.riskClassification) : null,
       });
       if (error) throw error;

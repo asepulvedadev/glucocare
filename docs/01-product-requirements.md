@@ -29,7 +29,7 @@ Optional:
 
 - Context: fasting, before meal, after meal, bedtime, symptoms, exercise, illness, or other.
 - Meal relation and minutes after meal.
-- Symptoms, notes, ketone result, and photo reference.
+- Symptoms, notes, and a structured ketone-strip result (`not_checked`, `negative`, `trace`, `small`, `moderate`, `large`, or `unknown`). Photo references remain deferred until a privacy-safe local media flow is approved.
 - Edit timestamp with an audit entry.
 
 After save, the app shows the care-plan category and the exact clinician-approved instruction. It must not invent a dose or diagnosis.

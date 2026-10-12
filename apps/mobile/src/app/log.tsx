@@ -6,13 +6,14 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useGlucose } from '../context';
-import { glucoseContextLabel, type GlucoseContext, type GlucoseReading, type GlucoseSource, type GlucoseUnit } from '../types/domain';
+import { glucoseContextLabel, ketoneResultLabel, type GlucoseContext, type GlucoseReading, type GlucoseSource, type GlucoseUnit, type KetoneResult } from '../types/domain';
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
 import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
 import { useAccessibility } from '../accessibilityContext';
 
-const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
+const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms', 'other'];
+const ketoneResults: KetoneResult[] = ['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'];
 const sourceLabel: Record<GlucoseSource, string> = { manual: 'Digitada', import: 'Importada', cgm: 'CGM', glucometer: 'Glucómetro' };
 
 function parseDateTime(raw: string) {
@@ -49,6 +50,7 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
   const [symptoms, setSymptoms] = useState(existing?.symptoms ?? '');
   const [urgentSymptoms, setUrgentSymptoms] = useState(existing?.symptoms?.includes(URGENT_SYMPTOM_NOTICE) ?? false);
   const [note, setNote] = useState(existing?.note ?? '');
+  const [ketoneResult, setKetoneResult] = useState<KetoneResult>(existing?.ketoneResult ?? 'not_checked');
   const [saving, setSaving] = useState(false);
   const sourceOptions: GlucoseSource[] = existing?.source && existing.source !== 'manual' && existing.source !== 'glucometer' ? [existing.source, 'manual', 'glucometer'] : ['manual', 'glucometer'];
 
@@ -92,6 +94,7 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
         timeEdited: existing ? Boolean(existing.timeEdited || timestampChanged) : false,
         symptoms: symptomsValue || undefined,
         note: note.trim() || undefined,
+        ketoneResult,
       };
       const saved = existing ? await updateReading(existing.id, input) : await addReading(input);
       if (hasUrgentSymptoms(saved.symptoms)) {
@@ -143,6 +146,9 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
         <Body>Si marcas esta opción, te mostraremos ayuda urgente aunque el número no parezca anormal.</Body>
         <TextInput accessibilityLabel="Síntomas" value={symptoms} onChangeText={setSymptoms} placeholder="¿Notas algún síntoma?" placeholderTextColor={colors.textDisabled} style={styles.textInput} />
         <TextInput accessibilityLabel="Nota" value={note} onChangeText={setNote} placeholder="Añade una nota" placeholderTextColor={colors.textDisabled} style={[styles.textInput, styles.multiline]} multiline />
+        <Caption>CUERPOS CETÓNICOS (OPCIONAL)</Caption>
+        <View style={styles.chips}>{ketoneResults.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: ketoneResult === option }} onPress={() => setKetoneResult(option)} style={[styles.chip, ketoneResult === option && styles.chipSelected]}><Text style={[styles.chipText, ketoneResult === option && styles.chipSelectedText]}>{ketoneResultLabel[option]}</Text></Pressable>)}</View>
+        <Body>Registra únicamente el resultado que muestra tu tira o medidor. La app no interpreta cetonas ni cambia tu tratamiento.</Body>
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : existing ? 'Guardar corrección' : 'Guardar lectura'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Este registro no interpreta tus resultados ni sustituye las instrucciones de tu equipo de salud.</Text>

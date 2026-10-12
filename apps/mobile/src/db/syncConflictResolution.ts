@@ -43,7 +43,7 @@ function localSource(value: unknown) {
 }
 
 function localContext(value: unknown) {
-  return ['fasting', 'before_meal', 'after_meal', 'bedtime'].includes(String(value)) ? String(value) : 'other';
+  return ['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms'].includes(String(value)) ? String(value) : 'other';
 }
 
 function localRoute(value: unknown) {
@@ -74,10 +74,10 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
           ? payload.conversion_version
           : conversionVersionForUnit(unit);
         await db.runAsync(
-          `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
-           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, value_mg_dl = excluded.value_mg_dl, conversion_version = excluded.conversion_version, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, timezone = excluded.timezone, utc_offset_minutes = excluded.utc_offset_minutes, time_edited = excluded.time_edited, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
-          conflict.entityId, value, unit, canonicalValue, conversionVersion, localContext(payload.context), localSource(payload.source), typeof payload.meal_offset_minutes === 'number' ? payload.meal_offset_minutes : null, requiredString(payload.measured_at, 'measured_at'), payload.timezone ? String(payload.timezone) : null, typeof payload.utc_offset_minutes === 'number' ? payload.utc_offset_minutes : null, payload.time_edited === true, Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, payload.classification ? String(payload.classification) : null,
+          `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, ketone_result, sync_state, risk_classification)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, value_mg_dl = excluded.value_mg_dl, conversion_version = excluded.conversion_version, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, timezone = excluded.timezone, utc_offset_minutes = excluded.utc_offset_minutes, time_edited = excluded.time_edited, symptoms = excluded.symptoms, note = excluded.note, ketone_result = excluded.ketone_result, sync_state = 'synced', risk_classification = excluded.risk_classification`,
+          conflict.entityId, value, unit, canonicalValue, conversionVersion, localContext(payload.context), localSource(payload.source), typeof payload.meal_offset_minutes === 'number' ? payload.meal_offset_minutes : null, requiredString(payload.measured_at, 'measured_at'), payload.timezone ? String(payload.timezone) : null, typeof payload.utc_offset_minutes === 'number' ? payload.utc_offset_minutes : null, payload.time_edited === true, Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, ['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'].includes(String(payload.ketone_result)) ? String(payload.ketone_result) : 'unknown', payload.classification ? String(payload.classification) : null,
         );
         }
         break;

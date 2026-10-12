@@ -528,6 +528,7 @@ export type Database = {
           conversion_version: string | null
           deleted_at: string | null
           id: string
+          ketone_result: string
           meal_offset_minutes: number | null
           measured_at: string
           note: string | null
@@ -552,6 +553,7 @@ export type Database = {
           conversion_version?: string | null
           deleted_at?: string | null
           id: string
+          ketone_result?: string
           meal_offset_minutes?: number | null
           measured_at: string
           note?: string | null
@@ -576,6 +578,7 @@ export type Database = {
           conversion_version?: string | null
           deleted_at?: string | null
           id?: string
+          ketone_result?: string
           meal_offset_minutes?: number | null
           measured_at?: string
           note?: string | null
@@ -1272,4 +1275,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
