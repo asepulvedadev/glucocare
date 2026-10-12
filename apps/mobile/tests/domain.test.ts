@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
+import { availableAppointmentTransitions, canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
 import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
@@ -18,6 +18,11 @@ describe('appointment state machine', () => {
   it('rejects reopening a completed appointment', () => {
     expect(canTransitionAppointment('completed', 'scheduled')).toBe(false);
     expect(() => transitionAppointment('completed', 'scheduled')).toThrow('Invalid appointment transition');
+  });
+
+  it('exposes only valid next actions for the appointment UI', () => {
+    expect(availableAppointmentTransitions('authorized')).toEqual(['scheduled', 'cancelled']);
+    expect(availableAppointmentTransitions('completed')).toEqual([]);
   });
 });
 

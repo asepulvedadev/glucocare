@@ -10,6 +10,7 @@ import { medicationRouteLabel } from '../../types/care';
 import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
 import { measurementOccurrenceStatusLabel } from '../../types/measurementOccurrences';
 import { appointmentStatusLabel } from '../../types/appointments';
+import { availableAppointmentTransitions } from '../../domain/appointmentState';
 import { colors, spacing } from '../../theme/tokens';
 
 function formatTime(hour: number, minute: number) {
@@ -17,9 +18,10 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, refresh } = useCare();
+  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh } = useCare();
   const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
   const [actingMeasurementId, setActingMeasurementId] = useState<string | null>(null);
+  const [actingAppointmentId, setActingAppointmentId] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -44,6 +46,17 @@ export default function CareScreen() {
       Alert.alert('No se pudo actualizar', 'Vuelve a intentarlo cuando estés listo.');
     } finally {
       setActingMeasurementId(null);
+    }
+  }
+
+  async function updateAppointment(appointmentId: string, status: 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'cancelled') {
+    setActingAppointmentId(appointmentId);
+    try {
+      await updateAppointmentStatus(appointmentId, status);
+    } catch {
+      Alert.alert('No se pudo actualizar', 'El estado de la cita no se puede cambiar desde su estado actual.');
+    } finally {
+      setActingAppointmentId(null);
     }
   }
 
@@ -105,7 +118,9 @@ export default function CareScreen() {
         ) : appointments.map((appointment) => {
           const date = new Date(appointment.scheduledAt);
           return <View key={appointment.id} style={styles.appointmentRow}>
-            <View style={styles.appointmentCopy}><Text style={styles.medicationName}>{appointment.title}</Text><Body>{appointment.provider} · {date.toLocaleDateString('es-CO')} {date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Body>{appointment.location ? <Caption>{appointment.location}</Caption> : null}<Text style={styles.status}>{appointmentStatusLabel[appointment.status]} · {appointment.reminderState === 'scheduled' ? 'Recordatorio activo' : 'Sin recordatorio'}</Text></View>
+            <View style={styles.appointmentCopy}><Text style={styles.medicationName}>{appointment.title}</Text><Body>{appointment.provider} · {date.toLocaleDateString('es-CO')} {date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Body>{appointment.location ? <Caption>{appointment.location}</Caption> : null}<Text style={styles.status}>{appointmentStatusLabel[appointment.status]} · {appointment.reminderState === 'scheduled' ? 'Recordatorio activo' : 'Sin recordatorio'}</Text>
+              {availableAppointmentTransitions(appointment.status).length > 0 ? <View style={styles.occurrenceActions}>{availableAppointmentTransitions(appointment.status).map((nextStatus) => <PrimaryButton key={nextStatus} label={`Marcar ${appointmentStatusLabel[nextStatus].toLowerCase()}`} tone="quiet" disabled={actingAppointmentId === appointment.id} onPress={() => void updateAppointment(appointment.id, nextStatus as 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'cancelled')} />)}</View> : null}
+            </View>
           </View>;
         })}
       </Panel>

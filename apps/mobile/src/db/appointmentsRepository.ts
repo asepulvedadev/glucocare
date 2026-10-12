@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Appointment, AppointmentReminderState, AppointmentStatus } from '../types/appointments';
 import { enqueueOutbox } from './outboxRepository';
 import { newId } from '../ids';
+import { transitionAppointment } from '../domain/appointmentState';
 
 type AppointmentRow = {
   id: string;
@@ -46,4 +47,17 @@ export async function insertAppointment(db: SQLiteDatabase, appointment: Appoint
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.created.v1', payload: appointment });
   });
+}
+
+export async function updateAppointmentStatus(db: SQLiteDatabase, appointmentId: string, status: AppointmentStatus) {
+  const row = await db.getFirstAsync<AppointmentRow>('SELECT * FROM appointments WHERE id = ?', appointmentId);
+  if (!row) throw new Error('Appointment not found.');
+  const current = mapRow(row);
+  transitionAppointment(current.status, status);
+  const updated = { ...current, status };
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('UPDATE appointments SET status = ? WHERE id = ?', status, appointmentId);
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointmentId, eventType: `appointment.${status}.v1`, payload: updated });
+  });
+  return updated;
 }

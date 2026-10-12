@@ -50,11 +50,13 @@ export async function scheduleMedicationReminder(medication: Medication): Promis
   return { state: permission, notificationId };
 }
 
-export async function cancelMedicationReminder(notificationId?: string) {
+export async function cancelReminder(notificationId?: string) {
   if (notificationId && Platform.OS !== 'web') {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   }
 }
+
+export const cancelMedicationReminder = cancelReminder;
 
 export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
   const appointmentAt = new Date(appointment.scheduledAt);

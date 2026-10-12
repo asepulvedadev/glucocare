@@ -1,12 +1,12 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications } from './db/careRepository';
-import { insertAppointment, listAppointments } from './db/appointmentsRepository';
+import { insertAppointment, listAppointments, updateAppointmentStatus as updateStoredAppointmentStatus } from './db/appointmentsRepository';
 import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
 import { getCarePlan, upsertCarePlan } from './db/carePlanRepository';
 import { ensureTodaysMedicationOccurrences, listTodaysMedicationOccurrences, recordMedicationOccurrence } from './db/medicationOccurrenceRepository';
 import { ensureTodaysMeasurementOccurrences, listTodaysMeasurementOccurrences, recordMeasurementOccurrence } from './db/measurementOccurrenceRepository';
-import { scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
+import { cancelReminder, scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
@@ -29,6 +29,7 @@ type CareContextValue = {
   saveCarePlan: (input: NewCarePlan) => Promise<void>;
   markMedicationOccurrence: (occurrenceId: string, status: MedicationOccurrenceStatus) => Promise<void>;
   markMeasurementOccurrence: (occurrenceId: string, status: MeasurementOccurrenceStatus) => Promise<void>;
+  updateAppointmentStatus: (appointmentId: string, status: Appointment['status']) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -144,7 +145,13 @@ export function CareProvider({ children }: PropsWithChildren) {
     setMeasurementOccurrences((current) => current.map((occurrence) => occurrence.id === updated.id ? updated : occurrence));
   }, [db]);
 
-  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, refresh]);
+  const updateAppointmentStatus = useCallback(async (appointmentId: string, status: Appointment['status']) => {
+    const updated = await updateStoredAppointmentStatus(db, appointmentId, status);
+    if (status === 'completed' || status === 'cancelled') await cancelReminder(updated.notificationId);
+    setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
+  }, [db]);
+
+  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 
