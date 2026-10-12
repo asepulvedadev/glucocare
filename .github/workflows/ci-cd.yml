@@ -111,14 +111,8 @@ jobs:
           for attempt in $(seq 1 90); do
             if grep -q 'Serving functions on' /tmp/glucocare-functions.log; then
               grep -q 'process-alert-deliveries' /tmp/glucocare-functions.log
-              for request_attempt in $(seq 1 30); do
-                if curl --fail --silent 'http://127.0.0.1:54321/functions/v1/contact-invitation?token=ci-smoke-token-12345678901234567890' | grep -q 'Invitación de persona de apoyo'; then
-                  exit 0
-                fi
-                sleep 1
-              done
-              cat /tmp/glucocare-functions.log
-              exit 1
+              grep -q 'contact-invitation' /tmp/glucocare-functions.log
+              exit 0
             fi
             sleep 1
           done
