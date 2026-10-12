@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { NewPrivacyConsent, PrivacyConsent } from '../types/privacy';
 import { enqueueOutbox } from './outboxRepository';
+import { insertChangeAuditEvent } from './changeAuditRepository';
 import { newId } from '../ids';
 
 const POLICY_VERSION = '2026-10-12';
@@ -58,6 +59,7 @@ export async function getPrivacyConsent(db: SQLiteDatabase): Promise<PrivacyCons
 
 export async function savePrivacyConsent(db: SQLiteDatabase, input: Omit<NewPrivacyConsent, 'locale' | 'purposes' | 'dataCategories' | 'recipients' | 'evidenceMethod'>) {
   const now = new Date().toISOString();
+  const previous = await getPrivacyConsent(db);
   // Emergency sharing is a cloud purpose. Disabling cloud sync therefore also
   // revokes remote alert authorization, preventing a stale server projection.
   const emergencySharingConsent = input.cloudSyncConsent && input.emergencySharingConsent;
@@ -81,6 +83,10 @@ export async function savePrivacyConsent(db: SQLiteDatabase, input: Omit<NewPriv
       consent.id, consent.policyVersion, consent.locale ?? CONSENT_LOCALE, JSON.stringify(consent.purposes ?? []), JSON.stringify(consent.dataCategories ?? []), JSON.stringify(consent.recipients ?? []), consent.evidenceMethod ?? EVIDENCE_METHOD, consent.localDataConsent ? 1 : 0, consent.cloudSyncConsent ? 1 : 0,
       consent.emergencySharingConsent ? 1 : 0, consent.acceptedAt ?? null, consent.updatedAt,
     );
+    await insertChangeAuditEvent(db, {
+      entityType: 'privacy_consent', entityId: consent.id, action: 'updated',
+      before: previous ?? undefined, after: consent,
+    });
     await enqueueOutbox(db, {
       id: newId(), entityType: 'privacy_consent', entityId: consent.id,
       eventType: 'privacy.consent.updated.v1', payload: consent,

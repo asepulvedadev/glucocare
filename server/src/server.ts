@@ -390,7 +390,7 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
           [user.id],
         );
       }
-      if (eventType.includes('corrected') || entityType === 'care_plan' || entityType === 'medication' || entityType === 'appointment' || entityType === 'emergency_card' || entityType === 'trusted_contact' || entityType === 'measurement_plan') {
+      if (eventType.includes('corrected') || entityType === 'care_plan' || entityType === 'medication' || entityType === 'appointment' || entityType === 'emergency_card' || entityType === 'trusted_contact' || entityType === 'measurement_plan' || entityType === 'privacy_consent') {
         await client.query(
           `INSERT INTO audit_events (id, patient_id, action, entity_type, entity_id, occurred_at, before_data, after_data)
            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)

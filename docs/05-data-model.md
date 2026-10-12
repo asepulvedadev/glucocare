@@ -176,7 +176,9 @@ Append-only record of actor, action, entity, entity ID, timestamp, device/sessio
 
 The local consent projection stores the policy version, locale, explicit purpose
 and data-category lists, intended recipients, evidence method, and granted or
-withdrawn flags. Optional cloud/contact purposes are never inferred from a
+withdrawn flags. Every local consent change keeps a before/after snapshot in
+`change_audit_events`; the VPS projection also records the event in
+`audit_events`. Optional cloud/contact purposes are never inferred from a
 general health-data checkbox. The in-app summary is a technical disclosure and
 must be replaced or approved by Colombian counsel before production.
 
