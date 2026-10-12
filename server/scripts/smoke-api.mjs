@@ -45,6 +45,16 @@ const invalidMedication = await fetch(`${baseUrl}/v1/sync/events`, { method: 'PO
   payload: { id: crypto.randomUUID(), name: 'Invalid', schedule: { kind: 'interval', anchorTime: '25:00', intervalHours: 0 } },
 }) });
 if (invalidMedication.status !== 400) throw new Error(`invalid medication schedule returned ${invalidMedication.status}`);
+const invalidMeasurementPlan = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'measurement.plan.updated.v1', entityType: 'measurement_plan', entityId: 'default',
+  payload: { id: 'default', readingsPerDay: 2, times: ['08:00', '25:00'], timings: ['fasting', 'after_meal'], windows: [{ kind: 'fixed', time: '08:00', timing: 'fasting' }, { kind: 'fixed', time: '25:00', timing: 'after_meal' }], weekdays: [1, 1], updatedAt: new Date().toISOString() },
+}) });
+if (invalidMeasurementPlan.status !== 400) throw new Error(`invalid measurement plan returned ${invalidMeasurementPlan.status}`);
+const acceptedMeasurementPlan = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'measurement.plan.updated.v1', entityType: 'measurement_plan', entityId: 'default',
+  payload: { id: 'default', readingsPerDay: 1, times: ['08:00'], timings: ['fasting'], windows: [{ kind: 'meal_relative', meal: 'breakfast', offsetMinutes: 120, timing: 'after_meal' }], weekdays: [1, 2, 3, 4, 5, 6, 7], effectiveFrom: '2026-01-01', effectiveTo: '2026-12-31', updatedAt: new Date().toISOString() },
+}) });
+if (acceptedMeasurementPlan.status !== 'accepted') throw new Error('valid measurement plan was rejected');
 const invalidEventType = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'not valid', entityType: 'glucose_reading', entityId: crypto.randomUUID(), payload: { value: 120, unit: 'mg/dL' },
 }) });

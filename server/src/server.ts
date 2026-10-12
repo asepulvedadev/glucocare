@@ -136,6 +136,52 @@ function isValidMedicationSchedule(value: unknown) {
   return false;
 }
 
+const measurementTimings = new Set(['fasting', 'before_meal', 'after_meal', 'bedtime', 'other']);
+const measurementMeals = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
+
+function isValidDateOnly(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isValidMeasurementWindow(value: unknown) {
+  const window = objectValue(value);
+  if (!window || !measurementTimings.has(String(window.timing))) return false;
+  if (window.kind === 'fixed') return isValidTime(window.time);
+  if (window.kind === 'meal_relative') {
+    return measurementMeals.has(String(window.meal))
+      && Number.isInteger(window.offsetMinutes)
+      && Number(window.offsetMinutes) >= -240
+      && Number(window.offsetMinutes) <= 1440;
+  }
+  return false;
+}
+
+/** Validate clinician-defined measurement plans at the cloud boundary too.
+ * Local validation protects the normal UI, but sync events may be replayed or
+ * crafted by another client. Keep this aligned with the mobile three-window
+ * MVP without attempting to interpret clinical meaning.
+ */
+function validateMeasurementPlanPayload(payload: JsonObject) {
+  const countValue = payload.readingsPerDay ?? payload.readings_per_day;
+  if (countValue !== undefined && (!Number.isInteger(countValue) || Number(countValue) < 1 || Number(countValue) > 3)) return 'INVALID_MEASUREMENT_COUNT';
+  const count = Number.isInteger(countValue) ? Number(countValue) : undefined;
+  const times = payload.times;
+  if (times !== undefined && (!Array.isArray(times) || (count !== undefined && times.length !== count) || times.some((time) => !isValidTime(time)))) return 'INVALID_MEASUREMENT_TIMES';
+  const timings = payload.timings;
+  if (timings !== undefined && (!Array.isArray(timings) || (count !== undefined && timings.length !== count) || timings.some((timing) => !measurementTimings.has(String(timing))))) return 'INVALID_MEASUREMENT_TIMINGS';
+  const windows = payload.windows;
+  if (windows !== undefined && (!Array.isArray(windows) || (count !== undefined && windows.length !== count) || windows.some((window) => !isValidMeasurementWindow(window)))) return 'INVALID_MEASUREMENT_WINDOWS';
+  const weekdays = payload.weekdays;
+  if (weekdays !== undefined && (!Array.isArray(weekdays) || weekdays.some((day) => !Number.isInteger(day) || Number(day) < 1 || Number(day) > 7) || new Set(weekdays).size !== weekdays.length)) return 'INVALID_MEASUREMENT_WEEKDAYS';
+  for (const field of ['effectiveFrom', 'effectiveTo'] as const) {
+    if (payload[field] !== undefined && payload[field] !== null && !isValidDateOnly(payload[field])) return 'INVALID_MEASUREMENT_DATE';
+  }
+  if (isValidDateOnly(payload.effectiveFrom) && isValidDateOnly(payload.effectiveTo) && payload.effectiveFrom > payload.effectiveTo) return 'INVALID_MEASUREMENT_DATE_RANGE';
+  return null;
+}
+
 const glucoseContexts = new Set(['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms', 'other']);
 const glucoseSources = new Set(['manual', 'import', 'cgm', 'glucometer']);
 const ketoneResults = new Set(['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown']);
@@ -205,6 +251,10 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
     }
   }
   if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
+  if (entityType === 'measurement_plan') {
+    const measurementError = validateMeasurementPlanPayload(payload);
+    if (measurementError) return measurementError;
+  }
   if (entityType === 'privacy_consent') {
     if (entityId !== 'default') return 'INVALID_ENTITY_ID';
     if (typeof payload.localDataConsent !== 'boolean' || typeof payload.cloudSyncConsent !== 'boolean' || typeof payload.emergencySharingConsent !== 'boolean') return 'INVALID_PRIVACY_CONSENT';

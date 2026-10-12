@@ -9,7 +9,7 @@
 - Errors use stable machine codes plus safe, localized client copy.
 - Client-provided patient IDs never bypass authorization derived from the authenticated relationship.
 - Clinical values are not placed in URLs, query strings, tracing baggage, or provider metadata.
-- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, emergency-card, and privacy-consent IDs), invalid event timestamps, invalid glucose values/units/contexts/risk metadata, invalid medication schedule metadata, and malformed privacy-consent payloads before PostgreSQL persistence.
+- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, emergency-card, and privacy-consent IDs), invalid event timestamps, invalid glucose values/units/contexts/risk metadata, invalid medication schedule metadata, invalid measurement-plan windows/dates, and malformed privacy-consent payloads before PostgreSQL persistence.
 
 ## Authentication model
 
@@ -146,6 +146,12 @@ Correction events that contain `before`/`after` audit projections are validated
 recursively so a malformed nested reading cannot bypass the same boundary. When
 a payload includes an `id`, it must match `entityId`; this prevents a valid
 event from being stored under a different record key.
+
+For `measurement_plan` events the API validates the mobile MVP contract before
+projection: one to three windows, `HH:MM` fixed times, explicit meal-relative
+offsets from -240 to +1440 minutes, valid weekdays, and ordered ISO date-only
+validity bounds. These checks validate structure only; the server never derives
+clinical targets or changes the patient's instructions.
 
 ## Domain event catalog
 
