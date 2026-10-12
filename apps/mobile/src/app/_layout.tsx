@@ -63,7 +63,11 @@ function AppNavigator() {
     if (!isLoading && !preferences.onboardingCompleted && pathname !== '/onboarding' && pathname !== '/help') router.replace('/onboarding');
   }, [isLoading, pathname, preferences.onboardingCompleted, router]);
 
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
+  // React Navigation's native stack transitions are motion that is not needed
+  // for any safety-critical action. Honour both the stored preference and the
+  // system setting surfaced by AccessibilityProvider instead of making users
+  // disable every transition screen by screen.
+  return <Stack screenOptions={{ headerShown: false, animation: preferences.reduceMotion ? 'none' : 'default', contentStyle: { backgroundColor: colors.canvas } }}>
     <Stack.Screen name="onboarding" options={{ presentation: 'card' }} />
     <Stack.Screen name="(tabs)" />
     <Stack.Screen name="log" options={{ presentation: 'modal' }} />
