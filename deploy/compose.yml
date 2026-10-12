@@ -36,6 +36,7 @@ services:
       SESSION_DAYS: ${GLUCOCARE_SESSION_DAYS:-30}
       PUBLIC_API_URL: ${GLUCOCARE_PUBLIC_API_URL:-http://127.0.0.1:18084}
       CORS_ORIGIN: ${GLUCOCARE_CORS_ORIGIN:-http://127.0.0.1:18082}
+      PROVIDER_CALLBACK_SECRET: ${GLUCOCARE_PROVIDER_CALLBACK_SECRET:-}
     depends_on:
       glucocare-db:
         condition: service_healthy

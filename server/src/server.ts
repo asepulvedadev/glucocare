@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { pool, runMigrations, closeDatabase } from './db.js';
@@ -111,6 +111,22 @@ function canonicalJson(value: unknown): unknown {
 
 function hashJson(value: unknown) {
   return createHash('sha256').update(JSON.stringify(canonicalJson(value))).digest('hex');
+}
+
+function callbackSignature(rawBody: Buffer) {
+  const secret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
+  if (!secret) return null;
+  return createHmac('sha256', secret).update(rawBody).digest('hex');
+}
+
+function hasValidCallbackSignature(request: IncomingMessage, rawBody: Buffer) {
+  const expected = callbackSignature(rawBody);
+  const receivedHeader = request.headers['x-glucocare-callback-signature'];
+  const received = typeof receivedHeader === 'string' ? receivedHeader.replace(/^sha256=/i, '').trim().toLowerCase() : '';
+  if (!expected || !/^[0-9a-f]{64}$/.test(received)) return false;
+  const expectedBytes = Buffer.from(expected, 'hex');
+  const receivedBytes = Buffer.from(received, 'hex');
+  return expectedBytes.length === receivedBytes.length && timingSafeEqual(expectedBytes, receivedBytes);
 }
 
 async function requireUser(request: AuthenticatedRequest, response: ServerResponse) {
@@ -416,6 +432,76 @@ async function deliveries(user: AuthUser, incidentId: string, response: ServerRe
   send(response, 200, { deliveries: result.rows });
 }
 
+async function providerCallback(request: IncomingMessage, response: ServerResponse) {
+  let rawBody: Buffer;
+  try {
+    rawBody = await readRawBody(request);
+  } catch (error) {
+    fail(response, error instanceof Error && error.message === 'BODY_TOO_LARGE' ? 413 : 400, 'INVALID_CALLBACK', 'El callback no es válido.');
+    return;
+  }
+  if (!callbackSignature(rawBody)) {
+    fail(response, 503, 'CALLBACK_NOT_CONFIGURED', 'El callback de proveedores no está configurado.', true);
+    return;
+  }
+  if (!hasValidCallbackSignature(request, rawBody)) {
+    fail(response, 401, 'INVALID_CALLBACK_SIGNATURE', 'El callback no está autorizado.');
+    return;
+  }
+  let body: JsonObject;
+  try {
+    const parsed: unknown = JSON.parse(rawBody.toString('utf8'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('INVALID_JSON');
+    body = parsed as JsonObject;
+  } catch {
+    fail(response, 400, 'INVALID_CALLBACK', 'El callback no contiene JSON válido.');
+    return;
+  }
+  const providerMessageId = stringValue(body.providerMessageId, 256);
+  const status = body.status === 'delivered' || body.status === 'failed' ? body.status : null;
+  const failureCode = stringValue(body.failureCode, 120);
+  const deliveredAt = typeof body.deliveredAt === 'string' && !Number.isNaN(Date.parse(body.deliveredAt)) ? body.deliveredAt : new Date().toISOString();
+  if (!providerMessageId || !status || (status === 'failed' && !failureCode)) {
+    fail(response, 400, 'INVALID_CALLBACK', 'El callback no contiene un estado válido.');
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await client.query<{ alert_id: string }>(
+      `UPDATE alert_deliveries
+       SET status = CASE WHEN status = 'delivered' THEN 'delivered' ELSE $2 END,
+           delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, $3::timestamptz) ELSE delivered_at END,
+           failure_code = CASE WHEN $2 = 'failed' THEN $4 ELSE NULL END,
+           last_error = CASE WHEN $2 = 'failed' THEN $4 ELSE NULL END,
+           lease_until = NULL,
+           next_attempt_at = NULL,
+           updated_at = now()
+       WHERE provider_message_id = $1
+       RETURNING alert_id`, [providerMessageId, status, deliveredAt, failureCode]);
+    const alertIds = [...new Set(updated.rows.map((row) => row.alert_id))];
+    for (const alertId of alertIds) {
+      await client.query(
+        `UPDATE emergency_alerts a SET status = CASE
+           WHEN EXISTS (SELECT 1 FROM alert_deliveries d WHERE d.alert_id = a.id AND d.status IN ('queued', 'processing')) THEN 'queued'
+           WHEN EXISTS (SELECT 1 FROM alert_deliveries d WHERE d.alert_id = a.id AND d.status IN ('provider_accepted', 'delivered')) THEN 'provider_accepted'
+           WHEN EXISTS (SELECT 1 FROM alert_deliveries d WHERE d.alert_id = a.id AND d.status = 'not_configured') THEN 'not_configured'
+           ELSE 'failed' END
+         WHERE a.id = $1`, [alertId],
+      );
+    }
+    await client.query('COMMIT');
+    // Do not reveal whether a provider ID exists: this endpoint is public to
+    // the provider and must not become an oracle for patient activity.
+    send(response, 202, { status: 'accepted' });
+  } catch {
+    await client.query('ROLLBACK').catch(() => undefined);
+    fail(response, 500, 'CALLBACK_WRITE_FAILED', 'No se pudo registrar el callback.', true);
+  } finally {
+    client.release();
+  }
+}
+
 async function route(request: AuthenticatedRequest, response: ServerResponse) {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
   if (request.method === 'OPTIONS') { response.writeHead(204, { 'access-control-allow-origin': process.env.CORS_ORIGIN ?? '*', 'access-control-allow-headers': 'authorization, content-type, idempotency-key', 'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS' }); response.end(); return; }
@@ -429,6 +515,11 @@ async function route(request: AuthenticatedRequest, response: ServerResponse) {
     await authRoute(request, response, url.pathname); return;
   }
   if (request.method === 'POST' && url.pathname === '/v1/auth/signout') { await revokeSession(bearerTokenFromNodeRequest(request)); send(response, 204, {}); return; }
+  if (request.method === 'POST' && url.pathname === '/v1/internal/provider-callback') {
+    const limit = consumeRateLimit(`provider-callback:${requestAddress(request)}`, 120, 60_000);
+    if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
+    await providerCallback(request, response); return;
+  }
   if ((request.method === 'GET' || request.method === 'POST') && url.pathname === '/v1/contact-invitations/accept') {
     const limit = consumeRateLimit(`invitation-accept:${requestAddress(request)}`, 30, 60_000);
     if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }

@@ -45,6 +45,10 @@ delivery is requeued with an attempt count and backoff, then returns a provider
 message ID and verifies the delivery and parent alert become
 `provider_accepted`.
 
+It also runs `server/scripts/smoke-provider-callback.mjs`: a signed synthetic
+callback moves a matching delivery to `delivered`, a late failure cannot regress
+that terminal state, and the callback endpoint rejects invalid signatures.
+
 ### UI/component tests
 
 - Labels, roles, states, hints, focus order, and dynamic announcements.

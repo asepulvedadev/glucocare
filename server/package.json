@@ -10,6 +10,7 @@
     "test": "npm run build",
     "test:smoke": "node scripts/smoke-api.mjs",
     "test:worker": "node scripts/smoke-worker.mjs",
+    "test:provider-callback": "node scripts/smoke-provider-callback.mjs",
     "dev": "tsx src/server.ts"
   },
   "dependencies": {

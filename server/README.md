@@ -34,6 +34,7 @@ DATABASE_URL=postgresql://glucocare_app:local-only-password@127.0.0.1:5432/gluco
 | `SESSION_DAYS` | duración máxima de una sesión revocable |
 | `PUBLIC_API_URL` | URL usada en invitaciones; no contiene secretos |
 | `CORS_ORIGIN` | origen web permitido; Compose lo recibe como `GLUCOCARE_CORS_ORIGIN` y debe ser concreto en producción |
+| `PROVIDER_CALLBACK_SECRET` | secreto HMAC privado para `POST /v1/internal/provider-callback`; vacío desactiva callbacks y conserva solo `provider_accepted` |
 | `RESEND_API_KEY`, `RESEND_FROM` | habilitan el adaptador de correo; déjalas vacías para mantener `not_configured` |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | habilitan el adaptador SMS; déjalas vacías para mantener `not_configured` |
 | `ALERT_WORKER_INTERVAL_MS`, `ALERT_WORKER_BATCH_SIZE`, `ALERT_WORKER_MAX_ATTEMPTS` | frecuencia, lote y reintentos del worker privado |
@@ -53,6 +54,15 @@ devuelve un identificador. No convierte esa aceptación en `delivered`: los
 callbacks de entrega requieren una integración y una revisión operacional. Sin
 credenciales o sin un dato de contacto válido, la entrega queda explícitamente
 en `not_configured`.
+
+Cuando una integración de proveedor ya revisada puede reenviar eventos a la
+API, `POST /v1/internal/provider-callback` acepta un cuerpo mínimo firmado con
+`X-GlucoCare-Callback-Signature: sha256=<HMAC-SHA256>` y actualiza únicamente
+el registro cuyo `providerMessageId` coincide. El cuerpo admite `delivered` o
+`failed`, `failureCode` (obligatorio para fallos) y `deliveredAt`; no revela si
+el identificador existe y permanece deshabilitado si falta el secreto. El
+endpoint nunca debe exponerse sin HTTPS ni sin un adaptador que valide la
+firma del proveedor antes de reenviar el evento.
 
 The provider adapter accepts `RESEND_API_URL` and `TWILIO_API_BASE_URL` only as
 test overrides; production keeps the official provider endpoints. CI uses a

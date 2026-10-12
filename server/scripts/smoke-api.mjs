@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+
 const baseUrl = process.env.API_URL ?? 'http://127.0.0.1:18084';
 
 async function call(path, options = {}) {
@@ -11,6 +13,16 @@ const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const password = ['synthetic', 'smoke', 'password'].join('-');
 const first = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `smoke-${suffix}@example.invalid`, password }) });
 const second = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `other-${suffix}@example.invalid`, password }) });
+const callbackPayload = JSON.stringify({ providerMessageId: `unknown-${suffix}`, status: 'delivered' });
+const callbackHeaders = { 'content-type': 'application/json' };
+const callbackSecret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
+if (callbackSecret) callbackHeaders['x-glucocare-callback-signature'] = createHmac('sha256', callbackSecret).update(callbackPayload).digest('hex');
+const callbackResponse = await fetch(`${baseUrl}/v1/internal/provider-callback`, { method: 'POST', headers: callbackHeaders, body: callbackPayload });
+if (callbackSecret ? callbackResponse.status !== 202 : callbackResponse.status !== 503) throw new Error(`unexpected provider callback status: ${callbackResponse.status}`);
+if (callbackSecret) {
+  const invalidCallback = await fetch(`${baseUrl}/v1/internal/provider-callback`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-glucocare-callback-signature': '00'.repeat(32) }, body: callbackPayload });
+  if (invalidCallback.status !== 401) throw new Error(`invalid callback signature returned ${invalidCallback.status}`);
+}
 const eventId = crypto.randomUUID();
 const entityId = crypto.randomUUID();
 const initialRecordedAt = new Date(Date.now() - 3_000).toISOString();

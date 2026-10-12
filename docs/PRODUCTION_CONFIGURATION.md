@@ -45,11 +45,15 @@ GLUCOCARE_RESEND_FROM=alerts@example.com
 GLUCOCARE_TWILIO_ACCOUNT_SID=...
 GLUCOCARE_TWILIO_AUTH_TOKEN=...
 GLUCOCARE_TWILIO_FROM=...
+GLUCOCARE_PROVIDER_CALLBACK_SECRET=...
 ```
 
 Configure provider webhooks and monitoring before describing a message as
 delivered. The worker reports `provider_accepted` only; acceptance is not proof
-that a contact read the message.
+that a contact read the message. The callback secret enables the signed
+`POST /v1/internal/provider-callback` route; expose it only through a reviewed
+HTTPS reverse proxy and an adapter that verifies the provider's own signature
+before computing the GlucoCare HMAC.
 
 ## 3. Verification gate
 

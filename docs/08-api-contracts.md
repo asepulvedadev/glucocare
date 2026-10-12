@@ -31,6 +31,7 @@
 | `POST` | `/v1/contact-invitations/revoke` | Revoke a contact invitation and future alerts. |
 | `POST` | `/v1/emergency-alerts` | Queue alerts only for accepted contacts. |
 | `GET` | `/v1/emergency-alerts/{incidentId}/deliveries` | Read delivery states for the patient's incident. |
+| `POST` | `/v1/internal/provider-callback` | Accept a signed provider delivery update; disabled without the VPS callback secret. |
 | `DELETE` | `/v1/account` | Start verified account deletion workflow. |
 
 CRUD for health records passes through the versioned VPS API; sensitive multi-step actions remain server-side and the API scopes every query by the authenticated patient.
@@ -71,6 +72,27 @@ matches an address stored on that contact (email uses `email`; SMS/voice use
   ]
 }
 ```
+
+## Signed provider callbacks
+
+The private deployment may expose `POST /v1/internal/provider-callback` only
+through a reviewed HTTPS route. It requires
+`X-GlucoCare-Callback-Signature: sha256=<HMAC-SHA256>` computed over the exact
+JSON body with `PROVIDER_CALLBACK_SECRET`. The body is intentionally minimal:
+
+```json
+{
+  "providerMessageId": "provider-message-id",
+  "status": "delivered",
+  "deliveredAt": "2026-10-12T03:20:00Z"
+}
+```
+
+`status` may be `delivered` or `failed`; failed callbacks must include a
+short `failureCode`. Unknown provider IDs receive the same `202` response as
+known IDs so the route cannot reveal patient activity. The API never enables
+this route without the secret, and provider acceptance remains the truthful
+state until a verified callback arrives.
 
 Repeating the same patient/incident request is idempotent: the API returns the
 existing alert and delivery ledger without deleting and recreating provider

@@ -141,7 +141,7 @@ jobs:
           PORT: 18084
         run: |
           set -euo pipefail
-          node dist/server.js >/tmp/glucocare-api.log 2>&1 &
+          PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node dist/server.js >/tmp/glucocare-api.log 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
@@ -151,7 +151,8 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:18084/healthz | grep -q '"database":"ok"'
-          node scripts/smoke-api.mjs
+          PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node scripts/smoke-api.mjs
+          PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node scripts/smoke-provider-callback.mjs
           ALERT_WORKER_ONCE=true node dist/alertWorker.js >/tmp/glucocare-alert-worker.log 2>&1
           npm run test:worker
           node scripts/smoke-provider-retry.mjs
