@@ -1,5 +1,6 @@
 import { Stack, usePathname, useRouter } from 'expo-router';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
@@ -45,6 +46,19 @@ function AppNavigator() {
   const { preferences, isLoading } = useAccessibility();
   const pathname = usePathname();
   const router = useRouter();
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    const redirectFromNotification = (notification: Notifications.Notification) => {
+      const url = notification.request.content.data?.url;
+      // Only follow routes emitted by this app; notification payloads are not
+      // a general-purpose navigation input.
+      if (url === '/care' || url === '/help') router.push(url);
+    };
+    const lastResponse = Notifications.getLastNotificationResponse();
+    if (lastResponse?.notification) redirectFromNotification(lastResponse.notification);
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => redirectFromNotification(response.notification));
+    return () => subscription.remove();
+  }, [router]);
   useEffect(() => {
     if (!isLoading && !preferences.onboardingCompleted && pathname !== '/onboarding' && pathname !== '/help') router.replace('/onboarding');
   }, [isLoading, pathname, preferences.onboardingCompleted, router]);

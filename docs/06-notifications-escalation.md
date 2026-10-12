@@ -123,3 +123,4 @@ Record timestamps for request, provider response, callback, failure reason categ
 - Timezone change: exactly one future occurrence per intended local time.
 - Duplicate API request: idempotency prevents duplicate contact alerts.
 - App killed/rebooted: reminders are reconciled on the next supported lifecycle event.
+- Notification tap: medication reminders open the care routine and urgent glucose alerts open help; unknown payload routes are ignored.
