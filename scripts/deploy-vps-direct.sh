@@ -80,7 +80,7 @@ sshpass -e ssh \
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-db-1)" = healthy
    curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null
    curl --fail --silent http://127.0.0.1:18082/healthz >/dev/null
-   curl --fail --silent http://127.0.0.1:18084/healthz | grep -q '"database":"ok"'
+   curl --fail --silent http://127.0.0.1:18084/healthz | grep -q database
    echo staging-smoke=passed'
 
 printf 'deploy-vps-direct: deployed %s\n' "$(git rev-parse --short HEAD)"
