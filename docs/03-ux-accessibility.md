@@ -49,7 +49,8 @@ Do not show dense dashboards, tiny charts, gamified streaks, or multiple competi
 
 - Every sound has visible and haptic equivalents.
 - Captions/transcripts are required for any educational media.
-- Notification sound and vibration are user-configurable and testable.
+- Notification sound and vibration are user-configurable and testable; touch
+  feedback is an independent, optional haptic channel for button confirmations.
 
 ### Cognitive orientation
 

@@ -310,6 +310,7 @@ export default function ProfileScreen() {
         <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
         <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
         <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
+        <PrimaryButton label={`Vibración táctil: ${preferences.touchFeedback ? 'activada' : 'desactivada'}`} tone="quiet" onPress={() => void setPreference('touchFeedback', !preferences.touchFeedback)} />
       </Panel>
       <Panel>
         <Caption>UNIDAD DE GLUCOSA</Caption>

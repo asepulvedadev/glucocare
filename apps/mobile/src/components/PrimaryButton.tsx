@@ -1,14 +1,19 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { colors, radii, spacing } from '../theme/tokens';
 import { useAccessibility } from '../accessibilityContext';
 
 export function PrimaryButton({ label, onPress, tone = 'primary', disabled = false }: { label: string; onPress: () => void; tone?: 'primary' | 'urgent' | 'quiet'; disabled?: boolean }) {
   const { preferences } = useAccessibility();
+  function press() {
+    if (preferences.touchFeedback) void Haptics.selectionAsync().catch(() => undefined);
+    onPress();
+  }
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
-      onPress={onPress}
+      onPress={press}
       disabled={disabled}
       style={({ pressed }) => [styles.base, tone === 'urgent' && styles.urgent, tone === 'quiet' && styles.quiet, pressed && styles.pressed, disabled && styles.disabled]}
     >

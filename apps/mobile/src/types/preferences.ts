@@ -6,6 +6,7 @@ export type AccessibilityPreferences = {
   largeText: boolean;
   highContrast: boolean;
   reduceMotion: boolean;
+  touchFeedback: boolean;
   notificationSound: boolean;
   notificationVibration: boolean;
   appLockEnabled: boolean;

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 36;
+const DATABASE_VERSION = 37;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -493,6 +493,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
     if (!glucoseColumns.some((column) => column.name === 'ketone_result')) await db.execAsync("ALTER TABLE glucose_readings ADD COLUMN ketone_result TEXT NOT NULL DEFAULT 'not_checked' CHECK (ketone_result IN ('not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'))");
     currentVersion = 36;
+  }
+
+  if (currentVersion < 37) {
+    const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
+    if (!preferenceColumns.some((column) => column.name === 'touch_feedback')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN touch_feedback INTEGER NOT NULL DEFAULT 1');
+    currentVersion = 37;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
