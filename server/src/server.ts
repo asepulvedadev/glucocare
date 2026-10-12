@@ -138,7 +138,10 @@ function isBoundedString(value: unknown, maximum: number): value is string {
 function validateGlucosePayload(payload: JsonObject) {
   if ('value' in payload && !isFiniteNumber(payload.value, 0, 1000)) return 'INVALID_GLUCOSE_VALUE';
   if ('unit' in payload && payload.unit !== 'mg/dL' && payload.unit !== 'mmol/L') return 'INVALID_GLUCOSE_UNIT';
-  if ('valueMgDl' in payload && payload.valueMgDl !== null && !isFiniteNumber(payload.valueMgDl, 0, 1000)) return 'INVALID_GLUCOSE_CANONICAL_VALUE';
+  // The mobile entry limit is 1000 in the selected unit. A mmol/L entry can
+  // therefore have a canonical mg/dL projection up to 18,018.2; keep the
+  // server boundary aligned with that explicit client confirmation path.
+  if ('valueMgDl' in payload && payload.valueMgDl !== null && !isFiniteNumber(payload.valueMgDl, 0, 18018.2)) return 'INVALID_GLUCOSE_CANONICAL_VALUE';
   if ('conversionVersion' in payload && payload.conversionVersion !== null && !isBoundedString(payload.conversionVersion, 64)) return 'INVALID_GLUCOSE_CONVERSION';
   if ('context' in payload && (typeof payload.context !== 'string' || !glucoseContexts.has(payload.context))) return 'INVALID_GLUCOSE_CONTEXT';
   if ('source' in payload && (typeof payload.source !== 'string' || !glucoseSources.has(payload.source))) return 'INVALID_GLUCOSE_SOURCE';

@@ -40,6 +40,11 @@ const invalidRiskRule = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST
   payload: { value: 120, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting', riskClassification: 'urgent', riskRuleId: 'unsafe rule' },
 }) });
 if (invalidRiskRule.status !== 400) throw new Error(`invalid glucose risk metadata returned ${invalidRiskRule.status}`);
+const acceptedMmolBoundary = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { value: 1000, unit: 'mmol/L', valueMgDl: 18018.2, recordedAt: new Date().toISOString(), context: 'other' },
+}) });
+if (acceptedMmolBoundary.status !== 'accepted') throw new Error('valid mmol/L canonical boundary was rejected');
 const callbackPayload = JSON.stringify({ providerMessageId: `unknown-${suffix}`, status: 'delivered' });
 const callbackHeaders = { 'content-type': 'application/json' };
 const callbackSecret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
