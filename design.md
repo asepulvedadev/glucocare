@@ -249,6 +249,7 @@ Each card includes date, location, provider, reminder, and the next administrati
 
 - Offline-first, high-contrast card.
 - Show preferred name, diabetes type, insulin use, allergies, current medicines, trusted contact, EPS/IPS, and last updated time.
+- Current medicines are projected from the local medication ledger at display time and are marked as informational; they are not copied into the emergency-card record or treated as an active prescription.
 - Use a “Show to responder” action that does not require cloud access.
 - Add a clear incompleteness notice: “Verifica que esta información esté actualizada.”
 

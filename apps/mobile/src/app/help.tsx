@@ -8,6 +8,8 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { colors } from '../theme/tokens';
 import { useSafety } from '../safetyContext';
+import { useCare } from '../careContext';
+import { medicationRouteLabel } from '../types/care';
 import { listHelpEvents, recordHelpEvent, updateHelpEventState, type HelpEvent } from '../db/helpRepository';
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
@@ -18,6 +20,7 @@ import { usePrivacy } from '../privacyContext';
 export default function HelpScreen() {
   const db = useSQLiteContext();
   const { trustedContacts, emergencyCard } = useSafety();
+  const { medications } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const { consent } = usePrivacy();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
@@ -111,12 +114,14 @@ export default function HelpScreen() {
       </Panel>
       <Panel>
         <Caption>TARJETA OFFLINE</Caption>
-        {emergencyCard ? <><Text style={styles.title}>{emergencyCard.fullName}</Text>{emergencyCard.diabetesType ? <Body>Tipo: {emergencyCard.diabetesType}</Body> : null}{emergencyCard.insulinUse && emergencyCard.insulinUse !== 'unknown' ? <Body>Usa insulina: {emergencyCard.insulinUse === 'yes' ? 'sí' : 'no'}</Body> : null}{emergencyCard.allergies ? <Body>Alergias: {emergencyCard.allergies}</Body> : null}{emergencyCard.criticalConditions ? <Body>Condiciones críticas: {emergencyCard.criticalConditions}</Body> : null}{emergencyCard.careFacility ? <Body>Lugar habitual: {emergencyCard.careFacility}</Body> : null}{emergencyCard.careProvider ? <Body>Contacto de atención: {emergencyCard.careProvider}</Body> : null}{emergencyCard.insurer ? <Body>EPS/asegurador: {emergencyCard.insurer}</Body> : null}{emergencyCard.policyNumber ? <Body>Afiliación/póliza: {emergencyCard.policyNumber}</Body> : null}{emergencyCard.emergencyNumber ? <Body>Emergencias ({emergencyCard.emergencyRegion ?? 'región configurada'}): {emergencyCard.emergencyNumber}</Body> : null}</> : <Body>Configura una tarjeta para que esta información esté disponible sin cuenta ni conexión.</Body>}
+        {emergencyCard ? <><Text style={styles.title}>{emergencyCard.fullName}</Text>{emergencyCard.diabetesType ? <Body>Tipo: {emergencyCard.diabetesType}</Body> : null}{emergencyCard.insulinUse && emergencyCard.insulinUse !== 'unknown' ? <Body>Usa insulina: {emergencyCard.insulinUse === 'yes' ? 'sí' : 'no'}</Body> : null}{emergencyCard.allergies ? <Body>Alergias: {emergencyCard.allergies}</Body> : null}{emergencyCard.criticalConditions ? <Body>Condiciones críticas: {emergencyCard.criticalConditions}</Body> : null}{emergencyCard.careFacility ? <Body>Lugar habitual: {emergencyCard.careFacility}</Body> : null}{emergencyCard.careProvider ? <Body>Contacto de atención: {emergencyCard.careProvider}</Body> : null}{emergencyCard.insurer ? <Body>EPS/asegurador: {emergencyCard.insurer}</Body> : null}{emergencyCard.policyNumber ? <Body>Afiliación/póliza: {emergencyCard.policyNumber}</Body> : null}{emergencyCard.emergencyNumber ? <Body>Emergencias ({emergencyCard.emergencyRegion ?? 'región configurada'}): {emergencyCard.emergencyNumber}</Body> : null}{medications.filter((medication) => medication.enabled).length > 0 ? <><Caption>MEDICAMENTOS REGISTRADOS</Caption>{medications.filter((medication) => medication.enabled).map((medication) => <Body key={medication.id}>{medication.name}: {medication.doseText} · {medicationRouteLabel[medication.route]}</Body>)}<Caption>Esta lista es informativa y puede estar desactualizada.</Caption></> : null}</> : <Body>Configura una tarjeta para que esta información esté disponible sin cuenta ni conexión.</Body>}
         <PrimaryButton label={emergencyCard ? 'Editar tarjeta' : 'Configurar tarjeta'} tone="quiet" onPress={() => router.push('/emergency-card')} />
       </Panel>
       <Panel>
         <Caption>CONTACTO DE APOYO</Caption>
         <Text style={styles.title}>{primaryContact ? primaryContact.name : 'No hay contacto configurado'}</Text>
+        {primaryContact?.phone ? <Body>Teléfono: {primaryContact.phone}</Body> : null}
+        {primaryContact?.email ? <Body>Correo: {primaryContact.email}</Body> : null}
         <Body>{primaryContact ? 'Puedes registrar la alerta y abrir una llamada. La app no puede confirmar que la persona conteste.' : 'Configura una persona de confianza desde tu perfil. La app te mostrará si el aviso fue creado, enviado o falló.'}</Body>
         <PrimaryButton label={processing ? 'Registrando…' : 'Registrar alerta y contactar'} tone="urgent" disabled={processing} onPress={confirmContact} />
       </Panel>
