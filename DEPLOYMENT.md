@@ -9,6 +9,7 @@ This repository currently contains GlucoCare product/design documentation and a 
 - Host: AutoKing VPS (`2.24.115.58`), shared with other services.
 - Deployment user: dedicated non-root `glucocare-deploy`.
 - Container: `glucocare-docs`.
+- Compose project name: `glucocare` (explicit to avoid collisions with other `deploy` directories on the shared VPS).
 - Host binding: `127.0.0.1:18080` only.
 - No nginx public route or new port is opened by this deployment.
 
