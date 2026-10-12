@@ -9,11 +9,14 @@ for script in \
   "$root/deploy/vps/glucocare-db-backup" \
   "$root/deploy/vps/glucocare-db-restore-check" \
   "$root/deploy/vps/glucocare-rollback" \
+  "$root/scripts/smoke-backup-gpg.sh" \
   "$root/scripts/validate-production-config.sh" \
   "$root/scripts/deploy-vps-direct.sh"; do
   bash -n "$script"
   test -x "$script"
 done
+
+bash "$root/scripts/smoke-backup-gpg.sh"
 
 # Exercise the production handoff validator with synthetic values. The real
 # VPS environment is intentionally never copied into CI or this repository.

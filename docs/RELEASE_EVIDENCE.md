@@ -59,6 +59,10 @@ python3 scripts/scan-secrets.py
 bash scripts/validate-deployment.sh
 ```
 
+The deployment validator also runs `scripts/smoke-backup-gpg.sh` with an
+ephemeral test key, proving the encrypted backup/restore primitive without
+touching a real database or importing an operator key.
+
 The web export must remain below the 5 MiB CI budget. The deployment script
 check also parses every privileged VPS script and validates the Compose file.
 
