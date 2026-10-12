@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
+import type { Appointment } from './types/appointments';
 
 const MEDICATION_CHANNEL = 'medications';
 
@@ -15,7 +16,7 @@ Notifications.setNotificationHandler({
 
 export type ReminderPermission = 'granted' | 'permission_denied' | 'unavailable';
 
-async function ensurePermission(): Promise<ReminderPermission> {
+export async function ensurePermission(): Promise<ReminderPermission> {
   if (Platform.OS === 'web') return 'unavailable';
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(MEDICATION_CHANNEL, {
@@ -53,4 +54,23 @@ export async function cancelMedicationReminder(notificationId?: string) {
   if (notificationId && Platform.OS !== 'web') {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   }
+}
+
+export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
+  const appointmentAt = new Date(appointment.scheduledAt);
+  const reminderAt = new Date(appointmentAt.getTime() - 24 * 60 * 60 * 1000);
+  if (!Number.isFinite(appointmentAt.getTime()) || reminderAt.getTime() <= Date.now()) {
+    return { state: 'unavailable' };
+  }
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return { state: permission };
+  const notificationId = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `Cita mañana: ${appointment.title}`,
+      body: `${appointment.provider} · Revisa los detalles de tu cita.`,
+      data: { url: '/care', appointmentId: appointment.id },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: MEDICATION_CHANNEL },
+  });
+  return { state: permission, notificationId };
 }

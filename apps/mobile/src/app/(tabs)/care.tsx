@@ -6,6 +6,7 @@ import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useCare } from '../../careContext';
 import { medicationRouteLabel } from '../../types/care';
+import { appointmentStatusLabel } from '../../types/appointments';
 import { colors, spacing } from '../../theme/tokens';
 
 function formatTime(hour: number, minute: number) {
@@ -13,7 +14,7 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, isLoading } = useCare();
+  const { medications, appointments, isLoading } = useCare();
   return (
     <Screen>
       <Eyebrow>Cuidado</Eyebrow>
@@ -37,9 +38,21 @@ export default function CareScreen() {
         ))}
       </Panel>
       <Panel>
-        <Caption>CITAS</Caption>
-        <Text style={styles.title}>Sin próximas citas</Text>
-        <Body>Las citas mostrarán si están por autorizar, autorizadas, agendadas o completadas.</Body>
+        <View style={styles.sectionHeader}>
+          <Caption>CITAS</Caption>
+          <PrimaryButton label="Agregar" tone="quiet" onPress={() => router.push('/appointment')} />
+        </View>
+        {isLoading ? <Body>Cargando citas…</Body> : appointments.length === 0 ? (
+          <>
+            <Text style={styles.title}>Sin próximas citas</Text>
+            <Body>Las citas mostrarán si están por autorizar, autorizadas, agendadas o completadas.</Body>
+          </>
+        ) : appointments.map((appointment) => {
+          const date = new Date(appointment.scheduledAt);
+          return <View key={appointment.id} style={styles.appointmentRow}>
+            <View style={styles.appointmentCopy}><Text style={styles.medicationName}>{appointment.title}</Text><Body>{appointment.provider} · {date.toLocaleDateString('es-CO')} {date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Body>{appointment.location ? <Caption>{appointment.location}</Caption> : null}<Text style={styles.status}>{appointmentStatusLabel[appointment.status]} · {appointment.reminderState === 'scheduled' ? 'Recordatorio activo' : 'Sin recordatorio'}</Text></View>
+          </View>;
+        })}
       </Panel>
       <Panel>
         <Caption>PLAN DE MEDICIÓN</Caption>
@@ -52,12 +65,15 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   title: { color: colors.textPrimary, fontSize: 20, fontWeight: '700' },
   medicationRow: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  appointmentRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   timeBox: { width: 72, gap: 2 },
   time: { color: colors.amber, fontSize: 20, fontWeight: '700' },
   medicationCopy: { flex: 1, gap: 2 },
   medicationName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
   reminder: { color: colors.teal, fontSize: 12, lineHeight: 17 },
   reminderMuted: { color: colors.attention },
+  appointmentCopy: { flex: 1, gap: 2 },
+  status: { color: colors.info, fontSize: 12, lineHeight: 17 },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   indicator: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.info },
 });

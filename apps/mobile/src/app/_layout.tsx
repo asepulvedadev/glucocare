@@ -17,6 +17,7 @@ export default function RootLayout() {
             <Stack.Screen name="log" options={{ presentation: 'modal' }} />
             <Stack.Screen name="help" options={{ presentation: 'modal' }} />
             <Stack.Screen name="medication" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="appointment" options={{ presentation: 'modal' }} />
           </Stack>
         </CareProvider>
       </GlucoseProvider>
