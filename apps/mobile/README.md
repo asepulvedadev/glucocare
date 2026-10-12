@@ -32,7 +32,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Versioned local privacy consent with separate controls for on-device storage, optional cloud sync, and emergency-contact sharing.
 - Configurable measurement plan with one, two, or three daily times, per-reading context (fasting/before/after meal/bedtime), weekday exceptions, temporary validity dates, and optional care-team instructions.
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.
-- Appointment records with authorization workflow, editable scheduling details, and reminder rescheduling when a date changes.
+- Appointment records with authorization workflow (`requested`, `pending_authorization`, `authorized`, `scheduled`, `completed`, `missed`, `denied`, `cancelled`), editable scheduling details, and reminder rescheduling when a date changes or a closed appointment is reopened.
 - Device-local accessibility preferences for large text, high contrast, simple mode, and reduced motion.
 - Native and web builds follow the operating-system light/dark appearance with accessible theme tokens; high-contrast text remains available in either scheme.
 - Native builds initialize SQLCipher with a device-bound key stored in SecureStore before migrations run. Losing the device key makes the local database unrecoverable, so export a backup before uninstalling or resetting a device; web uses the separate WASM SQLite path.
