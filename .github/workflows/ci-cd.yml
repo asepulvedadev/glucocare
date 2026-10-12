@@ -111,12 +111,27 @@ jobs:
           for attempt in $(seq 1 90); do
             if grep -q 'Serving functions on' /tmp/glucocare-functions.log; then
               grep -q 'process-alert-deliveries' /tmp/glucocare-functions.log
-              curl --fail --silent 'http://127.0.0.1:54321/functions/v1/contact-invitation?token=ci-smoke-token-12345678901234567890' | grep -q 'Invitación de persona de apoyo'
               exit 0
             fi
             sleep 1
           done
           cat /tmp/glucocare-functions.log
+          exit 1
+
+      - name: Smoke-test contact invitation function
+        run: |
+          set -euo pipefail
+          supabase functions serve contact-invitation --no-verify-jwt >/tmp/glucocare-contact-function.log 2>&1 &
+          function_pid=$!
+          trap 'kill "$function_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 90); do
+            if grep -q 'Serving functions on' /tmp/glucocare-contact-function.log; then
+              curl --fail --silent 'http://127.0.0.1:54321/functions/v1/contact-invitation?token=ci-smoke-token-12345678901234567890' | grep -q 'Invitación de persona de apoyo'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/glucocare-contact-function.log
           exit 1
 
   deploy:
