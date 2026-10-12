@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 31;
+const DATABASE_VERSION = 32;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -425,6 +425,19 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       COMMIT;
     `);
     currentVersion = 31;
+  }
+
+  if (currentVersion < 32) {
+    const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
+    if (!glucoseColumns.some((column) => column.name === 'value_mg_dl')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN value_mg_dl REAL');
+    if (!glucoseColumns.some((column) => column.name === 'conversion_version')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN conversion_version TEXT');
+    await db.execAsync(`
+      UPDATE glucose_readings
+      SET value_mg_dl = CASE WHEN unit = 'mmol/L' THEN value * 18.0182 ELSE value END,
+          conversion_version = CASE WHEN unit = 'mmol/L' THEN 'fixed-18.0182-v1' ELSE 'identity-mgdl-v1' END
+      WHERE value_mg_dl IS NULL OR conversion_version IS NULL;
+    `);
+    currentVersion = 32;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

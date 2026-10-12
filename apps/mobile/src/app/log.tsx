@@ -9,7 +9,7 @@ import { useGlucose } from '../context';
 import { glucoseContextLabel, type GlucoseContext, type GlucoseReading, type GlucoseSource, type GlucoseUnit } from '../types/domain';
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
-import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
+import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
 
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 const sourceLabel: Record<GlucoseSource, string> = { manual: 'Digitada', import: 'Importada', cgm: 'CGM', glucometer: 'Glucómetro' };
@@ -54,6 +54,14 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
     const numericValue = Number(value.replace(',', '.'));
     if (!Number.isFinite(numericValue) || numericValue <= 0 || numericValue > 1000) {
       Alert.alert('Revisa el valor', 'Escribe un número mayor que 0. Si crees que tu lectura es anormal, busca ayuda según tu plan de emergencia.'); return;
+    }
+    if (isImplausibleGlucoseValue(numericValue, unit)) {
+      const confirmed = await new Promise<boolean>((resolve) => Alert.alert(
+        'Confirma el valor',
+        'Este número es inusualmente alto para una lectura doméstica. Comprueba la unidad y el glucómetro antes de guardarlo.',
+        [{ text: 'Corregir', style: 'cancel', onPress: () => resolve(false) }, { text: 'Guardar de todos modos', onPress: () => resolve(true) }],
+      ));
+      if (!confirmed) return;
     }
     const normalizedMealOffset = mealOffset.trim();
     const parsedMealOffset = normalizedMealOffset ? Number(normalizedMealOffset) : undefined;

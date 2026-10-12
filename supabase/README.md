@@ -16,6 +16,8 @@ The owner-write policy migration keeps delegated `patient_access` roles read-ori
 
 `20261012063455_sync_occurrence_timestamps.sql` adds `updated_at` and server-side update triggers to mutable records, including medication and measurement occurrences. This is required by the mobile cursor pull so a status change made on another device is observable without trusting client clocks.
 
+`20261012142604_add_glucose_canonical_value.sql` normalizes every cloud glucose write to canonical `value_mg_dl` plus `conversion_version`, including legacy clients that omit those fields. The original unit/value remain authoritative for display and audit.
+
 ## Linking a hosted project
 
 Do not link or push migrations until the project owner provides the Supabase project ref and confirms the data region, retention policy, and Colombian privacy review.

@@ -1,6 +1,12 @@
 import type { GlucoseReading, GlucoseUnit } from '../types/domain';
 
-const MG_DL_PER_MMOL_L = 18.0182;
+export const MG_DL_PER_MMOL_L = 18.0182;
+export const GLUCOSE_CONVERSION_VERSION = 'fixed-18.0182-v1';
+export const GLUCOSE_IDENTITY_VERSION = 'identity-mgdl-v1';
+
+export function conversionVersionForUnit(unit: GlucoseUnit) {
+  return unit === 'mmol/L' ? GLUCOSE_CONVERSION_VERSION : GLUCOSE_IDENTITY_VERSION;
+}
 
 export type GlucoseTrend = 'higher' | 'lower' | 'stable' | 'none';
 

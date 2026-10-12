@@ -6,8 +6,8 @@ import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
-import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
-import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
+import { conversionVersionForUnit, summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
+import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
@@ -180,6 +180,13 @@ describe('symptom safety escalation', () => {
     expect(hasUrgentSymptoms(`${URGENT_SYMPTOM_NOTICE}. Me siento confundido`)).toBe(true);
     expect(hasUrgentSymptoms('Cansancio leve')).toBe(false);
   });
+
+  it('asks for confirmation instead of silently accepting an implausibly high entry', () => {
+    expect(isImplausibleGlucoseValue(600, 'mg/dL')).toBe(false);
+    expect(isImplausibleGlucoseValue(601, 'mg/dL')).toBe(true);
+    expect(isImplausibleGlucoseValue(33.3, 'mmol/L')).toBe(false);
+    expect(isImplausibleGlucoseValue(33.31, 'mmol/L')).toBe(true);
+  });
 });
 
 describe('emergency configuration', () => {
@@ -217,6 +224,8 @@ describe('glucose history summary', () => {
 
   it('normalizes mmol/L and summarizes only the selected window', () => {
     expect(toMgDl(10, 'mmol/L')).toBeCloseTo(180.182);
+    expect(conversionVersionForUnit('mmol/L')).toBe('fixed-18.0182-v1');
+    expect(conversionVersionForUnit('mg/dL')).toBe('identity-mgdl-v1');
     const summary = summarizeGlucose([
       { id: 'old', value: 100, unit: 'mg/dL', context: 'fasting', recordedAt: '2026-10-01T12:00:00.000Z', syncState: 'synced' },
       { id: 'one', value: 5, unit: 'mmol/L', context: 'fasting', recordedAt: '2026-10-09T12:00:00.000Z', syncState: 'local' },

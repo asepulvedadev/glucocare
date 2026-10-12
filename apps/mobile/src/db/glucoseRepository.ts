@@ -5,6 +5,7 @@ import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
 import { completeNearestMeasurementOccurrence } from './measurementOccurrenceRepository';
 import { insertGlucoseAuditEvent } from './glucoseAuditRepository';
+import { conversionVersionForUnit, toMgDl } from '../domain/glucoseSummary';
 
 export type NewGlucoseReading = Omit<GlucoseReading, 'id' | 'syncState'>;
 
@@ -12,6 +13,8 @@ type GlucoseRow = {
   id: string;
   value: number;
   unit: GlucoseUnit;
+  value_mg_dl: number | null;
+  conversion_version: string | null;
   context: GlucoseContext;
   source: GlucoseSource | null;
   meal_offset_minutes: number | null;
@@ -30,6 +33,8 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     id: row.id,
     value: row.value,
     unit: row.unit,
+    valueMgDl: row.value_mg_dl ?? toMgDl(row.value, row.unit),
+    conversionVersion: row.conversion_version ?? conversionVersionForUnit(row.unit),
     context: row.context,
     source: row.source ?? 'manual',
     mealOffsetMinutes: row.meal_offset_minutes ?? undefined,
@@ -58,13 +63,16 @@ export async function insertGlucoseReading(
   const stored: GlucoseReading = {
     ...reading,
     id: newId(),
+    valueMgDl: toMgDl(reading.value, reading.unit),
+    conversionVersion: conversionVersionForUnit(reading.unit),
     syncState: 'pending',
   };
+  const canonicalValueMgDl = toMgDl(reading.value, reading.unit);
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stored.id, stored.value, stored.unit, stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.timezone ?? null, stored.utcOffsetMinutes ?? null, stored.timeEdited ? 1 : 0, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
+      `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, canonicalValueMgDl, conversionVersionForUnit(stored.unit), stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.timezone ?? null, stored.utcOffsetMinutes ?? null, stored.timeEdited ? 1 : 0, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });
@@ -78,6 +86,9 @@ export async function insertGlucoseReading(
 
 export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseReading, next: GlucoseReading, reason = 'user_corrected') {
   const occurredAt = new Date().toISOString();
+  const canonicalValueMgDl = toMgDl(next.value, next.unit);
+  const conversionVersion = conversionVersionForUnit(next.unit);
+  const normalizedNext: GlucoseReading = { ...next, valueMgDl: canonicalValueMgDl, conversionVersion };
   const audit = {
     id: newId(),
     readingId: next.id,
@@ -85,12 +96,12 @@ export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseRe
     action: 'corrected' as const,
     reason,
     before,
-    after: next,
+    after: normalizedNext,
   };
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `UPDATE glucose_readings SET value = ?, unit = ?, context = ?, source = ?, meal_offset_minutes = ?, recorded_at = ?, timezone = ?, utc_offset_minutes = ?, time_edited = ?, symptoms = ?, note = ?, sync_state = ?, risk_classification = ? WHERE id = ?`,
-      next.value, next.unit, next.context, next.source ?? 'manual', next.mealOffsetMinutes ?? null, next.recordedAt, next.timezone ?? null, next.utcOffsetMinutes ?? null, next.timeEdited ? 1 : 0, next.symptoms ?? null, next.note ?? null, next.syncState, next.riskClassification ?? null, next.id,
+      `UPDATE glucose_readings SET value = ?, unit = ?, value_mg_dl = ?, conversion_version = ?, context = ?, source = ?, meal_offset_minutes = ?, recorded_at = ?, timezone = ?, utc_offset_minutes = ?, time_edited = ?, symptoms = ?, note = ?, sync_state = ?, risk_classification = ? WHERE id = ?`,
+      normalizedNext.value, normalizedNext.unit, canonicalValueMgDl, conversionVersion, normalizedNext.context, normalizedNext.source ?? 'manual', normalizedNext.mealOffsetMinutes ?? null, normalizedNext.recordedAt, normalizedNext.timezone ?? null, normalizedNext.utcOffsetMinutes ?? null, normalizedNext.timeEdited ? 1 : 0, normalizedNext.symptoms ?? null, normalizedNext.note ?? null, normalizedNext.syncState, normalizedNext.riskClassification ?? null, normalizedNext.id,
     );
     await insertGlucoseAuditEvent(db, audit);
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: next.id, eventType: 'glucose.reading.corrected.v1', payload: audit as unknown as Record<string, unknown> });
@@ -100,5 +111,5 @@ export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseRe
   } catch {
     // Measurement tracking remains an optional projection and must not block a correction.
   }
-  return next;
+  return normalizedNext;
 }

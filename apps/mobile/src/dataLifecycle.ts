@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
+import { conversionVersionForUnit, toMgDl } from './domain/glucoseSummary';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -166,7 +167,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
   const glucose = bundle.glucoseReadings;
-  const header = ['recorded_at', 'timezone', 'utc_offset_minutes', 'time_edited', 'value', 'unit', 'context', 'symptoms', 'note'];
+  const header = ['recorded_at', 'timezone', 'utc_offset_minutes', 'time_edited', 'value', 'unit', 'value_mg_dl', 'conversion_version', 'context', 'symptoms', 'note'];
   const csvValue = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const body = glucose.map((reading) => header.map((field) => csvValue(reading[field])).join(',')).join('\n');
   return { content: `${header.join(',')}\n${body}\n`, filename: `glucocare-glucose-${Date.now()}.csv`, mimeType: 'text/csv' };
@@ -255,14 +256,16 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
     await clearLocalTables(db);
 
     for (const row of glucose) {
-      enumValue(row, 'unit', ['mg/dL', 'mmol/L'] as const);
+      const unit = enumValue(row, 'unit', ['mg/dL', 'mmol/L'] as const);
       const context = enumValue(row, 'context', ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'] as const);
       const source = enumValue(row, 'source', ['manual', 'import', 'cgm', 'glucometer'] as const, 'manual');
+      const value = nullableNumber(row, 'value');
+      if (value === null || value <= 0) throw new Error('Invalid value.');
       const mealOffsetMinutes = row.meal_offset_minutes === undefined || row.meal_offset_minutes === null || row.meal_offset_minutes === '' ? null : integer(row, 'meal_offset_minutes', 0, 1440);
       await db.runAsync(
-        `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
-        requiredString(row, 'id'), nullableNumber(row, 'value') ?? (() => { throw new Error('Invalid value.'); })(), context, source, mealOffsetMinutes,
+        `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
+        requiredString(row, 'id'), value, unit, toMgDl(value, unit), conversionVersionForUnit(unit), context, source, mealOffsetMinutes,
         requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
       );
     }

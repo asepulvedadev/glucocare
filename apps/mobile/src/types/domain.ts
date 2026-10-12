@@ -8,6 +8,8 @@ export type GlucoseReading = {
   id: string;
   value: number;
   unit: GlucoseUnit;
+  valueMgDl?: number;
+  conversionVersion?: string;
   context: GlucoseContext;
   source?: GlucoseSource;
   mealOffsetMinutes?: number;
