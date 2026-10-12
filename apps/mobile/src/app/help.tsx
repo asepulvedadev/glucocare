@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Alert, Linking, StyleSheet, Text } from 'react-native';
+import { Alert, Linking, Platform, StyleSheet, Text } from 'react-native';
+import { useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
@@ -17,6 +18,7 @@ export default function HelpScreen() {
   const { trustedContacts } = useSafety();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
+  const [processing, setProcessing] = useState(false);
   async function callEmergency() {
     const url = 'tel:123';
     const supported = await Linking.canOpenURL(url);
@@ -25,25 +27,42 @@ export default function HelpScreen() {
   }
 
   async function registerAndContact() {
-    const incidentId = await recordHelpEvent(db, 'user_requested_help');
-    let remoteQueued = false;
-    if (session && isCloudConfigured && primaryContact) {
-      try {
-        await syncPendingData(db, session);
-        const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
-        if (channel) remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
-      } catch {
-        // Local event and direct-call fallback remain available if the cloud path fails.
+    setProcessing(true);
+    try {
+      const incidentId = await recordHelpEvent(db, 'user_requested_help');
+      let remoteQueued = false;
+      if (session && isCloudConfigured && primaryContact) {
+        try {
+          await syncPendingData(db, session);
+          const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
+          if (channel) remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
+        } catch {
+          // Local event and direct-call fallback remain available if the cloud path fails.
+        }
       }
+      if (!primaryContact?.phone) {
+        Alert.alert('Alerta registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
+        return;
+      }
+      const url = `tel:${primaryContact.phone}`;
+      const supported = await Linking.canOpenURL(url);
+      if (supported) await Linking.openURL(url);
+      else Alert.alert('Alerta registrada', 'Guardamos el evento, pero no pudimos abrir el marcador.');
+    } finally {
+      setProcessing(false);
     }
-    if (!primaryContact?.phone) {
-      Alert.alert('Alerta registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
+  }
+
+  function confirmContact() {
+    const confirm = () => void registerAndContact();
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.('¿Necesitas ayuda ahora? Esto registra un evento local y puede abrir una llamada al contacto consentido.')) confirm();
       return;
     }
-    const url = `tel:${primaryContact.phone}`;
-    const supported = await Linking.canOpenURL(url);
-    if (supported) await Linking.openURL(url);
-    else Alert.alert('Alerta registrada', 'Guardamos el evento, pero no pudimos abrir el marcador.');
+    Alert.alert('¿Necesitas ayuda ahora?', 'Esto registra un evento local y puede abrir una llamada al contacto consentido. La app no confirma que alguien responda.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sí, continuar', style: 'destructive', onPress: confirm },
+    ]);
   }
   return (
     <Screen>
@@ -61,7 +80,7 @@ export default function HelpScreen() {
         <Caption>CONTACTO DE APOYO</Caption>
         <Text style={styles.title}>{primaryContact ? primaryContact.name : 'No hay contacto configurado'}</Text>
         <Body>{primaryContact ? 'Puedes registrar la alerta y abrir una llamada. La app no puede confirmar que la persona conteste.' : 'Configura una persona de confianza desde tu perfil. La app te mostrará si el aviso fue creado, enviado o falló.'}</Body>
-        <PrimaryButton label="Registrar alerta y contactar" tone="urgent" onPress={() => void registerAndContact()} />
+        <PrimaryButton label={processing ? 'Registrando…' : 'Registrar alerta y contactar'} tone="urgent" disabled={processing} onPress={confirmContact} />
       </Panel>
       <Text style={styles.disclaimer}>Si estás inconsciente, confundido o no puedes mantenerte a salvo, no esperes una notificación de la app.</Text>
     </Screen>
