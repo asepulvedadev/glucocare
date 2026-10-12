@@ -9,7 +9,7 @@ GlucoCare is a lightweight, accessible Expo application for people living with d
 1. Read the [product brief](project.md).
 2. Validate the [product requirements](docs/01-product-requirements.md) with patients and clinicians.
 3. Review [clinical safety](docs/02-clinical-safety.md) and [privacy/compliance](docs/07-security-privacy-compliance.md) before implementation.
-4. Build the first vertical slice from the [delivery plan](docs/10-roadmap-backlog.md).
+4. Follow the [complete development plan](DEVELOPMENT_PLAN.md) and build the first vertical slice from the [roadmap and backlog](docs/10-roadmap-backlog.md).
 
 ## Documentation map
 
@@ -25,6 +25,7 @@ GlucoCare is a lightweight, accessible Expo application for people living with d
 | Service boundaries | [API contracts](docs/08-api-contracts.md) |
 | Quality strategy | [Testing](docs/09-testing-quality.md) |
 | MVP plan | [Roadmap and backlog](docs/10-roadmap-backlog.md) |
+| Complete development plan | [Development plan](DEVELOPMENT_PLAN.md) |
 | Operational readiness | [Operations](docs/11-operations-observability.md) |
 | Open risks | [Risk register](docs/12-risk-register.md) |
 | Product vocabulary | [Glossary](docs/GLOSSARY.md) |

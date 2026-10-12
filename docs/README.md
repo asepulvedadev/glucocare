@@ -16,6 +16,7 @@ These documents are the source of truth for product intent, safety, and implemen
 10. [Roadmap and backlog](10-roadmap-backlog.md)
 11. [Operations](11-operations-observability.md)
 12. [Risk register](12-risk-register.md)
+13. [Complete development plan](../DEVELOPMENT_PLAN.md)
 
 ## Document ownership
 
