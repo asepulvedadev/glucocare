@@ -3,7 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { cancelMedicationReminder } from './notifications';
+import { cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
 
 export type ExportFormat = 'json' | 'csv';
@@ -204,6 +204,7 @@ async function cancelStoredReminders(db: SQLiteDatabase) {
     } catch { /* Keep the legacy single identifier. */ }
     try { await cancelMedicationReminder(ids); } catch { /* Data deletion/restore must continue if the OS already removed a reminder. */ }
   }
+  try { await cancelMeasurementPlanReminders(); } catch { /* Measurement reminders are identified by payload and are not stored in SQLite. */ }
 }
 
 async function clearLocalTables(db: SQLiteDatabase) {

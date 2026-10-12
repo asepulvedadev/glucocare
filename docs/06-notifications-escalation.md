@@ -30,6 +30,11 @@ The mobile implementation schedules rolling 14-day windows of one-shot medicatio
 
 Do not generate years of OS notifications.
 
+Data deletion and replace-style restore cancel the entire measurement reminder
+set as well as medication and appointment identifiers; measurement reminders are
+identified by their private `kind` payload because their rolling window is not
+stored as a single SQLite identifier.
+
 ### Stable occurrence identity
 
 Each reminder maps to a domain occurrence. Rescheduling cancels the prior OS identifier and records the replacement. Reconciliation is idempotent and removes orphaned notifications.

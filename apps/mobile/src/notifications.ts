@@ -110,7 +110,7 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
   return permission;
 }
 
-async function cancelScheduledMeasurementReminders() {
+export async function cancelMeasurementPlanReminders() {
   if (Platform.OS === 'web') return;
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const ids = scheduled
@@ -122,7 +122,7 @@ async function cancelScheduledMeasurementReminders() {
 /** Rebuilds bounded fixed and meal-relative glucose-check reminders. */
 export async function refreshMeasurementPlanReminders(plan: MeasurementPlan | null, meals: MealEvent[]) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const, notificationIds: [] as string[] };
-  await cancelScheduledMeasurementReminders();
+  await cancelMeasurementPlanReminders();
   const dates = measurementReminderDates(plan, meals);
   if (!dates.length) return { state: 'unavailable' as const, notificationIds: [] as string[] };
   const permission = await ensurePermission();

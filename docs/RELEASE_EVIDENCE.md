@@ -11,6 +11,7 @@ beta authorization.
 |---|---|---|
 | Expo domain and UI code | `apps/mobile`, TypeScript, lint, and Vitest suite | Automated; current local checks pass |
 | Local data durability | SQLite migrations, repositories, outbox, export/restore, deletion | Automated; migration and domain coverage present |
+| Reminder cleanup | Data deletion and replace-style restore cancel medication, appointment, and payload-identified glucose-check reminders before clearing local records | Automated code path; native device cancellation evidence pending |
 | Native data protection | SQLCipher initialization and device-bound SecureStore key | Code-reviewed; physical reinstall/restore evidence pending |
 | Clinical boundary | No dosing calculator, diagnosis engine, or guaranteed delivery claim | Code/docs guardrail; clinical sign-off pending |
 | Cloud authorization | Supabase migrations, RLS negative tests, private functions | Local Supabase CI evidence exists; hosted credentials/deploy pending |
