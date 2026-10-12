@@ -35,6 +35,7 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
       SESSION_DAYS: ${GLUCOCARE_SESSION_DAYS:-30}
       PUBLIC_API_URL: ${GLUCOCARE_PUBLIC_API_URL:-http://127.0.0.1:18084}
+      CORS_ORIGIN: ${GLUCOCARE_CORS_ORIGIN:-http://127.0.0.1:18082}
     depends_on:
       glucocare-db:
         condition: service_healthy

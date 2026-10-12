@@ -28,7 +28,7 @@ DATABASE_URL=postgresql://glucocare_app:local-only-password@127.0.0.1:5432/gluco
 | `PORT` | puerto HTTP interno, por defecto 8080 |
 | `SESSION_DAYS` | duración máxima de una sesión revocable |
 | `PUBLIC_API_URL` | URL usada en invitaciones; no contiene secretos |
-| `CORS_ORIGIN` | origen web permitido; usar un origen concreto en producción |
+| `CORS_ORIGIN` | origen web permitido; Compose lo recibe como `GLUCOCARE_CORS_ORIGIN` y debe ser concreto en producción |
 
 El contenedor de producción se ejecuta sin root y con el filesystem de solo
 lectura. PostgreSQL solo está en la red interna de Compose.
