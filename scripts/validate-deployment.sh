@@ -23,6 +23,11 @@ test -f "$root/deploy/vps/glucocare-db-backup.timer"
 test -f "$root/deploy/vps/glucocare-db-restore-check.service"
 test -f "$root/deploy/vps/glucocare-db-restore-check.timer"
 
-docker compose --env-file "$root/deploy/.env.example" -f "$root/deploy/compose.yml" config >/dev/null
+compose_config=$(docker compose --env-file "$root/deploy/.env.example" -f "$root/deploy/compose.yml" config)
+printf '%s\n' "$compose_config" >/dev/null
+# Both the API and the private alert worker must receive the reviewed public
+# origin. If the worker loses this guard, provider credentials appear valid but
+# every delivery is silently classified as not_configured.
+test "$(printf '%s\n' "$compose_config" | grep -c 'PUBLIC_API_URL:')" -eq 2
 
 printf 'Deployment scripts and Compose configuration are valid.\n'

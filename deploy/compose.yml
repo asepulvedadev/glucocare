@@ -72,6 +72,10 @@ services:
       DATABASE_NAME: ${POSTGRES_DB}
       DATABASE_USER: ${POSTGRES_USER}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      # The worker shares the same production-origin guard as the API. Without
+      # this value provider delivery would remain fail-closed even when valid
+      # Resend/Twilio credentials were installed on the VPS.
+      PUBLIC_API_URL: ${GLUCOCARE_PUBLIC_API_URL:-http://127.0.0.1:18084}
       ALERT_WORKER_INTERVAL_MS: ${GLUCOCARE_ALERT_WORKER_INTERVAL_MS:-5000}
       ALERT_WORKER_BATCH_SIZE: ${GLUCOCARE_ALERT_WORKER_BATCH_SIZE:-10}
       ALERT_WORKER_MAX_ATTEMPTS: ${GLUCOCARE_ALERT_WORKER_MAX_ATTEMPTS:-5}
