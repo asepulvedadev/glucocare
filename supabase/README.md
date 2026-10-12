@@ -29,6 +29,8 @@ supabase db push --linked
 
 For a reviewed hosted rollout, add `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_PROJECT_REF` to the `production` GitHub environment, then run the manual **Supabase migrations** workflow. It always prints the dry run first; set `apply` to `true` only after verifying the migration plan. The workflow is intentionally separate from the VPS web deploy so a UI release cannot silently mutate clinical data.
 
+Edge Functions are deployed separately through the manual **Supabase Edge Functions** workflow. It requires only `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF`, deploys one function or the reviewed `all` set, and disables JWT verification only for the private `process-alert-deliveries` worker (which uses `ALERT_WORKER_SECRET`). Provider and worker secrets must be configured in the hosted function environment before enabling delivery.
+
 The `patients.id = auth.uid()` convention provisions owner access through a private trigger. Delegated access is relationship-based through `patient_access`; it must not use editable user metadata for authorization.
 
 Functions currently scaffolded:

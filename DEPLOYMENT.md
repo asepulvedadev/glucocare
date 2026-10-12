@@ -27,6 +27,16 @@ Configure these repository secrets in the `production` environment:
 | `DEPLOY_SSH_KEY` | Dedicated Ed25519 private key, never the VPS root password. |
 | `DEPLOY_KNOWN_HOSTS` | Pinned `ssh-keyscan` entry for the VPS. |
 
+The separate Supabase workflows use these `production` environment secrets:
+
+| Secret | Used by |
+|---|---|
+| `SUPABASE_ACCESS_TOKEN` | Hosted migration and Edge Function deployment |
+| `SUPABASE_PROJECT_REF` | Hosted migration and Edge Function deployment |
+| `SUPABASE_DB_PASSWORD` | Hosted migration workflow only |
+
+Run **Supabase Edge Functions** manually after reviewing the local function smoke test. The `process-alert-deliveries` function is intentionally deployed without Supabase JWT verification because it authenticates with its private worker header; all user-facing functions retain JWT verification.
+
 The deploy key is restricted on the VPS and cannot forward agents, ports, X11, or allocate a TTY.
 
 ## Manual verification on the VPS
