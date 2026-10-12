@@ -64,6 +64,9 @@ jobs:
           npm run typecheck
           npm run lint
 
+      - name: Domain tests
+        run: npm test
+
       - name: Export web bundle
         run: npx expo export --platform web
 

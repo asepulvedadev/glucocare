@@ -28,9 +28,12 @@ npm run lint
 npx expo-doctor
 npx expo start
 npx expo export --platform web
+npx eas-cli@latest build --profile preview
 ```
 
 Use a development build for native modules and notifications. Expo Go is useful for early UI review but is not the release artifact.
+
+`eas.json` defines development, preview, and production channels. Signing credentials, EAS project ID, and store metadata remain release-environment configuration and must not be committed.
 
 Cloud sync is opt-in and disabled until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are supplied. See [`../../supabase/README.md`](../../supabase/README.md) before linking a hosted project.
 
