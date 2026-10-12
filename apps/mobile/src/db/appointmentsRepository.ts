@@ -8,9 +8,16 @@ type AppointmentRow = {
   id: string;
   title: string;
   provider: string;
+  specialty: string | null;
+  insurer: string | null;
+  authorization_number: string | null;
+  facility: string | null;
   scheduled_at: string;
+  requested_at: string | null;
   status: AppointmentStatus;
   location: string | null;
+  virtual_url: string | null;
+  preparation_notes: string | null;
   notes: string | null;
   reminder_state: AppointmentReminderState;
   notification_id: string | null;
@@ -22,9 +29,16 @@ function mapRow(row: AppointmentRow): Appointment {
     id: row.id,
     title: row.title,
     provider: row.provider,
+    specialty: row.specialty ?? undefined,
+    insurer: row.insurer ?? undefined,
+    authorizationNumber: row.authorization_number ?? undefined,
+    facility: row.facility ?? undefined,
     scheduledAt: row.scheduled_at,
+    requestedAt: row.requested_at ?? undefined,
     status: row.status,
     location: row.location ?? undefined,
+    virtualUrl: row.virtual_url ?? undefined,
+    preparationNotes: row.preparation_notes ?? undefined,
     notes: row.notes ?? undefined,
     reminderState: row.reminder_state,
     notificationId: row.notification_id ?? undefined,
@@ -40,10 +54,10 @@ export async function listAppointments(db: SQLiteDatabase): Promise<Appointment[
 export async function insertAppointment(db: SQLiteDatabase, appointment: Appointment) {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, notification_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      appointment.id, appointment.title, appointment.provider, appointment.scheduledAt, appointment.status,
-      appointment.location ?? null, appointment.notes ?? null, appointment.reminderState, appointment.notificationId ?? null, appointment.createdAt,
+      `INSERT INTO appointments (id, title, provider, specialty, insurer, authorization_number, facility, scheduled_at, requested_at, status, location, virtual_url, preparation_notes, notes, reminder_state, notification_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      appointment.id, appointment.title, appointment.provider, appointment.specialty ?? null, appointment.insurer ?? null, appointment.authorizationNumber ?? null, appointment.facility ?? null, appointment.scheduledAt, appointment.requestedAt ?? appointment.createdAt, appointment.status,
+      appointment.location ?? null, appointment.virtualUrl ?? null, appointment.preparationNotes ?? null, appointment.notes ?? null, appointment.reminderState, appointment.notificationId ?? null, appointment.createdAt,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.created.v1', payload: appointment });
   });

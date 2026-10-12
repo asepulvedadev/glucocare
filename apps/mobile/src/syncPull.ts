@@ -50,7 +50,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     supabase.from('medications').select('id,name,dose_text,route,prescriber_name,instructions,start_date,end_date,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
     supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('appointments').select('id,title,provider,scheduled_at,status,location,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('appointments').select('id,title,provider,specialty,insurer,authorization_number,facility,scheduled_at,requested_at,status,location,virtual_url,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,timings_json,weekdays_json,effective_from,effective_to,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
@@ -128,10 +128,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     }
     for (const appointment of appointmentsResult.data ?? []) {
       if (await preserveLocalChange('appointment', appointment.id, appointment as unknown as Record<string, unknown>)) continue;
-      await db.runAsync(`INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
-        ON CONFLICT(id) DO UPDATE SET title = excluded.title, provider = excluded.provider, scheduled_at = excluded.scheduled_at, status = excluded.status, location = excluded.location, notes = excluded.notes`,
-        appointment.id, appointment.title, appointment.provider, appointment.scheduled_at ?? new Date().toISOString(), localAppointmentStatus(appointment.status), appointment.location, appointment.preparation_notes, appointment.created_at);
+      await db.runAsync(`INSERT INTO appointments (id, title, provider, specialty, insurer, authorization_number, facility, scheduled_at, requested_at, status, location, virtual_url, preparation_notes, notes, reminder_state, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'unavailable', ?)
+        ON CONFLICT(id) DO UPDATE SET title = excluded.title, provider = excluded.provider, specialty = excluded.specialty, insurer = excluded.insurer, authorization_number = excluded.authorization_number, facility = excluded.facility, scheduled_at = excluded.scheduled_at, requested_at = excluded.requested_at, status = excluded.status, location = excluded.location, virtual_url = excluded.virtual_url, preparation_notes = excluded.preparation_notes`,
+        appointment.id, appointment.title, appointment.provider, appointment.specialty, appointment.insurer, appointment.authorization_number, appointment.facility, appointment.scheduled_at ?? new Date().toISOString(), appointment.requested_at ?? appointment.created_at, localAppointmentStatus(appointment.status), appointment.location, appointment.virtual_url, appointment.preparation_notes, appointment.created_at);
       downloaded += 1;
     }
     for (const occurrence of measurementOccurrencesResult.data ?? []) {

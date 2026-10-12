@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 23;
+const DATABASE_VERSION = 24;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -317,6 +317,18 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!measurementColumns.some((column) => column.name === 'effective_from')) await db.execAsync('ALTER TABLE measurement_plans ADD COLUMN effective_from TEXT');
     if (!measurementColumns.some((column) => column.name === 'effective_to')) await db.execAsync('ALTER TABLE measurement_plans ADD COLUMN effective_to TEXT');
     currentVersion = 23;
+  }
+
+  if (currentVersion < 24) {
+    const appointmentColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(appointments)');
+    if (!appointmentColumns.some((column) => column.name === 'specialty')) await db.execAsync('ALTER TABLE appointments ADD COLUMN specialty TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'insurer')) await db.execAsync('ALTER TABLE appointments ADD COLUMN insurer TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'authorization_number')) await db.execAsync('ALTER TABLE appointments ADD COLUMN authorization_number TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'facility')) await db.execAsync('ALTER TABLE appointments ADD COLUMN facility TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'requested_at')) await db.execAsync('ALTER TABLE appointments ADD COLUMN requested_at TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'virtual_url')) await db.execAsync('ALTER TABLE appointments ADD COLUMN virtual_url TEXT');
+    if (!appointmentColumns.some((column) => column.name === 'preparation_notes')) await db.execAsync('ALTER TABLE appointments ADD COLUMN preparation_notes TEXT');
+    currentVersion = 24;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

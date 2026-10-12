@@ -19,7 +19,7 @@ export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
-    db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, scheduled_at, status, location FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
+    db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
   ]);
   const html = buildClinicianReportHtml({ card, readings, medications, appointments });
   if (Platform.OS === 'web') {
@@ -252,9 +252,9 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
     for (const row of appointments) {
       const status = enumValue(row, 'status', ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'] as const);
       await db.runAsync(
-        `INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, notification_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', NULL, ?)`,
-        requiredString(row, 'id'), requiredString(row, 'title'), requiredString(row, 'provider'), requiredString(row, 'scheduled_at'), status, optionalString(row, 'location'), optionalString(row, 'notes'), requiredString(row, 'created_at'),
+        `INSERT INTO appointments (id, title, provider, specialty, insurer, authorization_number, facility, scheduled_at, requested_at, status, location, virtual_url, preparation_notes, notes, reminder_state, notification_id, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', NULL, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'title'), requiredString(row, 'provider'), optionalString(row, 'specialty'), optionalString(row, 'insurer'), optionalString(row, 'authorization_number'), optionalString(row, 'facility'), requiredString(row, 'scheduled_at'), optionalString(row, 'requested_at'), status, optionalString(row, 'location'), optionalString(row, 'virtual_url'), optionalString(row, 'preparation_notes'), optionalString(row, 'notes'), requiredString(row, 'created_at'),
       );
     }
 

@@ -5,9 +5,16 @@ export type Appointment = {
   id: string;
   title: string;
   provider: string;
+  specialty?: string;
+  insurer?: string;
+  authorizationNumber?: string;
+  facility?: string;
   scheduledAt: string;
+  requestedAt?: string;
   status: AppointmentStatus;
   location?: string;
+  virtualUrl?: string;
+  preparationNotes?: string;
   notes?: string;
   reminderState: AppointmentReminderState;
   notificationId?: string;

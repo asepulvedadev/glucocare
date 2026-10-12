@@ -19,8 +19,14 @@ export default function AppointmentScreen() {
   const { addAppointment } = useCare();
   const [title, setTitle] = useState('');
   const [provider, setProvider] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [insurer, setInsurer] = useState('');
+  const [authorizationNumber, setAuthorizationNumber] = useState('');
+  const [facility, setFacility] = useState('');
   const [dateTime, setDateTime] = useState('');
   const [location, setLocation] = useState('');
+  const [virtualUrl, setVirtualUrl] = useState('');
+  const [preparationNotes, setPreparationNotes] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +38,7 @@ export default function AppointmentScreen() {
     }
     setSaving(true);
     try {
-      const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), scheduledAt: parsed.toISOString(), status: 'requested', location: location.trim() || undefined, notes: notes.trim() || undefined });
+      const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), specialty: specialty.trim() || undefined, insurer: insurer.trim() || undefined, authorizationNumber: authorizationNumber.trim() || undefined, facility: facility.trim() || undefined, requestedAt: new Date().toISOString(), scheduledAt: parsed.toISOString(), status: 'requested', location: location.trim() || undefined, virtualUrl: virtualUrl.trim() || undefined, preparationNotes: preparationNotes.trim() || undefined, notes: notes.trim() || undefined });
       if (reminderState === 'permission_denied') Alert.alert('Cita guardada', 'La cita quedó guardada, pero las notificaciones están deshabilitadas.', [
         { text: 'Ahora no', style: 'cancel' },
         { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
@@ -53,6 +59,8 @@ export default function AppointmentScreen() {
         <TextInput accessibilityLabel="Motivo de la cita" value={title} onChangeText={setTitle} placeholder="Ej. Control de endocrinología" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>PROFESIONAL O CENTRO</Caption>
         <TextInput accessibilityLabel="Profesional o centro" value={provider} onChangeText={setProvider} placeholder="Ej. Dra. Pérez · Clínica" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Especialidad" value={specialty} onChangeText={setSpecialty} placeholder="Especialidad (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="IPS o centro de atención" value={facility} onChangeText={setFacility} placeholder="IPS o centro (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
       </Panel>
       <Panel>
         <Caption>FECHA Y HORA</Caption>
@@ -65,7 +73,11 @@ export default function AppointmentScreen() {
       </Panel>
       <Panel>
         <Caption>OPCIONAL</Caption>
+        <TextInput accessibilityLabel="EPS o asegurador" value={insurer} onChangeText={setInsurer} placeholder="EPS o asegurador" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Número de autorización" value={authorizationNumber} onChangeText={setAuthorizationNumber} placeholder="Número de autorización" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Ubicación" value={location} onChangeText={setLocation} placeholder="Ubicación" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Enlace de cita virtual" value={virtualUrl} onChangeText={setVirtualUrl} autoCapitalize="none" keyboardType="url" placeholder="Enlace de cita virtual" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Preparación para la cita" value={preparationNotes} onChangeText={setPreparationNotes} placeholder="Preparación o documentos" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
         <TextInput accessibilityLabel="Notas de la cita" value={notes} onChangeText={setNotes} placeholder="Notas" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cita'} onPress={() => void save()} disabled={saving} />

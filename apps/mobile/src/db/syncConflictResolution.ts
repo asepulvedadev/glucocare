@@ -104,8 +104,8 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
         break;
       case 'appointment':
         await db.runAsync(
-          `UPDATE appointments SET title = ?, provider = ?, scheduled_at = ?, status = ?, location = ?, notes = ? WHERE id = ?`,
-          requiredString(payload.title, 'title'), requiredString(payload.provider, 'provider'), requiredString(payload.scheduled_at, 'scheduled_at'), localAppointmentStatus(payload.status), payload.location ? String(payload.location) : null, payload.preparation_notes ? String(payload.preparation_notes) : null, conflict.entityId,
+          `UPDATE appointments SET title = ?, provider = ?, specialty = ?, insurer = ?, authorization_number = ?, facility = ?, scheduled_at = ?, requested_at = ?, status = ?, location = ?, virtual_url = ?, preparation_notes = ? WHERE id = ?`,
+          requiredString(payload.title, 'title'), requiredString(payload.provider, 'provider'), payload.specialty ? String(payload.specialty) : null, payload.insurer ? String(payload.insurer) : null, payload.authorization_number ? String(payload.authorization_number) : null, payload.facility ? String(payload.facility) : null, requiredString(payload.scheduled_at, 'scheduled_at'), payload.requested_at ? String(payload.requested_at) : null, localAppointmentStatus(payload.status), payload.location ? String(payload.location) : null, payload.virtual_url ? String(payload.virtual_url) : null, payload.preparation_notes ? String(payload.preparation_notes) : null, conflict.entityId,
         );
         break;
       case 'care_plan': {

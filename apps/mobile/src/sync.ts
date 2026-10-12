@@ -86,8 +86,14 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const scheduledAt = payload.scheduledAt ? String(payload.scheduledAt) : null;
       const { error } = await supabase.from('appointments').upsert({
         id: event.entityId, patient_id: patientId, title: stringValue(payload.title), provider: stringValue(payload.provider),
+        specialty: payload.specialty ? String(payload.specialty) : null,
+        insurer: payload.insurer ? String(payload.insurer) : null,
+        authorization_number: payload.authorizationNumber ? String(payload.authorizationNumber) : null,
+        facility: payload.facility ? String(payload.facility) : null,
         status: stringValue(payload.status, 'requested') as 'requested' | 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'missed' | 'denied' | 'cancelled',
-        scheduled_at: scheduledAt, location: payload.location ? String(payload.location) : null, preparation_notes: payload.notes ? String(payload.notes) : null,
+        requested_at: payload.requestedAt ? String(payload.requestedAt) : stringValue(payload.createdAt, new Date().toISOString()),
+        scheduled_at: scheduledAt, location: payload.location ? String(payload.location) : null, virtual_url: payload.virtualUrl ? String(payload.virtualUrl) : null,
+        preparation_notes: payload.preparationNotes ? String(payload.preparationNotes) : payload.notes ? String(payload.notes) : null,
         created_at: stringValue(payload.createdAt, new Date().toISOString()),
       });
       if (error) throw error;
