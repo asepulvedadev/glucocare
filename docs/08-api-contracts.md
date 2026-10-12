@@ -86,7 +86,10 @@ The server returns `accepted` or `already_accepted`. Reusing an event UUID
 with different data returns `409 IDEMPOTENCY_CONFLICT`; one invalid event does
 not make the client discard unrelated valid local writes. Pull responses return
 `{ "until": "...", "records": [...] }` and are filtered by the authenticated
-patient.
+patient. The server projection only replaces an existing record when the
+incoming event timestamp is equal to or newer than the stored timestamp; an
+out-of-order stale retry remains in the append-only event log but cannot
+regress the current projection.
 
 ## Domain event catalog
 

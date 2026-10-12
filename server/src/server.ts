@@ -176,7 +176,8 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
         `INSERT INTO health_records (patient_id, entity_type, entity_id, payload, updated_at, deleted_at)
          VALUES ($1, $2, $3, $4::jsonb, $5, NULL)
          ON CONFLICT (patient_id, entity_type, entity_id)
-         DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at, deleted_at = NULL`,
+         DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at, deleted_at = NULL
+         WHERE health_records.updated_at <= excluded.updated_at`,
         [user.id, entityType, entityId, JSON.stringify(payload), occurredAt],
       );
       // A local contact edit/removal or consent event carries a revocation
