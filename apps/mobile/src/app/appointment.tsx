@@ -77,6 +77,7 @@ function AppointmentForm({ existing }: { existing?: Appointment }) {
         { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
       ]);
       else if (reminderState === 'unavailable') Alert.alert('Cita guardada', 'La cita quedó guardada. El recordatorio se habilita cuando la fecha esté a más de 24 horas y haya permisos.');
+      else if (reminderState === 'scheduled_limited') Alert.alert('Cita guardada', 'La cita quedó guardada. El sistema priorizó los recordatorios más próximos por el límite del dispositivo; volverá a revisar la agenda al abrir la app.');
       router.back();
     } catch { Alert.alert('No se pudo guardar', 'Revisa los datos e inténtalo de nuevo.'); } finally { setSaving(false); }
   }

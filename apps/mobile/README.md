@@ -27,6 +27,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Native daily reminder scheduling with explicit permission-denied and web-unavailable states.
 - Android separates medication, appointment, and urgent-risk notification channels so users can control each reminder category independently. Profile also exposes sound and vibration preferences; Android creates channel variants because channel behavior is fixed after creation, while device-level settings can still override them.
 - Changing sound or vibration preferences rebuilds existing scheduled reminders so old channel settings do not remain active silently.
+- Medication, measurement, and appointment reminders share a bounded native queue. The app keeps the 60 earliest requests, marks a record `scheduled_limited` when the device budget is exhausted, and rebuilds the rolling window on resume instead of silently claiming every future reminder is scheduled.
 - Lock-screen notifications use generic copy; medication names, doses, appointment providers, and glucose values stay inside the app.
 - Local emergency card with diabetes history, allergies/critical conditions, care provider/facility, EPS/affiliation data, patient-verified emergency number/region, and consented trusted contacts.
 - The offline help view projects enabled medicines and consented contact phone/email into the responder view at display time, labels the medication list as informational, and never copies it into the emergency-card record.

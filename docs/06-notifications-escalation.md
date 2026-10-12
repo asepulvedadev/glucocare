@@ -19,7 +19,7 @@ Expo supports scheduling local notifications and receiving push notifications, b
 
 ### Bounded horizon
 
-The mobile implementation schedules rolling 14-day windows of one-shot medication and glucose-check notifications. Medication reminders are capped by configured start/end dates; glucose checks honor weekdays, plan validity, fixed times, and explicitly recorded meal-relative windows. Fourteen days × three daily times stays below iOS' pending-notification limit while leaving room for appointment and safety notices. It never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
+The mobile implementation schedules rolling one-shot windows of medication and glucose-check notifications. Medication reminders are capped by configured start/end dates; glucose checks honor weekdays, plan validity, fixed times, and explicitly recorded meal-relative windows. All medication, measurement, and appointment reminders share a 60-request native budget; the earliest reminders win, and a record is marked `scheduled_limited` when the device cannot fit the complete rolling window. Reconciliation on resume makes omitted future reminders eligible again. The scheduler never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
 
 - App start/resume.
 - Schedule edit.
@@ -30,10 +30,10 @@ The mobile implementation schedules rolling 14-day windows of one-shot medicatio
 
 Do not generate years of OS notifications.
 
-Data deletion and replace-style restore cancel the entire measurement reminder
-set as well as medication and appointment identifiers; measurement reminders are
-identified by their private `kind` payload because their rolling window is not
-stored as a single SQLite identifier.
+Data deletion and replace-style restore cancel the entire managed reminder set;
+medication and appointment identifiers are persisted, while measurement
+reminders are identified by their private `kind` payload because their rolling
+window is not stored as a single SQLite identifier.
 
 ### Stable occurrence identity
 

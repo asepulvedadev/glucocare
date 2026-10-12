@@ -68,6 +68,8 @@ function MedicationForm({ existing }: { existing?: Medication }) {
         ]);
       } else if (state === 'unavailable') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado. Los recordatorios nativos estarán disponibles en Android o iOS.');
+      } else if (state === 'scheduled_limited') {
+        Alert.alert('Medicamento guardado', 'El registro quedó guardado. El sistema programó parte de los próximos recordatorios; al abrir la app volverá a completar la ventana disponible.');
       }
       router.back();
     } catch {

@@ -1,5 +1,5 @@
 export type AppointmentStatus = 'requested' | 'pending_authorization' | 'authorized' | 'scheduled' | 'completed' | 'missed' | 'denied' | 'cancelled';
-export type AppointmentReminderState = 'scheduled' | 'permission_denied' | 'unavailable';
+export type AppointmentReminderState = 'scheduled' | 'scheduled_limited' | 'permission_denied' | 'unavailable';
 
 export type Appointment = {
   id: string;

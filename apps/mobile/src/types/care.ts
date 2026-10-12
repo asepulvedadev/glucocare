@@ -1,5 +1,5 @@
 export type MedicationRoute = 'oral' | 'injection' | 'inhaled' | 'topical' | 'other';
-export type ReminderState = 'scheduled' | 'permission_denied' | 'unavailable';
+export type ReminderState = 'scheduled' | 'scheduled_limited' | 'permission_denied' | 'unavailable';
 
 export type Medication = {
   id: string;

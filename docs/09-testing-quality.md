@@ -15,6 +15,7 @@ Fast, deterministic tests for:
 - Medication and measurement occurrence generation.
 - Appointment state transitions.
 - Timezone, daylight-saving, and clock-shift calculations.
+- Shared native notification budget, duplicate suppression, and partial-schedule truthfulness.
 - Consent and message-minimization rules.
 - Sync conflict and idempotency decisions.
 

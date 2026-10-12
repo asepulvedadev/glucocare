@@ -12,6 +12,7 @@ import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
+import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -151,6 +152,23 @@ describe('measurement reminder schedule', () => {
     expect(dates).toHaveLength(1);
     expect(dates[0].mealEventId).toBe('meal-1');
     expect(dates[0].scheduledAt.getHours()).toBe(14);
+  });
+});
+
+describe('shared native notification budget', () => {
+  it('deduplicates candidates and keeps the earliest reminders within the device budget', () => {
+    const first = new Date('2026-10-12T08:00:00-05:00');
+    const candidates = Array.from({ length: MAX_PENDING_LOCAL_REMINDERS + 5 }, (_, index) => ({
+      key: `medication:one:${index < 2 ? first.toISOString() : index}`,
+      kind: 'medication' as const,
+      ownerId: 'one',
+      scheduledAt: new Date(first.getTime() + index * 60_000),
+    }));
+    const selected = selectNotificationCandidates(candidates);
+    expect(selected).toHaveLength(MAX_PENDING_LOCAL_REMINDERS);
+    expect(selected[0].scheduledAt).toEqual(first);
+    expect(new Set(selected.map((candidate) => candidate.key)).size).toBe(MAX_PENDING_LOCAL_REMINDERS);
+    expect(selectNotificationCandidates(candidates, 0)).toEqual([]);
   });
 });
 

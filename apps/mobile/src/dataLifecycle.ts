@@ -293,12 +293,12 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       const hour = integer(row, 'hour', 0, 23);
       const minute = integer(row, 'minute', 0, 59);
       const route = enumValue(row, 'route', ['oral', 'injection', 'inhaled', 'topical', 'other'] as const);
-      const reminderState = enumValue(row, 'reminder_state', ['scheduled', 'permission_denied', 'unavailable'] as const, 'unavailable');
+      const reminderState = enumValue(row, 'reminder_state', ['scheduled', 'scheduled_limited', 'permission_denied', 'unavailable'] as const, 'unavailable');
       await db.runAsync(
         `INSERT INTO medications (id, name, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '[]', ?, ?)`,
         requiredString(row, 'id'), requiredString(row, 'name'), requiredString(row, 'dose_text'), route, optionalString(row, 'prescriber_name'), optionalString(row, 'instructions'), optionalString(row, 'start_date'), optionalString(row, 'end_date'), hour, minute,
-        jsonArray(row.times_json, 'times_json'), booleanFlag(row, 'enabled', true), reminderState === 'scheduled' ? 'unavailable' : reminderState, requiredString(row, 'created_at'),
+        jsonArray(row.times_json, 'times_json'), booleanFlag(row, 'enabled', true), reminderState === 'scheduled' || reminderState === 'scheduled_limited' ? 'unavailable' : reminderState, requiredString(row, 'created_at'),
       );
     }
 

@@ -13,12 +13,14 @@ import { getMeasurementPlan } from './db/measurementRepository';
 import { listMealEvents } from './db/mealRepository';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { isTerminalAppointmentStatus } from './domain/appointmentState';
+import { selectNotificationCandidates, type NotificationCandidate } from './domain/notificationSchedule';
 
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
 const MEASUREMENT_CHANNEL = 'measurements';
 const GLUCOSE_RISK_CHANNEL = 'glucose-risk';
 let notificationPreferences = { sound: true, vibration: true };
+let notificationRefreshInFlight: Promise<void> | null = null;
 
 export function configureNotificationPreferences(preferences: { notificationSound: boolean; notificationVibration: boolean }) {
   notificationPreferences = { sound: preferences.notificationSound, vibration: preferences.notificationVibration };
@@ -50,6 +52,7 @@ Notifications.setNotificationHandler({
 });
 
 export type ReminderPermission = 'granted' | 'permission_denied' | 'unavailable';
+export type ReminderScheduleState = 'scheduled' | 'scheduled_limited' | 'permission_denied' | 'unavailable';
 
 /** Opens the operating system notification settings when the user denied access. */
 export async function openNotificationSettings() {
@@ -67,6 +70,9 @@ export async function ensurePermission(): Promise<ReminderPermission> {
     await ensureAndroidChannel(GLUCOSE_RISK_CHANNEL, 'Alertas de glucosa', Notifications.AndroidImportance.HIGH, [0, 350, 200, 350], '#FF7A5C');
   }
   const current = await Notifications.getPermissionsAsync();
+  // A denied permission must not trigger a prompt loop on every app resume.
+  // Profile exposes the explicit system-settings action for this state.
+  if (current.status === 'denied') return 'permission_denied';
   const result = current.status === 'granted' ? current : await Notifications.requestPermissionsAsync();
   return result.status === 'granted' ? 'granted' : 'permission_denied';
 }
@@ -86,7 +92,7 @@ export async function scheduleMedicationReminder(medication: Medication): Promis
       content: {
         title: 'Recordatorio de rutina',
         body: 'Tienes una tarea de salud programada. Abre GlucoCare para ver los detalles.',
-        data: { url: '/care', medicationId: medication.id, scheduledAt: date.toISOString() },
+        data: { kind: 'medication', url: '/care', medicationId: medication.id, scheduledAt: date.toISOString() },
         sound: notificationPreferences.sound ? 'default' : undefined,
       },
       trigger,
@@ -102,7 +108,7 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
     content: {
       title: 'Recordatorio pospuesto',
       body: 'Revisa tu tarea de salud en GlucoCare.',
-      data: { url: '/care', medicationId: medication.id, snoozed: true },
+      data: { kind: 'medication_snooze', url: '/care', medicationId: medication.id, snoozed: true },
       sound: notificationPreferences.sound ? 'default' : undefined,
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: channelId(MEDICATION_CHANNEL) },
@@ -231,7 +237,7 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
     content: {
       title: 'Recordatorio de cita',
       body: 'Tienes una cita próxima. Abre GlucoCare para ver los detalles.',
-      data: { url: '/care', appointmentId: appointment.id },
+      data: { kind: 'appointment', url: '/care', appointmentId: appointment.id },
       sound: notificationPreferences.sound ? 'default' : undefined,
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: channelId(APPOINTMENT_CHANNEL) },
@@ -251,19 +257,146 @@ export async function reconcileAppointmentReminder(appointment: Appointment) {
   return scheduleAppointmentReminder(appointment);
 }
 
-/** Rebuilds already scheduled native reminders after a sound/vibration change. */
-export async function refreshNotificationSchedules(db: SQLiteDatabase) {
+type ManagedSchedule = {
+  candidate: NotificationCandidate;
+  channel: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+};
+
+function isManagedNotification(request: Notifications.NotificationRequest) {
+  const data = request.content.data;
+  if (!data || typeof data !== 'object') return false;
+  const values = data as Record<string, unknown>;
+  if (values.kind === 'medication_snooze') return false;
+  return values.kind === 'medication' || values.kind === 'appointment' || values.kind === 'measurement'
+    || typeof values.medicationId === 'string' || typeof values.appointmentId === 'string';
+}
+
+async function cancelManagedReminders() {
+  if (Platform.OS === 'web') return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await cancelReminder(scheduled.filter(isManagedNotification).map((request) => request.identifier));
+}
+
+function asDateTrigger(date: Date, baseChannel: string): Notifications.SchedulableNotificationTriggerInput {
+  return Platform.OS === 'android'
+    ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: channelId(baseChannel) }
+    : { type: Notifications.SchedulableTriggerInputTypes.DATE, date };
+}
+
+function buildManagedSchedules(
+  medications: Medication[],
+  appointments: Appointment[],
+  measurementPlan: MeasurementPlan | null,
+  meals: MealEvent[],
+  now = new Date(),
+): ManagedSchedule[] {
+  const schedules: ManagedSchedule[] = [];
+  for (const medication of medications) {
+    for (const date of medicationReminderDates(medication, now)) {
+      schedules.push({
+        candidate: { key: `medication:${medication.id}:${date.toISOString()}`, kind: 'medication', ownerId: medication.id, scheduledAt: date },
+        channel: MEDICATION_CHANNEL,
+        title: 'Recordatorio de rutina',
+        body: 'Tienes una tarea de salud programada. Abre GlucoCare para ver los detalles.',
+        data: { kind: 'medication', url: '/care', medicationId: medication.id, scheduledAt: date.toISOString() },
+      });
+    }
+  }
+  for (const appointment of appointments) {
+    if (isTerminalAppointmentStatus(appointment.status)) continue;
+    const appointmentAt = new Date(appointment.scheduledAt);
+    const reminderAt = new Date(appointmentAt.getTime() - 24 * 60 * 60 * 1000);
+    if (!Number.isFinite(appointmentAt.getTime()) || reminderAt.getTime() <= now.getTime()) continue;
+    schedules.push({
+      candidate: { key: `appointment:${appointment.id}:${reminderAt.toISOString()}`, kind: 'appointment', ownerId: appointment.id, scheduledAt: reminderAt },
+      channel: APPOINTMENT_CHANNEL,
+      title: 'Recordatorio de cita',
+      body: 'Tienes una cita próxima. Abre GlucoCare para ver los detalles.',
+      data: { kind: 'appointment', url: '/care', appointmentId: appointment.id, scheduledAt: appointmentAt.toISOString() },
+    });
+  }
+  for (const item of measurementReminderDates(measurementPlan, meals, now)) {
+    const ownerId = measurementPlan?.id ?? 'default';
+    const key = `measurement:${ownerId}:${item.scheduledAt.toISOString()}:${item.windowIndex}:${item.mealEventId ?? ''}`;
+    schedules.push({
+      candidate: { key, kind: 'measurement', ownerId, scheduledAt: item.scheduledAt, mealEventId: item.mealEventId, windowIndex: item.windowIndex },
+      channel: MEASUREMENT_CHANNEL,
+      title: 'Medición de glucosa',
+      body: 'Tienes una medición planificada. Registra el valor y sigue las instrucciones de tu equipo de salud.',
+      data: { kind: 'measurement', url: '/log', scheduledAt: item.scheduledAt.toISOString(), windowIndex: item.windowIndex, mealEventId: item.mealEventId },
+    });
+  }
+  return schedules;
+}
+
+/**
+ * Rebuilds all managed native reminders from one bounded queue. The native
+ * pending-notification limit is shared across medications, measurements, and
+ * appointments; omitted future reminders are recreated on the next resume.
+ */
+async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   if (Platform.OS === 'web') return;
   const [medications, appointments, measurementPlan, meals] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), listMealEvents(db)]);
+  await cancelManagedReminders();
+  const schedules = buildManagedSchedules(medications, appointments, measurementPlan, meals);
+  if (!schedules.length) {
+    await Promise.all([
+      ...medications.map((medication) => updateMedicationReminder(db, medication.id, 'unavailable', undefined, [])),
+      ...appointments.map((appointment) => updateAppointmentReminder(db, appointment.id, 'unavailable', undefined)),
+    ]);
+    return;
+  }
+  const permission = await ensurePermission();
+  if (permission !== 'granted') {
+    await Promise.all([
+      ...medications.map((medication) => updateMedicationReminder(db, medication.id, permission, undefined, [])),
+      ...appointments.map((appointment) => updateAppointmentReminder(db, appointment.id, permission, undefined)),
+    ]);
+    return;
+  }
+
+  const selected = new Map(selectNotificationCandidates(schedules.map(({ candidate }) => candidate)).map((candidate) => [candidate.key, candidate]));
+  const scheduledIds = new Map<string, string[]>();
+  for (const schedule of schedules) {
+    if (!selected.has(schedule.candidate.key)) continue;
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: { title: schedule.title, body: schedule.body, data: schedule.data, sound: notificationPreferences.sound ? 'default' : undefined },
+        trigger: asDateTrigger(schedule.candidate.scheduledAt, schedule.channel),
+      });
+      const current = scheduledIds.get(schedule.candidate.ownerId) ?? [];
+      current.push(id);
+      scheduledIds.set(schedule.candidate.ownerId, current);
+    } catch {
+      // Keep the remaining candidates eligible for the next reconciliation.
+    }
+  }
+
   await Promise.all(medications.map(async (medication) => {
-    await cancelReminder(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []));
-    const scheduled = await scheduleMedicationReminder(medication);
-    await updateMedicationReminder(db, medication.id, scheduled.state === 'granted' ? 'scheduled' : scheduled.state === 'permission_denied' ? 'permission_denied' : 'unavailable', scheduled.notificationId, scheduled.notificationIds);
+    const expected = medicationReminderDates(medication).length;
+    const ids = scheduledIds.get(medication.id) ?? [];
+    const state: ReminderScheduleState = expected === 0 ? 'unavailable' : ids.length === expected ? 'scheduled' : ids.length > 0 ? 'scheduled_limited' : 'unavailable';
+    await updateMedicationReminder(db, medication.id, state, ids[0], ids);
   }));
   await Promise.all(appointments.map(async (appointment) => {
-    await cancelReminder(appointment.notificationId);
-    const scheduled = await scheduleAppointmentReminder(appointment);
-    await updateAppointmentReminder(db, appointment.id, scheduled.state === 'granted' ? 'scheduled' : scheduled.state === 'permission_denied' ? 'permission_denied' : 'unavailable', scheduled.notificationId);
+    const expected = !isTerminalAppointmentStatus(appointment.status) && (() => {
+      const at = new Date(appointment.scheduledAt).getTime();
+      return Number.isFinite(at) && at - 24 * 60 * 60 * 1000 > Date.now();
+    })();
+    const ids = scheduledIds.get(appointment.id) ?? [];
+    const state: ReminderScheduleState = !expected ? 'unavailable' : ids.length ? 'scheduled' : 'scheduled_limited';
+    await updateAppointmentReminder(db, appointment.id, state, ids[0]);
   }));
-  await refreshMeasurementPlanReminders(measurementPlan, meals);
+}
+
+/** Serializes rebuilds triggered by app resume, focus, and preference changes. */
+export async function refreshNotificationSchedules(db: SQLiteDatabase) {
+  if (notificationRefreshInFlight) return notificationRefreshInFlight;
+  notificationRefreshInFlight = refreshNotificationSchedulesInternal(db).finally(() => {
+    notificationRefreshInFlight = null;
+  });
+  return notificationRefreshInFlight;
 }
