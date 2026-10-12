@@ -40,6 +40,7 @@ beta authorization.
 | Care-plan auditability | Medication, appointment, care-plan, measurement-plan, emergency-card, and trusted-contact changes retain local before/after snapshots in `change_audit_events` and survive JSON backup/restore; glucose readings also preserve the deterministic risk rule and care-plan revision timestamp used; reviewed remote conflicts preserve care-plan provenance and emergency-card fields | Automated v35/v40 migrations, repository/conflict/report code paths, and 59 domain tests; reviewer/accessibility evidence pending |
 | Context and ketone capture | Glucose records support exercise/illness/symptom contexts and structured user-entered ketone-strip results without interpreting them | Automated v36 migration, sync, export, and report coverage; clinical wording/device evidence pending |
 | Dependency posture | Expo SDK and React Native versions are pinned and checked by Expo Doctor; audit output is recorded separately | `docs/DEPENDENCY_AUDIT.md`; upstream-compatible remediation and security-owner review pending |
+| Production configuration handoff | A separate validator rejects localhost/place-holder origins, weak database/callback secrets, and partial provider credentials before a reviewed public release | Synthetic valid/invalid cases pass in CI and the VPS correctly rejects its localhost staging environment; DNS, TLS, and real-provider review pending |
 
 ## Reproducible checks
 
