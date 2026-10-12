@@ -61,7 +61,7 @@ Page an operator for:
 
 - Sustained failure of clinical record writes or migrations.
 - Emergency alert dispatch failure above threshold.
-- Authentication/RLS anomaly or suspected cross-patient access.
+- Authentication/authorization anomaly or suspected cross-patient access.
 - Backup failure or restore-test failure.
 - Sudden crash increase in emergency, glucose, or medication routes.
 - Queue backlog exceeding its safety window.
@@ -87,7 +87,7 @@ Each runbook identifies owner, detection, containment, user messaging, recovery,
 - Define RPO/RTO after business impact analysis.
 - Encrypt backups and restrict access.
 - Test restore at least quarterly before launch, then at a documented cadence.
-- Verify RLS and encryption settings after restore.
+- Verify private-network exposure, authorization behavior, and encryption settings after restore.
 - Record evidence without patient payloads.
 - Ensure deletion commitments include backup expiration behavior.
 

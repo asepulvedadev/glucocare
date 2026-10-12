@@ -18,7 +18,7 @@
 
 - [ ] Privacy/consent/terms approved and versioned.
 - [ ] INVIMA classification assessment recorded.
-- [ ] RLS/access matrix and penetration test pass.
+- [ ] API authorization matrix, cross-patient negative tests, and penetration test pass.
 - [ ] Logs, analytics, crash reports, and notifications contain no prohibited data.
 - [ ] Export, revocation, deletion, backup expiry, and incident response are operational.
 

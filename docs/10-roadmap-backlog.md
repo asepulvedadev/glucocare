@@ -54,7 +54,7 @@ Two weeks of routine occurrences reconcile without duplicates across simulated t
 ## Phase 3 — account, sync, and contacts (3–4 weeks)
 
 - Optional VPS API account/sync.
-- RLS, explicit API exposure/grants, migrations, and negative access tests.
+- Patient-scoped API authorization, private PostgreSQL network exposure, migrations, and negative access tests.
 - Outbox/inbox sync with conflicts and idempotency.
 - Trusted-contact invitation, acceptance, revocation, and channel verification.
 - Privacy-safe push/email provider adapter.
@@ -96,7 +96,7 @@ Critical end-to-end journeys pass on physical Android/iOS with network on/off an
 - Trusted-contact consent before dispatch.
 - Offline data durability and encrypted native storage.
 - TalkBack/VoiceOver critical-flow compliance.
-- RLS and cross-patient negative tests.
+- API authorization and cross-patient negative tests.
 
 ### P1 — MVP value
 

@@ -81,8 +81,8 @@ These items are release gates, not TODOs that can be safely inferred from code:
    emergency fallback.
 2. TalkBack and VoiceOver walkthroughs with large text, high contrast, reduced
    motion, and switch/keyboard navigation where applicable.
-3. Two-device sync and conflict review using synthetic accounts, including RLS
-   negative tests against the hosted project.
+3. Two-device sync and conflict review using synthetic accounts, including API
+   authorization negative tests against the VPS PostgreSQL deployment.
 4. Production provider credentials, private worker scheduling, queue/backlog
    alerting, and a provider-outage drill.
 5. Clinical review of every threshold, medication message, symptom escalation,

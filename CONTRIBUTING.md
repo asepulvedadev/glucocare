@@ -13,7 +13,8 @@
 - Keep domain rules independent from Expo, React, the VPS API, and SQL.
 - Never add a health value, medication, symptom, contact detail, token, or location to logs.
 - Every database change uses a migration and upgrade test.
-- Every exposed database table requires deliberate grants plus tested RLS.
+- PostgreSQL remains private to the VPS network; every API query must enforce
+  patient-scoped authorization and have a negative cross-patient test.
 - Every remote write is idempotent.
 - Every accessibility-sensitive component includes semantics and manual verification notes.
 

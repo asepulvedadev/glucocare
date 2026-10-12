@@ -54,7 +54,7 @@ A small team can combine roles, but accountability cannot be ambiguous.
 | Product owner | scope, priority, release decision | phase gates and beta go/no-go |
 | Clinical safety lead | care-plan language, escalation, medication semantics | all P0 clinical changes |
 | Mobile lead | Expo architecture, offline data, native notifications | mobile vertical slices |
-| Backend/security lead | auth, sync, RLS, secrets, audit events | production data paths |
+| Backend/security lead | auth, sync, patient-scoped authorization, secrets, audit events | production data paths |
 | UX/accessibility lead | flows, content hierarchy, assistive technology testing | usability and accessibility gates |
 | QA lead | test strategy, device matrix, release evidence | release candidate |
 | Operations lead | CI/CD, VPS/EAS environments, monitoring, rollback | deployment gate |
@@ -150,7 +150,7 @@ A small team can combine roles, but accountability cannot be ambiguous.
 
 **Dependencies:** stable local schema from WS3; security review from WS0.
 
-**Exit evidence:** two-device sync tests, replay/idempotency tests, RLS negative tests, secret rotation drill, offline-first behavior unchanged.
+**Exit evidence:** two-device sync tests, replay/idempotency tests, API cross-patient negative tests, secret rotation drill, offline-first behavior unchanged.
 
 ### WS9 — Quality, operations, and release
 
@@ -204,9 +204,9 @@ Estimates are relative engineering effort: `S` (1–2 days), `M` (3–5 days), `
 | APP-01 | P1 | M | Appointment states and reminders | state transition tests |
 | HIST-01 | P1 | M | CSV/JSON export with schema version | import-independent fixture validation |
 | RIGHTS-01 | P0 | M | Account/data deletion and audit event | idempotent deletion evidence |
-| SYNC-01 | P1 | L | Auth, outbox/inbox sync, conflict policy | two-device replay and RLS tests |
+| SYNC-01 | P1 | L | Auth, outbox/inbox sync, conflict policy | two-device replay and API authorization tests |
 | SYNC-02 | P1 | M | Remote alert adapter with rate limits | provider failure and retry tests |
-| SEC-01 | P0 | M | Threat model, RLS, secret scan, dependency policy | security review signed |
+| SEC-01 | P0 | M | Threat model, patient-scoped API authorization, secret scan, dependency policy | security review signed |
 | QA-01 | P0 | L | Unit/component/e2e matrix and physical-device lab | release evidence template |
 | OPS-01 | P0 | M | Monitoring, backup/restore, incident and rollback runbooks | tabletop exercise completed |
 | BETA-01 | P0 | L | Controlled pilot with support channel and feedback loop | pilot report and go/no-go decision |
@@ -304,7 +304,7 @@ Support must have a short script for: lost phone, wrong reading, missed reminder
 | Panic flow activates accidentally | one-tap destructive action | confirmation/undo, large target, haptics/voice alternatives, audit event | UX lead |
 | Contact alert is not delivered | offline/provider/API failure | queue state, retry, call/SMS fallback, no guarantee wording | backend lead |
 | Data loss or sync conflict | process kill, two-device edit, migration | idempotency, outbox/inbox, conflict policy, backups, restore drill | backend/ops |
-| Sensitive data exposure | logs, analytics, backups, RLS error | data inventory, redaction, RLS tests, secret scan, least privilege | security lead |
+| Sensitive data exposure | logs, analytics, backups, authorization error | data inventory, redaction, cross-patient API tests, secret scan, least privilege | security lead |
 | Regulatory scope expands | intended use changes | ADR + counsel review before marketing or feature change | product owner |
 | Shared VPS regression | port/name/capability collision | explicit Compose project, localhost binding, canary and rollback | operations lead |
 

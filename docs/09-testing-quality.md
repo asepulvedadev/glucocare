@@ -32,8 +32,8 @@ Use table-driven boundary tests and property-based tests for conversions/schedul
 
 ### Backend integration tests
 
-- RLS access matrix: owner, different patient, revoked delegate, anonymous, service function.
-- Explicit Data API grants/exposure.
+- API authorization matrix: owner, different patient, revoked delegate, anonymous, and service function.
+- Private PostgreSQL exposure is verified: the database is reachable only from the VPS Docker network; public access is rejected.
 - Idempotent sync and emergency dispatch.
 - Consent expiry/revocation race.
 - Provider timeout, duplicate callback, and partial channel failure.
@@ -124,7 +124,7 @@ Targets are product goals and may be revised with measured evidence.
 - Type checking and lint.
 - Unit/domain tests with changed-rule coverage.
 - Database migration tests.
-- RLS and backend integration tests.
+- API authorization and backend integration tests.
 - Component accessibility tests.
 - Build Android/iOS development artifacts.
 - Dependency/secret scan.

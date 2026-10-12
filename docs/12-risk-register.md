@@ -14,7 +14,7 @@
 | R-02 | User confuses provider acceptance with delivered alert | 4 | 5 | 20 | Delivery ledger, explicit labels, fallback call action | Product | Open |
 | R-03 | Notification is suppressed by OS/battery policy | 4 | 4 | 16 | Local scheduling, permission diagnostics, in-app due list, truthful limitations | Mobile | Open |
 | R-04 | Wrong unit or conversion changes interpretation | 3 | 5 | 15 | Unit always shown, original+canonical storage, boundary/property tests | Engineering | Open |
-| R-05 | Unauthorized access to health data | 3 | 5 | 15 | Encryption, RLS, least privilege, negative tests, penetration test | Security | Open |
+| R-05 | Unauthorized access to health data | 3 | 5 | 15 | Encryption, private PostgreSQL network, patient-scoped API authorization, least privilege, negative tests, penetration test | Security | Open |
 | R-06 | Lock-screen notification exposes health data | 3 | 4 | 12 | Generic default body, explicit preview consent, privacy tests | Product | Open |
 | R-07 | Trusted contact never consented or was wrong | 3 | 4 | 12 | Verified invitation, acceptance, scope, revocation, periodic review | Backend | Open |
 | R-08 | Emergency number is wrong for locale | 3 | 5 | 15 | Country/municipality configuration, onboarding verification, visible edit/test | Product | Open |

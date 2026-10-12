@@ -17,7 +17,7 @@
 | Outbox | Local queue written atomically with domain data for later idempotent synchronization. |
 | Personalized threshold | Limit contained in the active patient care plan and associated with a source/review date. |
 | Provider accepted | A message provider accepted the request; it does not prove delivery or reading. |
-| RLS | PostgreSQL Row Level Security used to enforce record access per authenticated relationship. |
+| Patient-scoped authorization | Server-side authorization that derives the patient relationship from the authenticated session and rejects cross-patient access. |
 | Trusted contact | A verified person who consented to receive selected alerts; not automatically a caregiver with record access. |
 | UTC instant | Unambiguous moment stored for synchronization; local timezone is stored separately. |
 

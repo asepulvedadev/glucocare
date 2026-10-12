@@ -54,7 +54,9 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 - PostgreSQL is private to the VPS Docker network; the API enforces deny-by-default patient scoping on every record query.
 - Client contains only publishable credentials. Secret/service-role keys stay server-side.
 - Privileged API routes validate the revocable session, patient relationship, schema, rate limits, consent, and idempotency.
-- Encryption at rest and managed backups are verified contractually with the provider.
+- PostgreSQL volume encryption, backup permissions, and restore controls are
+  operated and verified on the AutoKing VPS; encrypted off-host copies remain a
+  release requirement.
 - Production access uses least privilege, MFA, audit logs, and time-bounded elevation.
 
 ### Authorization rules
@@ -71,7 +73,7 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 | Threat | Control |
 |---|---|
 | Lost/unlocked phone | Device encryption, optional app lock, privacy-safe notifications, remote session revocation. |
-| Broken object-level authorization | Patient-scoped RLS and negative authorization tests. |
+| Broken object-level authorization | Private PostgreSQL network, patient-scoped API authorization, and negative cross-patient tests. |
 | Malicious or mistaken contact | Invitation verification, granular consent, revocation, minimum data. |
 | Secret leaked from app bundle | No server secrets in client; rotate publishable credentials where needed. |
 | Notification leaks health data | Generic lock-screen body by default. |
@@ -124,7 +126,7 @@ patient's email or clinical payload.
 
 ## Security release gate
 
-- [ ] RLS negative tests prove cross-patient access fails.
+- [ ] API authorization negative tests prove cross-patient access fails.
 - [ ] No health data or secrets appear in client logs, notification previews, analytics, or crash breadcrumbs.
 - [ ] Local encryption/key loss/restore behavior is tested.
 - [ ] Consent withdrawal blocks new processing promptly.
