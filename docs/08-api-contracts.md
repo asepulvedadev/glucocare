@@ -94,6 +94,7 @@ Server returns per-event acceptance/rejection and an opaque next cursor. One inv
 | `medication.occurrence.responded.v1` | Taken/skipped/snoozed with user time. |
 | `appointment.updated.v1` | Replaces editable appointment details and reschedules the local reminder. |
 | `appointment.status_changed.v1` | Enforces legal transition. |
+| `contact.updated.v1` | Replaces contact details and requires consent confirmation again. |
 | `contact.consent_changed.v1` | Accepted/revoked and scopes. |
 | `emergency.incident.started.v1` | Minimal incident record. |
 | `emergency.alert.status_changed.v1` | Provider status, not clinical state. |

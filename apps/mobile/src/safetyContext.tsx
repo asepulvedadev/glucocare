@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
+import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeTrustedContact, updateTrustedContact as updateStoredTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
 import type { EmergencyCard, NewEmergencyCard, NewTrustedContact, TrustedContact } from './types/safety';
 import { newId } from './ids';
 import { supabase } from './supabase';
@@ -13,6 +13,7 @@ type SafetyContextValue = {
   isLoading: boolean;
   saveEmergencyCard: (input: NewEmergencyCard) => Promise<void>;
   addTrustedContact: (input: NewTrustedContact) => Promise<void>;
+  updateTrustedContact: (contactId: string, input: NewTrustedContact) => Promise<void>;
   grantTrustedContactConsent: (contactId: string) => Promise<void>;
   sendTrustedContactInvitation: (contactId: string, channel: TrustedContactInvitationChannel) => Promise<void>;
   revokeTrustedContact: (contactId: string) => Promise<void>;
@@ -52,6 +53,13 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     await insertTrustedContact(db, contact); setTrustedContacts((current) => [...current, contact]);
   }, [db]);
 
+  const updateContact = useCallback(async (contactId: string, input: NewTrustedContact) => {
+    const current = trustedContacts.find((item) => item.id === contactId);
+    if (!current) throw new Error('Trusted contact not found.');
+    const updated = await updateStoredTrustedContact(db, { ...input, id: current.id, createdAt: current.createdAt, consentGranted: false });
+    setTrustedContacts((items) => items.map((item) => item.id === updated.id ? updated : item));
+  }, [db, trustedContacts]);
+
   const revokeContact = useCallback(async (contactId: string) => {
     await revokeTrustedContact(db, contactId);
     setTrustedContacts((current) => current.filter((contact) => contact.id !== contactId));
@@ -68,7 +76,7 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     if (error) throw error;
   }, []);
 
-  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, grantContactConsent, sendContactInvitation, revokeContact, refresh]);
+  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, updateTrustedContact: updateContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, updateContact, grantContactConsent, sendContactInvitation, revokeContact, refresh]);
   return <SafetyContext.Provider value={value}>{children}</SafetyContext.Provider>;
 }
 

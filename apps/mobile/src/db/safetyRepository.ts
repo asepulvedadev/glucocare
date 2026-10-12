@@ -34,6 +34,15 @@ export async function insertTrustedContact(db: SQLiteDatabase, contact: TrustedC
   });
 }
 
+export async function updateTrustedContact(db: SQLiteDatabase, contact: TrustedContact) {
+  const updated = { ...contact, consentGranted: false };
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('UPDATE trusted_contacts SET name = ?, relationship = ?, phone = ?, email = ?, consent_granted = 0 WHERE id = ?', updated.name, updated.relationship ?? null, updated.phone ?? null, updated.email ?? null, updated.id);
+    await enqueueOutbox(db, { id: newId(), entityType: 'trusted_contact', entityId: updated.id, eventType: 'contact.updated.v1', payload: updated });
+  });
+  return updated;
+}
+
 export async function revokeTrustedContact(db: SQLiteDatabase, contactId: string) {
   const row = await db.getFirstAsync<ContactRow>('SELECT * FROM trusted_contacts WHERE id = ?', contactId);
   if (!row) throw new Error('Trusted contact not found.');

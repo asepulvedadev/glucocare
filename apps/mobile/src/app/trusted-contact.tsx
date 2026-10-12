@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -6,15 +6,25 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useSafety } from '../safetyContext';
+import type { TrustedContact } from '../types/safety';
 import { colors, radii, spacing } from '../theme/tokens';
 
 export default function TrustedContactScreen() {
-  const { addTrustedContact } = useSafety();
-  const [name, setName] = useState('');
-  const [relationship, setRelationship] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [consentGranted, setConsentGranted] = useState(false);
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { trustedContacts, isLoading } = useSafety();
+  const existing = typeof id === 'string' ? trustedContacts.find((item) => item.id === id) : undefined;
+  if (id && !existing && isLoading) return <Screen><Body>Cargando contacto…</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos ese contacto en este dispositivo.</Body></Screen>;
+  return <TrustedContactForm existing={existing} />;
+}
+
+function TrustedContactForm({ existing }: { existing?: TrustedContact }) {
+  const { addTrustedContact, updateTrustedContact } = useSafety();
+  const [name, setName] = useState(existing?.name ?? '');
+  const [relationship, setRelationship] = useState(existing?.relationship ?? '');
+  const [phone, setPhone] = useState(existing?.phone ?? '');
+  const [email, setEmail] = useState(existing?.email ?? '');
+  const [consentGranted, setConsentGranted] = useState(existing?.consentGranted ?? false);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -24,7 +34,13 @@ export default function TrustedContactScreen() {
     }
     setSaving(true);
     try {
-      await addTrustedContact({ name: name.trim(), relationship: relationship.trim() || undefined, phone: phone.trim() || undefined, email: email.trim() || undefined, consentGranted });
+      const input = { name: name.trim(), relationship: relationship.trim() || undefined, phone: phone.trim() || undefined, email: email.trim() || undefined, consentGranted };
+      if (existing) {
+        await updateTrustedContact(existing.id, input);
+        Alert.alert('Contacto actualizado', 'Por seguridad, el consentimiento anterior se reinició. Confirma nuevamente antes de enviar avisos.');
+      } else {
+        await addTrustedContact(input);
+      }
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
@@ -36,8 +52,8 @@ export default function TrustedContactScreen() {
   return (
     <Screen>
       <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
-      <Eyebrow>Persona de apoyo</Eyebrow>
-      <Heading>Elige a quién avisar</Heading>
+      <Eyebrow>{existing ? 'Editar persona de apoyo' : 'Persona de apoyo'}</Eyebrow>
+      <Heading>{existing ? 'Actualiza sus datos' : 'Elige a quién avisar'}</Heading>
       <Body>Solo se usará cuando tú lo pidas. La app no promete que un aviso llegue ni reemplaza emergencias.</Body>
       <Panel>
         <Caption>NOMBRE</Caption>
@@ -54,7 +70,7 @@ export default function TrustedContactScreen() {
           <Body>Esta persona aceptó ser mi contacto de apoyo.</Body>
         </Pressable>
       </Panel>
-      <PrimaryButton label={saving ? 'Guardando…' : 'Guardar contacto'} onPress={() => void save()} disabled={saving} />
+      <PrimaryButton label={saving ? 'Guardando…' : existing ? 'Actualizar contacto' : 'Guardar contacto'} onPress={() => void save()} disabled={saving} />
     </Screen>
   );
 }
