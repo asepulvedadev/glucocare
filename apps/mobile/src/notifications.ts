@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
@@ -15,6 +15,13 @@ Notifications.setNotificationHandler({
 });
 
 export type ReminderPermission = 'granted' | 'permission_denied' | 'unavailable';
+
+/** Opens the operating system notification settings when the user denied access. */
+export async function openNotificationSettings() {
+  if (Platform.OS === 'web') return false;
+  await Linking.openSettings();
+  return true;
+}
 
 export async function ensurePermission(): Promise<ReminderPermission> {
   if (Platform.OS === 'web') return 'unavailable';

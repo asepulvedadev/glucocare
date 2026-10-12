@@ -6,6 +6,7 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
+import { openNotificationSettings } from '../notifications';
 import { medicationRouteLabel, type MedicationRoute } from '../types/care';
 import { colors, radii, spacing } from '../theme/tokens';
 
@@ -40,7 +41,10 @@ export default function MedicationScreen() {
     try {
       const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled: true });
       if (state === 'permission_denied') {
-        Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas. Actívalas en la configuración del dispositivo para recibir recordatorios.');
+        Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
+          { text: 'Ahora no', style: 'cancel' },
+          { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
+        ]);
       } else if (state === 'unavailable') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado. Los recordatorios nativos estarán disponibles en Android o iOS.');
       }

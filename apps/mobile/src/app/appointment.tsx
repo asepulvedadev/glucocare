@@ -6,6 +6,7 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
+import { openNotificationSettings } from '../notifications';
 import { appointmentStatusLabel, type AppointmentStatus } from '../types/appointments';
 import { colors, radii, spacing } from '../theme/tokens';
 
@@ -36,7 +37,10 @@ export default function AppointmentScreen() {
     setSaving(true);
     try {
       const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), scheduledAt: parsed.toISOString(), status, location: location.trim() || undefined, notes: notes.trim() || undefined });
-      if (reminderState === 'permission_denied') Alert.alert('Cita guardada', 'La cita quedó guardada, pero las notificaciones están deshabilitadas.');
+      if (reminderState === 'permission_denied') Alert.alert('Cita guardada', 'La cita quedó guardada, pero las notificaciones están deshabilitadas.', [
+        { text: 'Ahora no', style: 'cancel' },
+        { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
+      ]);
       else if (reminderState === 'unavailable') Alert.alert('Cita guardada', 'La cita quedó guardada. El recordatorio se habilita cuando la fecha esté a más de 24 horas y haya permisos.');
       router.back();
     } catch { Alert.alert('No se pudo guardar', 'Revisa los datos e inténtalo de nuevo.'); } finally { setSaving(false); }
