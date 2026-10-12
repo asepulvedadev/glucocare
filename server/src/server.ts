@@ -91,6 +91,47 @@ function objectValue(value: unknown): JsonObject | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : null;
 }
 
+function isValidTime(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return false;
+  const [hour, minute] = value.split(':').map(Number);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+function isValidMedicationSchedule(value: unknown) {
+  const schedule = objectValue(value);
+  if (!schedule) return false;
+  const weekdays = schedule.weekdays;
+  if (weekdays !== undefined && (!Array.isArray(weekdays)
+    || weekdays.some((day) => !Number.isInteger(day) || Number(day) < 1 || Number(day) > 7)
+    || new Set(weekdays).size !== weekdays.length)) return false;
+  if (schedule.kind === 'fixed') {
+    return Array.isArray(schedule.times) && schedule.times.length >= 1 && schedule.times.length <= 8 && schedule.times.every(isValidTime);
+  }
+  if (schedule.kind === 'interval') {
+    return isValidTime(schedule.anchorTime)
+      && Number.isInteger(schedule.intervalHours)
+      && Number(schedule.intervalHours) >= 1
+      && Number(schedule.intervalHours) <= 24;
+  }
+  if (schedule.kind === 'meal_relative') {
+    return ['breakfast', 'lunch', 'dinner', 'snack'].includes(String(schedule.meal))
+      && Number.isInteger(schedule.offsetMinutes)
+      && Number(schedule.offsetMinutes) >= -240
+      && Number(schedule.offsetMinutes) <= 1440;
+  }
+  return false;
+}
+
+function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
+  if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
+  if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card'))) return 'INVALID_ENTITY_ID';
+  for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt']) {
+    if (field in payload && (typeof payload[field] !== 'string' || Number.isNaN(Date.parse(String(payload[field]))))) return 'INVALID_EVENT_DATE';
+  }
+  if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
+  return null;
+}
+
 function eventDate(payload: JsonObject) {
   const candidate = [payload.updatedAt, payload.createdAt, payload.recordedAt, payload.occurredAt, payload.scheduledAt]
     .find((value): value is string => typeof value === 'string' && !Number.isNaN(Date.parse(value)));
@@ -183,6 +224,11 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
   const payload = objectValue(body.payload);
   if (!eventId || !eventType || !entityType || !entityId || !payload || !/^[0-9a-f-]{36}$/i.test(eventId) || !supportedEntityTypes.has(entityType)) {
     fail(response, 400, 'INVALID_SYNC_EVENT', 'El evento de sincronización no es válido.');
+    return;
+  }
+  const validationError = validateSyncEvent(entityType, entityId, eventType, payload);
+  if (validationError) {
+    fail(response, 400, validationError, 'El evento de sincronización contiene datos no válidos.');
     return;
   }
   const occurredAt = eventDate(payload);

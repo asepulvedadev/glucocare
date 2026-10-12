@@ -21,6 +21,15 @@ const firstDeviceTwo = await call('/v1/auth/signin', { method: 'POST', body: JSO
 const second = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `other-${suffix}@example.invalid`, password }) });
 const anonymousSync = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`);
 if (anonymousSync.status !== 401) throw new Error(`anonymous sync returned ${anonymousSync.status}`);
+const invalidMedication = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'medication.created.v1', entityType: 'medication', entityId: crypto.randomUUID(),
+  payload: { id: crypto.randomUUID(), name: 'Invalid', schedule: { kind: 'interval', anchorTime: '25:00', intervalHours: 0 } },
+}) });
+if (invalidMedication.status !== 400) throw new Error(`invalid medication schedule returned ${invalidMedication.status}`);
+const invalidEventType = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'not valid', entityType: 'glucose_reading', entityId: crypto.randomUUID(), payload: { value: 120, unit: 'mg/dL' },
+}) });
+if (invalidEventType.status !== 400) throw new Error(`invalid event type returned ${invalidEventType.status}`);
 const callbackPayload = JSON.stringify({ providerMessageId: `unknown-${suffix}`, status: 'delivered' });
 const callbackHeaders = { 'content-type': 'application/json' };
 const callbackSecret = process.env.PROVIDER_CALLBACK_SECRET?.trim();

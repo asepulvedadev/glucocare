@@ -35,6 +35,7 @@ Use table-driven boundary tests and property-based tests for conversions/schedul
 - API authorization matrix: owner, different patient, revoked delegate, anonymous, and service function.
 - Private PostgreSQL exposure is verified: the database is reachable only from the VPS Docker network; public access is rejected.
 - Idempotent sync and emergency dispatch.
+- Sync payload boundary validation, including malformed event types, invalid entity IDs, timestamps, and medication schedules.
 - Consent expiry/revocation race.
 - Provider timeout, duplicate callback, and partial channel failure.
 - Export/deletion lifecycle and backup expiry evidence.
