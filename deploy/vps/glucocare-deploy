@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Installed as /usr/local/sbin/glucocare-deploy on the VPS and referenced by the
-# forced-command deploy key. The wrapper accepts a gzipped repository archive on
-# stdin and never grants the GitHub Actions key an interactive shell.
+# Installed as /usr/local/sbin/glucocare-deploy on the VPS and invoked by the
+# operator-only direct deploy command through `sudo -u glucocare-deploy`. The
+# wrapper accepts a gzipped repository archive on stdin and never grants the
+# root SSH transport or the restricted deploy user an interactive shell.
 base=/srv/glucocare
 incoming="$base/.incoming"
 release="$base/release"

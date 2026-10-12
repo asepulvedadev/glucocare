@@ -275,12 +275,12 @@ A work item is done only when:
 | Staging | integration, device, and pilot rehearsal | synthetic or consented test data | restricted team access |
 | Production | controlled beta and later public release | encrypted user data | least privilege; audited |
 
-Current repository CI validates Markdown and builds the documentation container. The VPS deployment is intentionally restricted to `127.0.0.1:18080` and uses a dedicated forced-command deploy user; it is **not** a public app endpoint. When the Expo app exists:
+Current repository CI validates Markdown, builds the deployment images, and runs the Expo/PostgreSQL checks. The strict VPS deployment order is operator-driven: `scripts/deploy-vps-direct.sh` uses the password file only for root SSH transport, then invokes the root-owned forced wrapper as the restricted `glucocare-deploy` user. The staging surfaces remain intentionally restricted to localhost (`127.0.0.1:18080`, `18082`, and `18084`); they are **not** public app endpoints. There is no GitHub Actions deployment path. When the Expo app exists:
 
 - use EAS for signed native builds and staged channels;
 - keep backend migrations separately reviewed and reversible;
 - deploy backend/web artifacts with an explicit Compose project name;
-- never deploy with root SSH or a shared personal key;
+- keep root SSH limited to the operator's password-file transport; the release wrapper must always drop execution to `glucocare-deploy` and must not expose an interactive shell;
 - keep secrets in GitHub Environments/VPS secret storage, never in the repository;
 - document the public domain, TLS, backups, and on-call ownership before production exposure.
 
