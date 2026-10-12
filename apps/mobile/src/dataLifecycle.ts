@@ -9,6 +9,7 @@ import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSumma
 import { exportRangeLabel, exportRangeSince, type ExportRange } from './domain/exportRange';
 import { insertChangeAuditEvent } from './db/changeAuditRepository';
 import { isValidGlucoseEntry } from './domain/glucoseSafety';
+import { buildGlucoseCsv } from './domain/glucoseCsv';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -190,10 +191,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
   const glucose = since
     ? await db.getAllAsync<Record<string, unknown>>('SELECT * FROM glucose_readings WHERE recorded_at >= ? ORDER BY recorded_at DESC', since)
     : bundle.glucoseReadings;
-  const header = ['recorded_at', 'timezone', 'utc_offset_minutes', 'time_edited', 'value', 'unit', 'value_mg_dl', 'conversion_version', 'context', 'ketone_result', 'symptoms', 'note'];
-  const csvValue = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  const body = glucose.map((reading) => header.map((field) => csvValue(reading[field])).join(',')).join('\n');
-  return { content: `${header.join(',')}\n${body}\n`, filename: `glucocare-glucose-${range === 'all' ? 'all' : `${range}d`}-${Date.now()}.csv`, mimeType: 'text/csv' };
+  return { content: buildGlucoseCsv(glucose), filename: `glucocare-glucose-${range === 'all' ? 'all' : `${range}d`}-${Date.now()}.csv`, mimeType: 'text/csv' };
 }
 
 export async function shareExport(db: SQLiteDatabase, format: ExportFormat, range: ExportRange = 'all'): Promise<{ shared: boolean; filename: string }> {

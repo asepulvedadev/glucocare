@@ -18,6 +18,7 @@ import { exportRangeSince } from '../src/domain/exportRange';
 import { ketoneResultLabel } from '../src/types/domain';
 import { selectPrimaryTrustedContact } from '../src/domain/trustedContactSelection';
 import { canQueueRemoteEmergencyAlert } from '../src/domain/helpFlow';
+import { buildGlucoseCsv } from '../src/domain/glucoseCsv';
 
 describe('trusted contact selection', () => {
   it('prefers a consented phone contact for the immediate call fallback', () => {
@@ -36,6 +37,22 @@ describe('export ranges', () => {
     expect(exportRangeSince(7, now)).toBe('2026-10-05T15:00:00.000Z');
     expect(exportRangeSince(30, now)).toBe('2026-09-12T15:00:00.000Z');
     expect(exportRangeSince('all', now)).toBeNull();
+  });
+});
+
+describe('glucose CSV export', () => {
+  it('keeps identifiers and risk provenance while escaping user text', () => {
+    const csv = buildGlucoseCsv([{
+      id: 'reading-1', recorded_at: '2026-10-12T10:00:00.000Z', value: 120, unit: 'mg/dL',
+      value_mg_dl: 120, conversion_version: 'identity-mgdl-v1', context: 'fasting', source: 'glucometer',
+      risk_classification: 'high', risk_rule_id: 'care-plan.high', risk_plan_updated_at: '2026-10-01T00:00:00.000Z',
+      symptoms: 'dolor, "mareo"', note: 'línea 1\nlínea 2',
+    }]);
+    expect(csv.split('\n')[0]).toContain('risk_rule_id');
+    expect(csv).toContain('"reading-1"');
+    expect(csv).toContain('"care-plan.high"');
+    expect(csv).toContain('"dolor, ""mareo"""');
+    expect(csv).toContain('"línea 1\nlínea 2"');
   });
 });
 
