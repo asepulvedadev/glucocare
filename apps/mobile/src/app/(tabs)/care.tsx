@@ -103,20 +103,21 @@ export default function CareScreen() {
               <Text style={styles.medicationName}>{medication.name}</Text>
               <Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>
               <Text style={[styles.reminder, medication.reminderState !== 'scheduled' && styles.reminderMuted]}>{medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text>
-              {(() => {
-                const occurrence = medicationOccurrences.find((item) => item.medicationId === medication.id);
-                if (!occurrence) return null;
-                const acted = occurrence.status !== 'due';
-                return <>
-                  <Text style={styles.occurrenceStatus} accessibilityLabel={`Estado de la toma: ${medicationOccurrenceStatusLabel[occurrence.status]}`}>Toma de hoy: {medicationOccurrenceStatusLabel[occurrence.status]}</Text>
-                  {!acted ? <View style={styles.occurrenceActions}>
+              {medicationOccurrences.filter((occurrence) => occurrence.medicationId === medication.id).map((occurrence) => {
+                const actionable = occurrence.status === 'due' || occurrence.status === 'snoozed';
+                const scheduledTime = new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+                return <View key={occurrence.id} style={styles.occurrenceBlock}>
+                  <Text style={styles.occurrenceStatus} accessibilityLabel={`Toma de las ${scheduledTime}: ${medicationOccurrenceStatusLabel[occurrence.status]}`}>
+                    Toma de las {scheduledTime}: {medicationOccurrenceStatusLabel[occurrence.status]}
+                  </Text>
+                  {actionable ? <View style={styles.occurrenceActions}>
                     <PrimaryButton label="Marcar tomado" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'taken')} />
                     <PrimaryButton label="Omitir" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'skipped')} />
-                    <PrimaryButton label="Posponer 10 min" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void snoozeOccurrence(occurrence.id)} />
+                    {occurrence.status === 'due' ? <PrimaryButton label="Posponer 10 min" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void snoozeOccurrence(occurrence.id)} /> : null}
                     <PrimaryButton label="No registrada" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'not_recorded')} />
                   </View> : null}
-                </>;
-              })()}
+                </View>;
+              })}
             </View>
           </View>
         ))}
@@ -182,6 +183,7 @@ const styles = StyleSheet.create({
   reminder: { color: colors.teal, fontSize: 12, lineHeight: 17 },
   reminderMuted: { color: colors.attention },
   occurrenceStatus: { color: colors.textPrimary, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
+  occurrenceBlock: { gap: spacing.xs, marginTop: spacing.xs },
   occurrenceActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
   measurementList: { marginTop: spacing.sm, gap: spacing.xs },
   measurementRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.xs, gap: spacing.xs },
