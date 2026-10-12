@@ -13,8 +13,14 @@ async function call(path, options = {}) {
 
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const password = ['synthetic', 'smoke', 'password'].join('-');
-const first = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `smoke-${suffix}@example.invalid`, password }) });
+const firstEmail = `smoke-${suffix}@example.invalid`;
+const first = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: firstEmail, password }) });
+// A second session for the same patient represents another device. The VPS
+// projection must remain patient-scoped while stale events cannot regress it.
+const firstDeviceTwo = await call('/v1/auth/signin', { method: 'POST', body: JSON.stringify({ email: firstEmail, password }) });
 const second = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `other-${suffix}@example.invalid`, password }) });
+const anonymousSync = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`);
+if (anonymousSync.status !== 401) throw new Error(`anonymous sync returned ${anonymousSync.status}`);
 const callbackPayload = JSON.stringify({ providerMessageId: `unknown-${suffix}`, status: 'delivered' });
 const callbackHeaders = { 'content-type': 'application/json' };
 const callbackSecret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
@@ -36,13 +42,16 @@ if (repeated.status !== 'already_accepted') throw new Error(`expected idempotent
 const conflict = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ ...event, payload: { ...event.payload, value: 121 } }) });
 if (conflict.status !== 409) throw new Error(`expected idempotency conflict, got ${conflict.status}`);
 const newerPayload = { ...event.payload, value: 125, updatedAt: new Date(Date.now() - 500).toISOString() };
-await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ eventId: crypto.randomUUID(), eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId, payload: newerPayload }) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` }, body: JSON.stringify({ eventId: crypto.randomUUID(), eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId, payload: newerPayload }) });
 const olderPayload = { ...event.payload, value: 118, updatedAt: new Date(Date.now() - 2_000).toISOString() };
-await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ eventId: crypto.randomUUID(), eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId, payload: olderPayload }) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` }, body: JSON.stringify({ eventId: crypto.randomUUID(), eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId, payload: olderPayload }) });
 const own = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 const ownReading = own.records.find((record) => record.entity_id === entityId);
 if (!ownReading) throw new Error('owner cannot read its own record');
 if (ownReading.payload.value !== 125) throw new Error(`stale event regressed projection: ${JSON.stringify(ownReading.payload)}`);
+const secondDeviceView = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` } });
+const secondDeviceReading = secondDeviceView.records.find((record) => record.entity_id === entityId);
+if (secondDeviceReading?.payload.value !== 125) throw new Error('second device did not converge on the newest projection');
 const other = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (other.records.some((record) => record.entity_id === entityId)) throw new Error('cross-patient record leaked');
 const contactId = crypto.randomUUID();

@@ -39,7 +39,13 @@ Use table-driven boundary tests and property-based tests for conversions/schedul
 - Provider timeout, duplicate callback, and partial channel failure.
 - Export/deletion lifecycle and backup expiry evidence.
 
-The PostgreSQL CI job runs `server/scripts/smoke-provider-retry.mjs` with a
+The PostgreSQL CI job runs `server/scripts/smoke-api.mjs` with two sessions for
+the same synthetic patient, an anonymous request, and a different patient. It
+proves that same-patient devices converge on the newest timestamped projection,
+stale events cannot regress it, anonymous pulls are rejected, and a different
+patient cannot read the record.
+
+It also runs `server/scripts/smoke-provider-retry.mjs` with a
 synthetic local provider. It returns one transient HTTP 500, verifies the
 delivery is requeued with an attempt count and backoff, then returns a provider
 message ID and verifies the delivery and parent alert become
