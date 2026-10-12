@@ -10,6 +10,9 @@ import { exportRangeLabel, exportRangeSince, type ExportRange } from './domain/e
 import { insertChangeAuditEvent } from './db/changeAuditRepository';
 import { isValidGlucoseEntry } from './domain/glucoseSafety';
 import { buildGlucoseCsv } from './domain/glucoseCsv';
+import { enqueueOutbox } from './db/outboxRepository';
+import { newId } from './ids';
+import { POLICY_VERSION } from './db/privacyRepository';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -421,5 +424,17 @@ export async function deleteAllLocalData(db: SQLiteDatabase) {
   await cancelStoredReminders(db);
   await db.withTransactionAsync(async () => {
     await clearLocalTables(db);
+    // Keep only a minimal revocation event after local deletion. This removes
+    // remote emergency-sharing authorization without retaining health data or
+    // relying on a consent row that was just intentionally deleted.
+    await enqueueOutbox(db, {
+      id: newId(), entityType: 'privacy_consent', entityId: 'default',
+      eventType: 'privacy.consent.updated.v1',
+      payload: {
+        id: 'default', policyVersion: POLICY_VERSION, localDataConsent: false,
+        cloudSyncConsent: false, emergencySharingConsent: false,
+        updatedAt: new Date().toISOString(),
+      },
+    });
   });
 }
