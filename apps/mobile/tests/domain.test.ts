@@ -13,7 +13,7 @@ import { canUploadEventForConsent, cloudTrustedContactConsentStatus, isPrivacyRe
 import { medicationReminderDates } from '../src/domain/medicationReminder';
 import { validateMedicationSchedule } from '../src/domain/medicationSchedule';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
-import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
+import { MAX_PENDING_LOCAL_REMINDERS, notificationAllocationState, selectNotificationCandidates } from '../src/domain/notificationSchedule';
 import { exportRangeSince } from '../src/domain/exportRange';
 import { ketoneResultLabel } from '../src/types/domain';
 import { selectPrimaryTrustedContact } from '../src/domain/trustedContactSelection';
@@ -239,6 +239,13 @@ describe('shared native notification budget', () => {
     expect(selected[0].scheduledAt).toEqual(first);
     expect(new Set(selected.map((candidate) => candidate.key)).size).toBe(MAX_PENDING_LOCAL_REMINDERS);
     expect(selectNotificationCandidates(candidates, 0)).toEqual([]);
+  });
+
+  it('reports budget omission even when a record received no native slot', () => {
+    expect(notificationAllocationState(5, 0, 0)).toBe('scheduled_limited');
+    expect(notificationAllocationState(5, 5, 0)).toBe('unavailable');
+    expect(notificationAllocationState(5, 3, 3)).toBe('scheduled_limited');
+    expect(notificationAllocationState(5, 5, 5)).toBe('scheduled');
   });
 });
 

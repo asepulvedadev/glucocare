@@ -16,6 +16,18 @@ export type NotificationCandidate = {
   windowIndex?: number;
 };
 
+export type NotificationAllocationState = 'scheduled' | 'scheduled_limited' | 'unavailable';
+
+/** Distinguishes a full schedule, a device-budget omission, and a native
+ * scheduling failure. A record with no allocated slot is still limited when
+ * other reminders consumed the shared native queue. */
+export function notificationAllocationState(expectedCount: number, selectedCount: number, scheduledCount: number): NotificationAllocationState {
+  if (expectedCount <= 0) return 'unavailable';
+  if (scheduledCount === expectedCount) return 'scheduled';
+  if (selectedCount < expectedCount || scheduledCount > 0) return 'scheduled_limited';
+  return 'unavailable';
+}
+
 /**
  * Deduplicates and selects the earliest candidates within the native budget.
  * Rebuilding this rolling window on app resume makes omitted future reminders

@@ -13,7 +13,7 @@ import { getMeasurementPlan } from './db/measurementRepository';
 import { listMealEvents } from './db/mealRepository';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { isTerminalAppointmentStatus } from './domain/appointmentState';
-import { selectNotificationCandidates, type NotificationCandidate } from './domain/notificationSchedule';
+import { notificationAllocationState, selectNotificationCandidates, type NotificationCandidate } from './domain/notificationSchedule';
 
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
@@ -385,7 +385,8 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   await Promise.all(medications.map(async (medication) => {
     const expected = medicationReminderDates(medication, now, undefined, meals).length;
     const ids = scheduledIds.get(medication.id) ?? [];
-    const state: ReminderScheduleState = expected === 0 ? 'unavailable' : ids.length === expected ? 'scheduled' : ids.length > 0 ? 'scheduled_limited' : 'unavailable';
+    const selectedCount = schedules.filter((schedule) => schedule.candidate.ownerId === medication.id).length;
+    const state: ReminderScheduleState = notificationAllocationState(expected, selectedCount, ids.length);
     await updateMedicationReminder(db, medication.id, state, ids[0], ids);
   }));
   await Promise.all(appointments.map(async (appointment) => {
@@ -394,7 +395,8 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
       return Number.isFinite(at) && at - 24 * 60 * 60 * 1000 > now.getTime();
     })();
     const ids = scheduledIds.get(appointment.id) ?? [];
-    const state: ReminderScheduleState = !expected ? 'unavailable' : ids.length ? 'scheduled' : 'scheduled_limited';
+    const selectedCount = schedules.filter((schedule) => schedule.candidate.ownerId === appointment.id).length;
+    const state: ReminderScheduleState = notificationAllocationState(expected ? 1 : 0, selectedCount, ids.length);
     await updateAppointmentReminder(db, appointment.id, state, ids[0]);
   }));
 }
