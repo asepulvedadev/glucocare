@@ -281,7 +281,19 @@ export default function ProfileScreen() {
   function requestDelete() {
     Alert.alert('Borrar datos locales', 'Esta acción elimina lecturas, planes, tomas, medicamentos, citas, contactos, tarjeta y eventos de ayuda de este dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Borrar todo', style: 'destructive', onPress: () => void (async () => { try { await deleteAllLocalData(db); await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshAccessibility(), refreshPrivacy()]); Alert.alert('Datos eliminados', 'La información local fue eliminada y el consentimiento se reinició.'); } catch { Alert.alert('No se pudo borrar', 'Vuelve a intentarlo.'); } })() },
+      { text: 'Borrar todo', style: 'destructive', onPress: () => void (async () => {
+        try {
+          await deleteAllLocalData(db);
+          const revocation = session ? await syncPendingData(db, session) : null;
+          await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshAccessibility(), refreshPrivacy()]);
+          const remoteMessage = !session
+            ? 'No hay cuenta cloud conectada; no quedó ninguna autorización remota que revocar.'
+            : revocation?.state === 'synced' && revocation.uploaded > 0
+              ? 'La autorización remota también fue revocada.'
+              : 'La revocación remota quedó pendiente. Conéctate y usa “Sincronizar ahora” para reintentarlo.';
+          Alert.alert('Datos eliminados', `La información local fue eliminada y el consentimiento se reinició. ${remoteMessage}`);
+        } catch { Alert.alert('No se pudo borrar', 'Vuelve a intentarlo.'); }
+      })() },
     ]);
   }
   return (
