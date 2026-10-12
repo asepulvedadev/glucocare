@@ -3,7 +3,7 @@
 
 This is a CI guardrail, not a replacement for provider-side secret rotation or
 an external DLP service. It deliberately ignores environment-variable
-references such as env(SUPABASE_SERVICE_ROLE_KEY) and Deno.env.get(...).
+references such as `process.env.DATABASE_URL` and `secrets.*` workflow access.
 """
 
 from __future__ import annotations

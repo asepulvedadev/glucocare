@@ -43,7 +43,7 @@ python3 scripts/validate-docs.py
 python3 scripts/scan-secrets.py
 bash scripts/validate-deployment.sh
 
-printf '%s\n' '== 2/5 Validate mobile application =='
+printf '%s\n' '== 2/5 Validate mobile application and PostgreSQL API =='
 pushd apps/mobile >/dev/null
 npm ci --legacy-peer-deps
 npm run typecheck
@@ -51,6 +51,10 @@ npm run lint
 npm test -- --run
 printf '%s\n' '== 3/5 Export Expo web bundle =='
 npx expo export --platform web
+popd >/dev/null
+pushd server >/dev/null
+npm ci
+npm run build
 popd >/dev/null
 
 printf '%s\n' '== 4/5 Stream release to VPS =='

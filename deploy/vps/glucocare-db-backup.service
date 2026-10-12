@@ -1,0 +1,19 @@
+[Unit]
+Description=Create a GlucoCare PostgreSQL backup
+After=docker.service glucocare-healthcheck.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/glucocare-db-backup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/glucocare/release /srv/glucocare/.env
+ReadWritePaths=/srv/glucocare/backups
+
+[Install]
+WantedBy=multi-user.target

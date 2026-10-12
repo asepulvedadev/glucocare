@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Create an encrypted-at-rest-ready PostgreSQL custom-format dump. Encryption
+# and off-host retention are intentionally delegated to the VPS backup system;
+# this script never prints credentials or application payloads.
+base="${GLUCOCARE_BASE:-/srv/glucocare}"
+env_file="$base/.env"
+compose_file="$base/release/deploy/compose.yml"
+backup_dir="$base/backups"
+
+test -r "$env_file"
+test "$(stat -c '%a' "$env_file")" = 600
+test -f "$compose_file"
+
+# The file is root-owned and mode 600, so sourcing it is limited to the VPS
+# operator account. Compose still receives the same file explicitly below.
+set -a
+. "$env_file"
+set +a
+: "${POSTGRES_DB:?POSTGRES_DB is required in $env_file}"
+
+install -d -o root -g root -m 0700 "$backup_dir"
+umask 077
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+temporary="$backup_dir/.glucocare-$stamp.dump.tmp"
+destination="$backup_dir/glucocare-$stamp.dump"
+trap 'rm -f "$temporary"' EXIT
+
+/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+  -f "$compose_file" exec -T glucocare-db \
+  pg_dump --format=custom --no-owner --dbname="$POSTGRES_DB" > "$temporary"
+
+test -s "$temporary"
+mv "$temporary" "$destination"
+chmod 600 "$destination"
+
+# Keep 30 days locally. Off-host encrypted retention remains the operator's
+# responsibility and should run after this timer.
+find "$backup_dir" -type f -name 'glucocare-*.dump' -mtime +30 -delete
+printf 'glucocare-db-backup: created %s\n' "$destination"

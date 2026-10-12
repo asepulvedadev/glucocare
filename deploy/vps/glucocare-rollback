@@ -6,7 +6,11 @@ set -euo pipefail
 base="${GLUCOCARE_BASE:-/srv/glucocare}"
 release="$base/release"
 history="$base/releases"
+env_file="$base/.env"
 requested="${1:-latest}"
+
+test -r "$env_file"
+test "$(stat -c '%a' "$env_file")" = 600
 
 if [ "$requested" = latest ]; then
   target=$(
@@ -34,12 +38,12 @@ mv "$staged" "$release"
 restore() {
   rm -rf "$release"
   mv "$rollback_backup" "$release"
-  /usr/bin/docker compose --project-name glucocare \
+  /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
     -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
 }
 trap 'restore' ERR
 
-/usr/bin/docker compose --project-name glucocare \
+/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$release/deploy/compose.yml" up -d --build --remove-orphans
 "$release/deploy/vps/glucocare-healthcheck"
 trap - ERR

@@ -1,6 +1,55 @@
 name: glucocare
 
 services:
+  glucocare-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - glucocare_pgdata:/var/lib/postgresql/data
+    networks:
+      - glucocare-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  glucocare-api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: glucocare-api:latest
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      DATABASE_HOST: glucocare-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${POSTGRES_DB}
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      SESSION_DAYS: ${GLUCOCARE_SESSION_DAYS:-30}
+      PUBLIC_API_URL: ${GLUCOCARE_PUBLIC_API_URL:-http://127.0.0.1:18084}
+    depends_on:
+      glucocare-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18084:8080"
+    networks:
+      - glucocare-backend
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=8m
+
   glucocare-docs:
     build:
       context: ..
@@ -39,3 +88,10 @@ services:
       - /var/cache/nginx:rw,noexec,nosuid,size=16m,uid=101,gid=101,mode=1777
       - /var/run:rw,noexec,nosuid,size=1m,uid=101,gid=101,mode=1777
       - /tmp:rw,noexec,nosuid,size=4m,uid=101,gid=101,mode=1777
+
+networks:
+  glucocare-backend:
+    internal: true
+
+volumes:
+  glucocare_pgdata:

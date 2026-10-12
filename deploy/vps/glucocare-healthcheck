@@ -5,8 +5,11 @@ set -euo pipefail
 # It never reads application payloads or user data.
 base="${GLUCOCARE_BASE:-/srv/glucocare}"
 compose_file="$base/release/deploy/compose.yml"
+env_file="$base/.env"
 web_container="glucocare-glucocare-web-1"
 docs_container="glucocare-docs"
+api_container="glucocare-glucocare-api-1"
+db_container="glucocare-glucocare-db-1"
 
 log() {
   printf '%s glucocare-health %s\n' "$(date -u +%FT%H:%M:%SZ)" "$*"
@@ -37,9 +40,13 @@ check_web_headers() {
 }
 
 test -f "$compose_file"
+test -r "$env_file"
 require_healthy "$web_container"
 require_healthy "$docs_container"
+require_healthy "$api_container"
+require_healthy "$db_container"
 check_http http://127.0.0.1:18080/healthz
 check_http http://127.0.0.1:18082/healthz
+check_http http://127.0.0.1:18084/healthz
 check_web_headers
 log "status=healthy"

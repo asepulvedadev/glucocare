@@ -9,6 +9,10 @@ incoming="$base/.incoming"
 release="$base/release"
 previous="$base/release.previous"
 history="$base/releases"
+env_file="$base/.env"
+
+test -r "$env_file"
+test "$(stat -c '%a' "$env_file")" = 600
 
 install -d -o glucocare-deploy -g glucocare-deploy -m 0750 "$history"
 
@@ -24,7 +28,7 @@ rollback() {
   rm -rf "$release"
   if [ -d "$previous" ]; then
     mv "$previous" "$release"
-    /usr/bin/docker compose --project-name glucocare \
+    /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
       -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
   fi
 }
@@ -33,7 +37,9 @@ wait_for_health() {
   for _ in $(seq 1 30); do
     web_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-web-1 2>/dev/null || true)
     docs_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-docs 2>/dev/null || true)
-    if [ "$web_status" = healthy ] && [ "$docs_status" = healthy ] && /usr/bin/curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null; then
+    api_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-api-1 2>/dev/null || true)
+    db_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-db-1 2>/dev/null || true)
+    if [ "$web_status" = healthy ] && [ "$docs_status" = healthy ] && [ "$api_status" = healthy ] && [ "$db_status" = healthy ] && /usr/bin/curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null && /usr/bin/curl --fail --silent http://127.0.0.1:18084/healthz >/dev/null; then
       return 0
     fi
     sleep 2
@@ -46,7 +52,7 @@ wait_for_health() {
 # the explicit "glucocare" project name; other VPS services are untouched.
 /usr/bin/docker rm --force glucocare-docs >/dev/null 2>&1 || true
 
-if ! /usr/bin/docker compose --project-name glucocare \
+if ! /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
     -f "$release/deploy/compose.yml" up -d --build --remove-orphans; then
   rollback
   exit 1
