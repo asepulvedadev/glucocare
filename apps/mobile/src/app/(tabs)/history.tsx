@@ -6,8 +6,10 @@ import { Body, Caption, Eyebrow, Heading } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useGlucose } from '../../context';
+import { useCare } from '../../careContext';
 import { glucoseContextLabel } from '../../types/domain';
 import { glucoseRiskLabel } from '../../types/carePlan';
+import { mealTypeLabel } from '../../types/meals';
 import { colors, radii, spacing } from '../../theme/tokens';
 import type { GlucoseContext } from '../../types/domain';
 import { summarizeGlucose } from '../../domain/glucoseSummary';
@@ -25,6 +27,7 @@ const trendLabel = { higher: 'Más alto que al inicio', lower: 'Más bajo que al
 
 export default function HistoryScreen() {
   const { readings, isLoading } = useGlucose();
+  const { mealEvents } = useCare();
   const [filter, setFilter] = useState<'all' | GlucoseContext>('all');
   const filteredReadings = filter === 'all' ? readings : readings.filter((reading) => reading.context === filter);
   const summary = summarizeGlucose(filteredReadings);
@@ -71,6 +74,13 @@ export default function HistoryScreen() {
         </Panel>
         ))}
       </>}
+      <Panel>
+        <View style={styles.sectionHeader}>
+          <Caption>COMIDAS REGISTRADAS</Caption>
+          <PrimaryButton label="Agregar" tone="quiet" onPress={() => router.push('/meal')} />
+        </View>
+        {mealEvents.length === 0 ? <Body>Aún no hay comidas registradas. Las ventanas de medición relativas solo se activan cuando marcas una comida.</Body> : mealEvents.slice(0, 10).map((meal) => <View key={meal.id} style={styles.mealRow} accessible accessibilityLabel={`${mealTypeLabel[meal.mealType]}, ${new Date(meal.occurredAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{mealTypeLabel[meal.mealType]}</Text>{meal.note ? <Caption>{meal.note}</Caption> : null}</View><Caption>{new Date(meal.occurredAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+      </Panel>
     </Screen>
   );
 }
@@ -92,4 +102,7 @@ const styles = StyleSheet.create({
   chart: { minHeight: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', gap: spacing.xs, marginTop: spacing.md },
   barColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4, minHeight: 92 },
   bar: { width: '70%', minWidth: 10, maxWidth: 28, borderRadius: radii.sm, backgroundColor: colors.amber },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  mealRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  mealTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
 });
