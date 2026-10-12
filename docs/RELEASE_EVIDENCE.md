@@ -26,7 +26,7 @@ beta authorization.
 | Release recovery | Three-release cache, automatic deploy rollback, `glucocare-rollback` | VPS installed and manually verified |
 | Backup restore check | Disposable-database restore command validates PostgreSQL custom dumps without touching live data | VPS drill passed 2026-10-12 against `glucocare-20261012T161957Z.dump`; repeat quarterly |
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |
-| Alert queue monitoring | Payload-free health check fails when queued/processing deliveries older than the configured limit accumulate | Implemented in VPS health check; external paging channel and outage drill pending |
+| Alert queue monitoring | Payload-free systemd check fails when queued/processing deliveries older than the configured limit accumulate; worker health is based on a post-tick heartbeat with a two-minute freshness window | Implemented in VPS health check and Compose worker probe; external paging channel and outage drill pending |
 | Accessibility | Semantic labels, large text, high contrast, simple mode, reduced motion, persistent help | Code coverage; TalkBack/VoiceOver evidence pending |
 | Range export | CSV and printable clinician report expose a selected 7-day, 30-day, or all-history period; JSON remains a complete backup | Automated range-boundary test; native share/print evidence pending |
 | Care-plan auditability | Medication, appointment, care-plan, measurement-plan, emergency-card, and trusted-contact changes retain local before/after snapshots in `change_audit_events` and survive JSON backup/restore | Automated v35 migration and repository code path; reviewer/accessibility evidence pending |

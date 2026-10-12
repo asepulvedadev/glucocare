@@ -86,10 +86,11 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=8m
     healthcheck:
-      test: ["CMD", "node", "-e", "process.exit(0)"]
+      test: ["CMD", "node", "-e", "const fs=require('fs');const s=fs.statSync('/tmp/glucocare-alert-worker.heartbeat');if(Date.now()-s.mtimeMs>120000)process.exit(1)"]
       interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   glucocare-docs:
     build:

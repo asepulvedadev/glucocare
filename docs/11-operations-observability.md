@@ -112,6 +112,9 @@ The API records alert requests and delivery states on the VPS. The private
 worker is deployed with email and SMS adapters disabled by default; operators
 must provide reviewed credentials before enabling either channel. Until then no
 delivery is claimed and the mobile app shows the queued/unavailable state.
+The worker writes a heartbeat only after a complete database/provider polling
+tick; its container health check becomes unhealthy when that heartbeat is older
+than two minutes, instead of treating a merely running process as healthy.
 
 The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
 PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd

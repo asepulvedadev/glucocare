@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { closeDatabase, pool, runMigrations } from './db.js';
 import { isAlertChannelConfigured, sendAlert, type AlertChannel } from './alertProviders.js';
 
@@ -5,6 +6,7 @@ const intervalMs = Number(process.env.ALERT_WORKER_INTERVAL_MS ?? 5_000);
 const batchSize = Math.min(Math.max(Number(process.env.ALERT_WORKER_BATCH_SIZE ?? 10), 1), 50);
 const maxAttempts = Math.min(Math.max(Number(process.env.ALERT_WORKER_MAX_ATTEMPTS ?? 5), 1), 10);
 const runOnce = process.env.ALERT_WORKER_ONCE === 'true';
+const heartbeatFile = process.env.ALERT_WORKER_HEARTBEAT_FILE ?? '/tmp/glucocare-alert-worker.heartbeat';
 
 type Delivery = {
   id: string;
@@ -94,6 +96,10 @@ async function handleDelivery(delivery: Delivery) {
 async function tick() {
   const deliveries = await claimBatch();
   for (const delivery of deliveries) await handleDelivery(delivery);
+  // The container health check uses this heartbeat to distinguish a live
+  // process from a worker that is alive but cannot reach PostgreSQL/provider
+  // dependencies. Write only after a complete successful tick.
+  await writeFile(heartbeatFile, `${Date.now()}\n`, { mode: 0o600 });
 }
 
 await runMigrations();
