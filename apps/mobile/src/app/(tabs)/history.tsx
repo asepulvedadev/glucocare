@@ -27,6 +27,11 @@ const filters: { value: 'all' | GlucoseContext; label: string }[] = [
   { value: 'bedtime', label: 'Noche' },
   { value: 'other', label: 'Otro' },
 ];
+const dateFilters: { value: 7 | 30 | 'all'; label: string }[] = [
+  { value: 7, label: '7 días' },
+  { value: 30, label: '30 días' },
+  { value: 'all', label: 'Todo' },
+];
 
 const trendLabel = { higher: 'Más alto que al inicio', lower: 'Más bajo que al inicio', stable: 'Estable', none: 'Sin datos suficientes' } as const;
 
@@ -44,7 +49,15 @@ export default function HistoryScreen() {
     return () => { active = false; };
   }, [db]);
   const [filter, setFilter] = useState<'all' | GlucoseContext>('all');
-  const filteredReadings = filter === 'all' ? readings : readings.filter((reading) => reading.context === filter);
+  const [dateRange, setDateRange] = useState<7 | 30 | 'all'>(7);
+  const [now] = useState(() => Date.now());
+  const cutoff = dateRange === 'all' ? null : now - dateRange * 24 * 60 * 60 * 1000;
+  const withinRange = (value: string) => cutoff === null || new Date(value).getTime() >= cutoff;
+  const filteredReadings = readings.filter((reading) => (filter === 'all' || reading.context === filter) && withinRange(reading.recordedAt));
+  const filteredMeals = mealEvents.filter((meal) => withinRange(meal.occurredAt));
+  const filteredMedicationHistory = medicationHistory.filter((occurrence) => withinRange(occurrence.scheduledAt));
+  const filteredAppointments = appointments.filter((appointment) => withinRange(appointment.scheduledAt));
+  const filteredHelpHistory = helpHistory.filter((event) => withinRange(event.createdAt));
   const summary = summarizeGlucose(filteredReadings);
   const maxPoint = Math.max(...summary.points.map((point) => point.mgDl), 1);
   return (
@@ -55,6 +68,9 @@ export default function HistoryScreen() {
       {!isLoading && readings.length > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} accessibilityLabel="Filtrar historial por contexto">
         {filters.map((item) => <Pressable key={item.value} accessibilityRole="button" accessibilityState={{ selected: filter === item.value }} onPress={() => setFilter(item.value)} style={[styles.filter, filter === item.value && styles.filterSelected]}><Text style={[styles.filterText, filter === item.value && styles.filterTextSelected]}>{item.label}</Text></Pressable>)}
       </ScrollView> : null}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters} accessibilityLabel="Filtrar historial por periodo">
+        {dateFilters.map((item) => <Pressable key={item.value} accessibilityRole="button" accessibilityState={{ selected: dateRange === item.value }} onPress={() => setDateRange(item.value)} style={[styles.filter, dateRange === item.value && styles.filterSelected]}><Text style={[styles.filterText, dateRange === item.value && styles.filterTextSelected]}>{item.label}</Text></Pressable>)}
+      </ScrollView>
       {isLoading ? <Panel><Body>Cargando registros…</Body></Panel> : readings.length === 0 ? (
         <Panel>
           <Text style={styles.emptyTitle}>Todavía no hay registros</Text>
@@ -63,7 +79,7 @@ export default function HistoryScreen() {
         </Panel>
       ) : filteredReadings.length === 0 ? <Panel><Body>No hay registros con este contexto en tu historial.</Body></Panel> : <>
         <Panel>
-          <Caption>ÚLTIMOS 7 DÍAS</Caption>
+          <Caption>{dateRange === 'all' ? 'TODO EL HISTORIAL' : `ÚLTIMOS ${dateRange} DÍAS`}</Caption>
           {summary.count === 0 ? <Body>No hay registros en los últimos 7 días.</Body> : <>
             <View style={styles.summaryRow}><View><Text style={styles.summaryValue}>{summary.count}</Text><Caption>registros</Caption></View><View><Text style={styles.summaryValue}>{summary.averageMgDl?.toFixed(0)} <Text style={styles.unit}>mg/dL</Text></Text><Caption>promedio aproximado</Caption></View></View>
             <Body>Rango: {summary.minimumMgDl?.toFixed(0)}–{summary.maximumMgDl?.toFixed(0)} mg/dL · {trendLabel[summary.trend]}</Body>
@@ -94,19 +110,19 @@ export default function HistoryScreen() {
           <Caption>COMIDAS REGISTRADAS</Caption>
           <PrimaryButton label="Agregar" tone="quiet" onPress={() => router.push('/meal')} />
         </View>
-        {mealEvents.length === 0 ? <Body>Aún no hay comidas registradas. Las ventanas de medición relativas solo se activan cuando marcas una comida.</Body> : mealEvents.slice(0, 10).map((meal) => <View key={meal.id} style={styles.mealRow} accessible accessibilityLabel={`${mealTypeLabel[meal.mealType]}, ${new Date(meal.occurredAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{mealTypeLabel[meal.mealType]}</Text>{meal.note ? <Caption>{meal.note}</Caption> : null}</View><Caption>{new Date(meal.occurredAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+        {filteredMeals.length === 0 ? <Body>{mealEvents.length === 0 ? 'Aún no hay comidas registradas. Las ventanas de medición relativas solo se activan cuando marcas una comida.' : 'No hay comidas en el periodo seleccionado.'}</Body> : filteredMeals.slice(0, 10).map((meal) => <View key={meal.id} style={styles.mealRow} accessible accessibilityLabel={`${mealTypeLabel[meal.mealType]}, ${new Date(meal.occurredAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{mealTypeLabel[meal.mealType]}</Text>{meal.note ? <Caption>{meal.note}</Caption> : null}</View><Caption>{new Date(meal.occurredAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
       <Panel>
         <Caption>HISTORIAL DE MEDICAMENTOS</Caption>
-        {medicationHistory.length === 0 ? <Body>Aún no hay tomas registradas.</Body> : medicationHistory.slice(0, 12).map((occurrence) => <View key={occurrence.id} style={styles.historyRow} accessible accessibilityLabel={`${occurrence.medicationName}, ${medicationOccurrenceStatusLabel[occurrence.status]}, ${new Date(occurrence.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{occurrence.medicationName}</Text><Caption>{occurrence.doseText} · {medicationOccurrenceStatusLabel[occurrence.status]}</Caption></View><Caption>{new Date(occurrence.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+        {filteredMedicationHistory.length === 0 ? <Body>{medicationHistory.length === 0 ? 'Aún no hay tomas registradas.' : 'No hay tomas en el periodo seleccionado.'}</Body> : filteredMedicationHistory.slice(0, 12).map((occurrence) => <View key={occurrence.id} style={styles.historyRow} accessible accessibilityLabel={`${occurrence.medicationName}, ${medicationOccurrenceStatusLabel[occurrence.status]}, ${new Date(occurrence.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{occurrence.medicationName}</Text><Caption>{occurrence.doseText} · {medicationOccurrenceStatusLabel[occurrence.status]}</Caption></View><Caption>{new Date(occurrence.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
       <Panel>
         <Caption>HISTORIAL DE CITAS</Caption>
-        {appointments.length === 0 ? <Body>Aún no hay citas registradas.</Body> : appointments.slice().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)).slice(0, 12).map((appointment) => <View key={appointment.id} style={styles.historyRow} accessible accessibilityLabel={`${appointment.title}, ${appointmentStatusLabel[appointment.status]}, ${new Date(appointment.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{appointment.title}</Text><Caption>{appointment.provider} · {appointmentStatusLabel[appointment.status]}</Caption></View><Caption>{new Date(appointment.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+        {filteredAppointments.length === 0 ? <Body>{appointments.length === 0 ? 'Aún no hay citas registradas.' : 'No hay citas en el periodo seleccionado.'}</Body> : filteredAppointments.slice().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)).slice(0, 12).map((appointment) => <View key={appointment.id} style={styles.historyRow} accessible accessibilityLabel={`${appointment.title}, ${appointmentStatusLabel[appointment.status]}, ${new Date(appointment.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{appointment.title}</Text><Caption>{appointment.provider} · {appointmentStatusLabel[appointment.status]}</Caption></View><Caption>{new Date(appointment.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
       <Panel>
         <Caption>HISTORIAL DE AYUDA</Caption>
-        {helpHistory.length === 0 ? <Body>No hay eventos de ayuda registrados.</Body> : helpHistory.slice(0, 10).map((event) => <View key={event.id} style={styles.historyRow} accessible accessibilityLabel={`Evento de ayuda, ${event.contactState}, ${new Date(event.createdAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>Solicitud de ayuda</Text><Caption>{event.reason} · {event.contactState}</Caption></View><Caption>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+        {filteredHelpHistory.length === 0 ? <Body>{helpHistory.length === 0 ? 'No hay eventos de ayuda registrados.' : 'No hay eventos de ayuda en el periodo seleccionado.'}</Body> : filteredHelpHistory.slice(0, 10).map((event) => <View key={event.id} style={styles.historyRow} accessible accessibilityLabel={`Evento de ayuda, ${event.contactState}, ${new Date(event.createdAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>Solicitud de ayuda</Text><Caption>{event.reason} · {event.contactState}</Caption></View><Caption>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
     </Screen>
   );
