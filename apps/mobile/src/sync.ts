@@ -97,7 +97,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const times = Array.isArray(payload.times) ? payload.times.map(String) : [];
       const { error } = await supabase.from('measurement_plan_revisions').upsert({
         patient_id: patientId, revision_number: 1, readings_per_day: Number(payload.readingsPerDay), times_json: times,
-        instructions: payload.instructions ? String(payload.instructions) : null, source: 'patient_entered',
+        timings_json: Array.isArray(payload.timings) ? payload.timings.map(String) : [], instructions: payload.instructions ? String(payload.instructions) : null, source: 'patient_entered',
       }, { onConflict: 'patient_id,revision_number' });
       if (error) throw error;
       return;

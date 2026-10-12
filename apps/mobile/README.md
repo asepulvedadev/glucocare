@@ -21,7 +21,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Help-event recording with an explicit call fallback; alert delivery is never overstated.
 - JSON bundle and glucose CSV export, plus replace-style local JSON restore and data deletion with scheduled-reminder cleanup. Restored contacts require consent again; cloud consent and sync queues are never restored from a file.
 - Versioned local privacy consent with separate controls for on-device storage, optional cloud sync, and emergency-contact sharing.
-- Configurable measurement plan with one, two, or three daily times and optional care-team instructions.
+- Configurable measurement plan with one, two, or three daily times, per-reading context (fasting/before/after meal/bedtime), and optional care-team instructions.
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.
 - Device-local accessibility preferences for large text, high contrast, simple mode, and reduced motion.
 - Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.

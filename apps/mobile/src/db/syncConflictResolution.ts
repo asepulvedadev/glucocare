@@ -82,11 +82,12 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
         break;
       case 'measurement_plan': {
         const times = jsonArray(payload.times_json);
+        const timings = jsonArray(payload.timings_json);
         await db.runAsync(
-          `INSERT INTO measurement_plans (id, readings_per_day, times_json, instructions, updated_at)
-           VALUES ('default', ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-          Number(payload.readings_per_day), times, payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
+          `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, instructions, updated_at)
+           VALUES ('default', ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+          Number(payload.readings_per_day), times, timings, payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
         );
         break;
       }

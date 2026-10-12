@@ -9,6 +9,7 @@ import { useCare } from '../../careContext';
 import { medicationRouteLabel } from '../../types/care';
 import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
 import { measurementOccurrenceStatusLabel } from '../../types/measurementOccurrences';
+import { measurementTimingLabel } from '../../types/measurement';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { availableAppointmentTransitions } from '../../domain/appointmentState';
 import { isCarePlanExpired } from '../../domain/glucoseRisk';
@@ -151,7 +152,7 @@ export default function CareScreen() {
         </View>
         {measurementPlan ? <>
           <Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text>
-          <Body>{measurementPlan.times.join(' · ')}</Body>
+          <Body>{measurementPlan.times.map((time, index) => `${time} · ${measurementTimingLabel[measurementPlan.timings?.[index] ?? 'other']}`).join(' | ')}</Body>
           {measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}
           <View style={styles.measurementList}>
             {measurementOccurrences.map((occurrence) => {

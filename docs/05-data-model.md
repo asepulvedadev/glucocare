@@ -94,7 +94,7 @@ Occurrence statuses:
 
 ### Measurement plan and occurrence
 
-Supports fixed local times and meal-relative windows. A relative item is activated when the user records a meal time; if no meal time exists, the app asks rather than guessing.
+The current mobile slice supports fixed local times with a clinician/user-provided context per reading (for example, fasting or after a meal). Meal-relative windows and day-of-week exceptions remain a planned extension; the app does not infer meal times or guess a missing context.
 
 Occurrence statuses:
 

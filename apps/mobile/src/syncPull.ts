@@ -48,7 +48,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('appointments').select('id,title,provider,scheduled_at,status,location,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,timings_json,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,diagnosis_year,insulin_use,allergies,critical_conditions,care_provider,care_facility,insurer,policy_number,emergency_number,emergency_region,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
     supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
@@ -107,10 +107,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       if (await preserveLocalChange('measurement_plan', 'default', plan as unknown as Record<string, unknown>)) {
         // Keep the user's local plan until its pending event is acknowledged.
       } else {
-      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, instructions, updated_at)
-        VALUES ('default', ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), plan.instructions, plan.created_at);
+      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, instructions, updated_at)
+        VALUES ('default', ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), JSON.stringify(jsonArray(plan.timings_json)), plan.instructions, plan.created_at);
       downloaded += 1;
       }
     }

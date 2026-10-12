@@ -35,8 +35,9 @@ describe('measurement plan validation', () => {
     expect(isValidMeasurementTime('23:59')).toBe(true);
     expect(isValidMeasurementTime('24:00')).toBe(false);
     expect(isValidMeasurementTime('12:60')).toBe(false);
-    expect(validateMeasurementPlan(3, ['07:30', '13:00', '20:30'])).toBe(true);
+    expect(validateMeasurementPlan(3, ['07:30', '13:00', '20:30'], ['fasting', 'after_meal', 'after_meal'])).toBe(true);
     expect(validateMeasurementPlan(3, ['07:30'])).toBe(false);
+    expect(validateMeasurementPlan(2, ['07:30', '20:30'], ['fasting'])).toBe(false);
   });
 });
 

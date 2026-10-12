@@ -674,6 +674,7 @@ export type Database = {
           revision_number: number
           source: string
           times_json: Json
+          timings_json: Json
         }
         Insert: {
           clinician_verified?: boolean
@@ -687,6 +688,7 @@ export type Database = {
           revision_number: number
           source?: string
           times_json?: Json
+          timings_json?: Json
         }
         Update: {
           clinician_verified?: boolean
@@ -700,6 +702,7 @@ export type Database = {
           revision_number?: number
           source?: string
           times_json?: Json
+          timings_json?: Json
         }
         Relationships: [
           {

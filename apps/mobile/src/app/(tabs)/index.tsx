@@ -12,6 +12,7 @@ import { useAccessibility } from '../../accessibilityContext';
 import { glucoseRiskLabel } from '../../types/carePlan';
 import { isCarePlanExpired } from '../../domain/glucoseRisk';
 import { usePrivacy } from '../../privacyContext';
+import { measurementTimingLabel } from '../../types/measurement';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
@@ -74,7 +75,7 @@ export default function TodayScreen() {
       </Panel> : null}
       <Panel>
         <Caption>HOY</Caption>
-        <View style={styles.timelineItem}><View style={styles.dot} /><Body>{measurementPlan ? `${measurementPlan.readingsPerDay} ${measurementPlan.readingsPerDay === 1 ? 'lectura prevista' : 'lecturas previstas'}: ${measurementPlan.times.join(' · ')}` : 'Plan de medición pendiente de configurar'}</Body></View>
+        <View style={styles.timelineItem}><View style={styles.dot} /><Body>{measurementPlan ? `${measurementPlan.readingsPerDay} ${measurementPlan.readingsPerDay === 1 ? 'lectura prevista' : 'lecturas previstas'}: ${measurementPlan.times.map((time, index) => `${time} (${measurementTimingLabel[measurementPlan.timings?.[index] ?? 'other']})`).join(' · ')}` : 'Plan de medición pendiente de configurar'}</Body></View>
         <View style={styles.timelineItem}><View style={[styles.dot, styles.dotMuted]} /><Body>{medications.length || appointments.length ? `${medications.length} medicamento(s) y ${appointments.length} cita(s) configurados` : 'Medicamentos y citas aparecerán cuando los agregues'}</Body></View>
       </Panel>
       <Text style={styles.disclaimer}>GlucoCare no diagnostica ni calcula dosis. Si te sientes muy mal, llama a emergencias.</Text>

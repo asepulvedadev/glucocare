@@ -7,15 +7,18 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { colors, radii, spacing } from '../theme/tokens';
-import { isValidMeasurementTime } from '../domain/measurementPlan';
+import { isValidMeasurementTime, validateMeasurementPlan } from '../domain/measurementPlan';
+import { measurementTimingLabel, type MeasurementTiming } from '../types/measurement';
 
 const defaultTimes = ['08:00', '14:00', '20:00'];
+const timingOptions: MeasurementTiming[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 
 export default function MeasurementPlanScreen() {
   const { measurementPlan, saveMeasurementPlan } = useCare();
   const initialCount = measurementPlan?.readingsPerDay ?? 1;
   const [count, setCount] = useState<1 | 2 | 3>(initialCount);
   const [times, setTimes] = useState<string[]>(measurementPlan?.times ?? [defaultTimes[0]]);
+  const [timings, setTimings] = useState<MeasurementTiming[]>(measurementPlan?.timings ?? Array.from({ length: initialCount }, () => 'other'));
   const [instructions, setInstructions] = useState(measurementPlan?.instructions ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -24,16 +27,18 @@ export default function MeasurementPlanScreen() {
   function changeCount(next: 1 | 2 | 3) {
     setCount(next);
     setTimes((current) => Array.from({ length: next }, (_, index) => current[index] ?? defaultTimes[index]));
+    setTimings((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'other'));
   }
 
   async function save() {
-    if (selectedTimes.some((time) => !isValidMeasurementTime(time))) {
+    const selectedTimings = timings.slice(0, count);
+    if (selectedTimes.some((time) => !isValidMeasurementTime(time)) || !validateMeasurementPlan(count, selectedTimes, selectedTimings)) {
       Alert.alert('Revisa las horas', 'Usa el formato HH:MM, por ejemplo 08:00.');
       return;
     }
     setSaving(true);
     try {
-      await saveMeasurementPlan({ readingsPerDay: count, times: selectedTimes, instructions: instructions.trim() || undefined });
+      await saveMeasurementPlan({ readingsPerDay: count, times: selectedTimes, timings: selectedTimings, instructions: instructions.trim() || undefined });
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva las instrucciones y vuelve a intentarlo.');
@@ -59,8 +64,12 @@ export default function MeasurementPlanScreen() {
       </Panel>
       <Panel>
         <Caption>HORAS SUGERIDAS</Caption>
-        {selectedTimes.map((time, index) => <TextInput key={index} accessibilityLabel={`Hora de lectura ${index + 1}`} value={time} onChangeText={(value) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
-        <Body>Estas horas solo organizan recordatorios visuales. Ajusta el plan con tu equipo de salud.</Body>
+        {selectedTimes.map((time, index) => <View key={index} style={styles.slot}>
+          <TextInput accessibilityLabel={`Hora de lectura ${index + 1}`} value={time} onChangeText={(value) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />
+          <Caption>CONTEXTO DE LA LECTURA</Caption>
+          <View style={styles.chips}>{timingOptions.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: (timings[index] ?? 'other') === option }} onPress={() => setTimings((current) => current.map((item, itemIndex) => itemIndex === index ? option : item))} style={[styles.chip, (timings[index] ?? 'other') === option && styles.chipSelected]}><Text style={[styles.chipText, (timings[index] ?? 'other') === option && styles.chipSelectedText]}>{measurementTimingLabel[option]}</Text></Pressable>)}</View>
+        </View>)}
+        <Body>El contexto ayuda a ordenar las lecturas, pero no interpreta resultados ni sustituye el plan de tu equipo de salud.</Body>
       </Panel>
       <Panel>
         <Caption>INSTRUCCIONES OPCIONALES</Caption>
@@ -80,4 +89,5 @@ const styles = StyleSheet.create({
   input: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16, marginBottom: spacing.xs },
   timeInput: { fontSize: 24, fontWeight: '700' },
   notes: { minHeight: 96, textAlignVertical: 'top', paddingTop: spacing.sm },
+  slot: { gap: spacing.xs, marginBottom: spacing.sm },
 });
