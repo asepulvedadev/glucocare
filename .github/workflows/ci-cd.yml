@@ -137,6 +137,20 @@ jobs:
         working-directory: server
         run: npm run build
 
+      - name: Verify provider HTTPS guard
+        working-directory: server
+        run: |
+          PUBLIC_API_URL=http://127.0.0.1:18084 \
+          RESEND_API_KEY=synthetic-resend-key \
+          RESEND_FROM=alerts@example.invalid \
+          EXPECTED_PROVIDER_CONFIGURED=false \
+          node scripts/smoke-provider-config.mjs
+          PUBLIC_API_URL=https://synthetic.example.invalid \
+          RESEND_API_KEY=synthetic-resend-key \
+          RESEND_FROM=alerts@example.invalid \
+          EXPECTED_PROVIDER_CONFIGURED=true \
+          node scripts/smoke-provider-config.mjs
+
       - name: Smoke-test API and PostgreSQL persistence
         working-directory: server
         env:
