@@ -11,6 +11,7 @@
     "test:smoke": "node scripts/smoke-api.mjs",
     "test:worker": "node scripts/smoke-worker.mjs",
     "test:provider-callback": "node scripts/smoke-provider-callback.mjs",
+    "test:provider-outage": "node scripts/smoke-provider-outage.mjs",
     "dev": "tsx src/server.ts"
   },
   "dependencies": {

@@ -189,4 +189,5 @@ jobs:
           ALERT_WORKER_ONCE=true node dist/alertWorker.js >/tmp/glucocare-alert-worker.log 2>&1
           npm run test:worker
           PUBLIC_API_URL=https://synthetic.example.invalid node scripts/smoke-provider-retry.mjs
+          PUBLIC_API_URL=https://synthetic.example.invalid npm run test:provider-outage
           grep -q 'glucocare-alert-worker' /tmp/glucocare-alert-worker.log
