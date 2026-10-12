@@ -49,23 +49,32 @@ const invitationAcceptance = await call(`${acceptedInvitation.pathname}${accepte
 if (invitationAcceptance.status !== 'accepted') throw new Error('invitation was not accepted');
 const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
 if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'queued') throw new Error('alert was not queued honestly');
+const replayedAlert = await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['sms'] }) });
+if (replayedAlert.alertId !== alert.alertId || replayedAlert.deliveries.length !== 1 || replayedAlert.deliveries[0]?.status !== 'queued') throw new Error('alert replay was not idempotent');
+const alertConflict = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId], channels: ['email'] }) });
+if (alertConflict.status !== 409) throw new Error('alert incident accepted a different delivery set');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 if (deliveries.deliveries.length !== 1) throw new Error('expected one alert delivery');
+const revokedContactId = crypto.randomUUID();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'trusted_contact.created.v1',
+  entityType: 'trusted_contact',
+  entityId: revokedContactId,
+  payload: { id: revokedContactId, name: 'Revoked contact', phone: '+10000000001', updatedAt: new Date().toISOString() },
+}) });
+const revokedInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId: revokedContactId, channel: 'sms' }) });
+const revokedInvitationUrl = new URL(revokedInvitation.acceptUrl);
+await call(`${revokedInvitationUrl.pathname}${revokedInvitationUrl.search}`);
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(),
   eventType: 'contact.revoked.v1',
   entityType: 'trusted_contact',
-  entityId: contactId,
-  payload: { id: contactId, revoked: true, updatedAt: new Date().toISOString() },
+  entityId: revokedContactId,
+  payload: { id: revokedContactId, revoked: true, updatedAt: new Date().toISOString() },
 }) });
-const revokedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [contactId], channels: ['sms'] }) });
+const revokedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [revokedContactId], channels: ['sms'] }) });
 if (revokedAlert.status !== 400) throw new Error('revoked contact remained eligible for an alert');
-// Leave one fresh, consented queued delivery for the worker smoke test. This
-// keeps the revocation assertion above independent from provider configuration.
-const reInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
-const reInvitationUrl = new URL(reInvitation.acceptUrl);
-await call(`${reInvitationUrl.pathname}${reInvitationUrl.search}`);
-await call('/v1/emergency-alerts', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [contactId], channels: ['email'] }) });
 const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
 const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });

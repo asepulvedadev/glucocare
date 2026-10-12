@@ -297,8 +297,32 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
     await client.query('BEGIN');
     const alert = await client.query<{ id: string }>(
       `INSERT INTO emergency_alerts (id, patient_id, incident_id, status) VALUES ($1, $2, $3, 'queued')
-       ON CONFLICT (patient_id, incident_id) DO UPDATE SET status = 'queued' RETURNING id`, [alertId, user.id, incidentId],
+       ON CONFLICT (patient_id, incident_id) DO NOTHING RETURNING id`, [alertId, user.id, incidentId],
     );
+    if (!alert.rowCount) {
+      const existing = await client.query<{ id: string; status: string }>(
+        `SELECT id, status FROM emergency_alerts WHERE patient_id = $1 AND incident_id = $2 FOR UPDATE`, [user.id, incidentId],
+      );
+      const existingAlert = existing.rows[0];
+      if (!existingAlert) throw new Error('ALERT_IDEMPOTENCY_LOOKUP_FAILED');
+      const existingDeliveries = await client.query<{ contact_id: string; channel: string; status: string }>(
+        `SELECT contact_id, channel, status FROM alert_deliveries WHERE alert_id = $1 ORDER BY queued_at ASC`, [existingAlert.id],
+      );
+      const requestedKeys = contactIds.flatMap((contactId) => channels.map((channel) => `${contactId}:${channel}`)).sort();
+      const existingKeys = existingDeliveries.rows.map((delivery) => `${delivery.contact_id}:${delivery.channel}`).sort();
+      if (requestedKeys.length !== existingKeys.length || requestedKeys.some((key, index) => key !== existingKeys[index])) {
+        await client.query('ROLLBACK');
+        fail(response, 409, 'IDEMPOTENCY_CONFLICT', 'El incidente ya fue registrado con otros contactos o canales.');
+        return;
+      }
+      await client.query('COMMIT');
+      send(response, 200, {
+        alertId: existingAlert.id,
+        status: existingAlert.status,
+        deliveries: existingDeliveries.rows.map((delivery) => ({ contactId: delivery.contact_id, channel: delivery.channel, status: delivery.status })),
+      });
+      return;
+    }
     const persistedAlertId = alert.rows[0].id;
     await client.query('DELETE FROM alert_deliveries WHERE alert_id = $1', [persistedAlertId]);
     for (const contactId of contactIds) {

@@ -69,6 +69,10 @@ accepted invitation:
 }
 ```
 
+Repeating the same patient/incident request is idempotent: the API returns the
+existing alert and delivery ledger without deleting and recreating provider
+work. A new incident ID is required to intentionally start another alert.
+
 ## Sync event upload and pull
 
 ```json

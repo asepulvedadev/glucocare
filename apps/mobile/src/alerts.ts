@@ -1,6 +1,7 @@
 import { cloudApi } from './cloudApi';
 
-export type EmergencyAlertResult = { alertId: string; status: 'queued'; deliveries: { contactId: string; channel: string; status: string }[] };
+export type EmergencyAlertStatus = 'queued' | 'not_configured' | 'provider_accepted' | 'failed' | 'unknown';
+export type EmergencyAlertResult = { alertId: string; status: EmergencyAlertStatus; deliveries: { contactId: string; channel: string; status: string }[] };
 export type EmergencyDelivery = { id: string; contactId: string; channel: string; status: string; queuedAt: string; deliveredAt?: string; failureCode?: string };
 
 export async function queueEmergencyAlert(input: { incidentId: string; contactIds: string[]; timezone: string; channels: ('email' | 'sms' | 'push' | 'voice')[] }): Promise<EmergencyAlertResult | null> {
