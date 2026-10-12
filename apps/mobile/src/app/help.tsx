@@ -24,6 +24,7 @@ export default function HelpScreen() {
   const [processing, setProcessing] = useState(false);
   const [helpEvents, setHelpEvents] = useState<HelpEvent[]>([]);
   const [deliveryStatuses, setDeliveryStatuses] = useState<EmergencyDelivery[]>([]);
+  const [deliveryIncidentId, setDeliveryIncidentId] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     void listHelpEvents(db).then((events) => { if (active) setHelpEvents(events); });
@@ -48,7 +49,10 @@ export default function HelpScreen() {
           const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
           if (channel) {
             remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
-            if (remoteQueued) setDeliveryStatuses(await getEmergencyAlertDeliveries(incidentId));
+            if (remoteQueued) {
+              setDeliveryIncidentId(incidentId);
+              setDeliveryStatuses(await getEmergencyAlertDeliveries(incidentId));
+            }
           }
         } catch {
           // Local event and direct-call fallback remain available if the cloud path fails.
@@ -125,6 +129,10 @@ export default function HelpScreen() {
         <Caption>ESTADO DEL AVISO REMOTO</Caption>
         {deliveryStatuses.map((delivery) => <Text key={delivery.id} style={styles.event}>{delivery.channel}: {delivery.status === 'queued' ? 'Encolado' : delivery.status === 'provider_accepted' ? 'Proveedor aceptó' : delivery.status === 'delivered' ? 'Entregado' : delivery.status === 'failed' ? 'Falló' : delivery.status === 'unknown' ? 'Estado desconocido' : delivery.status}{delivery.failureCode ? ` · ${delivery.failureCode}` : ''}</Text>)}
         <Body>Estos estados dependen del proveedor y no sustituyen una llamada a emergencias.</Body>
+        {deliveryIncidentId ? <PrimaryButton label="Actualizar estado" tone="quiet" onPress={() => void (async () => {
+          try { setDeliveryStatuses(await getEmergencyAlertDeliveries(deliveryIncidentId)); }
+          catch { Alert.alert('Estado no disponible', 'No se pudo consultar el proveedor. El aviso conserva su último estado conocido.'); }
+        })()} /> : null}
       </Panel> : null}
       <Text style={styles.disclaimer}>Si estás inconsciente, confundido o no puedes mantenerte a salvo, no esperes una notificación de la app.</Text>
     </Screen>
