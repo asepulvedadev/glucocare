@@ -160,12 +160,12 @@ function isValidMeasurementWindow(value: unknown) {
 
 /** Validate clinician-defined measurement plans at the cloud boundary too.
  * Local validation protects the normal UI, but sync events may be replayed or
- * crafted by another client. Keep this aligned with the mobile three-window
+ * crafted by another client. Keep this aligned with the mobile nine-window
  * MVP without attempting to interpret clinical meaning.
  */
 function validateMeasurementPlanPayload(payload: JsonObject) {
   const countValue = payload.readingsPerDay ?? payload.readings_per_day;
-  if (countValue !== undefined && (!Number.isInteger(countValue) || Number(countValue) < 1 || Number(countValue) > 3)) return 'INVALID_MEASUREMENT_COUNT';
+  if (countValue !== undefined && (!Number.isInteger(countValue) || Number(countValue) < 1 || Number(countValue) > 9)) return 'INVALID_MEASUREMENT_COUNT';
   const count = Number.isInteger(countValue) ? Number(countValue) : undefined;
   const times = payload.times;
   if (times !== undefined && (!Array.isArray(times) || (count !== undefined && times.length !== count) || times.some((time) => !isValidTime(time)))) return 'INVALID_MEASUREMENT_TIMES';

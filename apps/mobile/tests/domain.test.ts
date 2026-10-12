@@ -106,6 +106,7 @@ describe('measurement plan validation', () => {
     expect(isValidMeasurementTime('24:00')).toBe(false);
     expect(isValidMeasurementTime('12:60')).toBe(false);
     expect(validateMeasurementPlan(3, ['07:30', '13:00', '20:30'], ['fasting', 'after_meal', 'after_meal'])).toBe(true);
+    expect(validateMeasurementPlan(9, Array.from({ length: 9 }, (_, index) => `${String(8 + index).padStart(2, '0')}:00`), Array.from({ length: 9 }, () => 'after_meal' as const))).toBe(true);
     expect(validateMeasurementPlan(3, ['07:30'])).toBe(false);
     expect(validateMeasurementPlan(2, ['07:30', '20:30'], ['fasting'])).toBe(false);
     expect(validateMeasurementPlan(1, ['08:00'], ['fasting'], { weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' })).toBe(true);

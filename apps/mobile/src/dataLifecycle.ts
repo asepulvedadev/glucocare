@@ -365,7 +365,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
     for (const row of measurementPlan) {
       await db.runAsync(
         `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), integer(row, 'readings_per_day', 1, 3), jsonArray(row.times_json, 'times_json'), jsonArray(row.timings_json, 'timings_json'), jsonObjectArray(row.windows_json, 'windows_json'), jsonArray(row.weekdays_json, 'weekdays_json'), optionalString(row, 'effective_from'), optionalString(row, 'effective_to'), optionalString(row, 'instructions'), requiredString(row, 'updated_at'),
+        requiredString(row, 'id'), integer(row, 'readings_per_day', 1, 9), jsonArray(row.times_json, 'times_json'), jsonArray(row.timings_json, 'timings_json'), jsonObjectArray(row.windows_json, 'windows_json'), jsonArray(row.weekdays_json, 'weekdays_json'), optionalString(row, 'effective_from'), optionalString(row, 'effective_to'), optionalString(row, 'instructions'), requiredString(row, 'updated_at'),
       );
     }
 

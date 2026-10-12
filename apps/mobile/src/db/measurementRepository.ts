@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { MeasurementPlan, MeasurementTiming, MeasurementWindow } from '../types/measurement';
+import type { MeasurementPlan, MeasurementReadingsPerDay, MeasurementTiming, MeasurementWindow } from '../types/measurement';
 import { enqueueOutbox } from './outboxRepository';
 import { newId } from '../ids';
 import { insertChangeAuditEvent } from './changeAuditRepository';
@@ -49,7 +49,7 @@ function parseWindows(value: string | null, count: number): MeasurementWindow[] 
 export async function getMeasurementPlan(db: SQLiteDatabase): Promise<MeasurementPlan | null> {
   const row = await db.getFirstAsync<PlanRow>('SELECT * FROM measurement_plans WHERE id = ?', 'default');
   if (!row) return null;
-  const readingsPerDay = row.readings_per_day as 1 | 2 | 3;
+  const readingsPerDay = row.readings_per_day as MeasurementReadingsPerDay;
   return { id: 'default', readingsPerDay, times: JSON.parse(row.times_json) as string[], timings: parseTimings(row.timings_json, readingsPerDay), windows: parseWindows(row.windows_json, readingsPerDay), weekdays: parseWeekdays(row.weekdays_json), effectiveFrom: row.effective_from ?? undefined, effectiveTo: row.effective_to ?? undefined, instructions: row.instructions ?? undefined, updatedAt: row.updated_at };
 }
 

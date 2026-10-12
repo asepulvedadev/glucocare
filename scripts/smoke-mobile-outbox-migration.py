@@ -106,6 +106,30 @@ def migration_sql(version: int) -> str:
             ALTER TABLE privacy_consents ADD COLUMN evidence_method TEXT NOT NULL DEFAULT 'in_app_checkbox';
             """
         )
+    elif version == 43:
+        return textwrap.dedent(
+            """
+            BEGIN;
+            ALTER TABLE measurement_plans RENAME TO measurement_plans_legacy;
+            CREATE TABLE measurement_plans (
+              id TEXT PRIMARY KEY NOT NULL,
+              readings_per_day INTEGER NOT NULL CHECK (readings_per_day BETWEEN 1 AND 9),
+              times_json TEXT NOT NULL,
+              timings_json TEXT,
+              windows_json TEXT,
+              weekdays_json TEXT,
+              effective_from TEXT,
+              effective_to TEXT,
+              instructions TEXT,
+              updated_at TEXT NOT NULL
+            );
+            INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
+              SELECT id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at
+              FROM measurement_plans_legacy;
+            DROP TABLE measurement_plans_legacy;
+            COMMIT;
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -253,7 +277,35 @@ def main() -> int:
     expected_privacy_columns = {"locale", "purposes_json", "data_categories_json", "recipients_json", "evidence_method"}
     if not expected_privacy_columns.issubset(privacy_columns):
         raise SystemExit(f"Unexpected privacy consent migration columns: {privacy_columns!r}")
-    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, emergency card legal fields v41, and consent metadata v42 migrations passed.")
+    db.executescript(
+        """
+        CREATE TABLE measurement_plans (
+          id TEXT PRIMARY KEY NOT NULL,
+          readings_per_day INTEGER NOT NULL CHECK (readings_per_day BETWEEN 1 AND 3),
+          times_json TEXT NOT NULL,
+          timings_json TEXT,
+          windows_json TEXT,
+          weekdays_json TEXT,
+          effective_from TEXT,
+          effective_to TEXT,
+          instructions TEXT,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO measurement_plans (id, readings_per_day, times_json, updated_at) VALUES ('default', 3, '[]', 'now');
+        """
+    )
+    db.executescript(migration_sql(43))
+    migrated_plan = db.execute("SELECT readings_per_day FROM measurement_plans WHERE id = 'default'").fetchone()
+    if migrated_plan != (3,):
+        raise SystemExit(f"Unexpected preserved measurement plan: {migrated_plan!r}")
+    constraint_error = None
+    try:
+        db.execute("INSERT INTO measurement_plans (id, readings_per_day, times_json, updated_at) VALUES ('nine', 9, '[]', 'now')")
+    except sqlite3.IntegrityError as error:
+        constraint_error = error
+    if constraint_error is not None:
+        raise SystemExit(f"Nine-window measurement plan was rejected: {constraint_error}")
+    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, emergency card legal fields v41, consent metadata v42, and nine-window measurement plan v43 migrations passed.")
     return 0
 
 

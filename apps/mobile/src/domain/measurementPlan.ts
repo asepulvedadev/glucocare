@@ -1,4 +1,4 @@
-import type { MeasurementPlan, MeasurementTiming, MeasurementWindow } from '../types/measurement';
+import type { MeasurementPlan, MeasurementReadingsPerDay, MeasurementTiming, MeasurementWindow } from '../types/measurement';
 import type { MealType } from '../types/meals';
 
 export function isValidMeasurementTime(value: string) {
@@ -18,7 +18,7 @@ function isValidDateOnly(value: string) {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
-export function validateMeasurementPlan(readingsPerDay: 1 | 2 | 3, times: string[], timings?: MeasurementTiming[], options?: { weekdays?: number[]; effectiveFrom?: string; effectiveTo?: string }) {
+export function validateMeasurementPlan(readingsPerDay: MeasurementReadingsPerDay, times: string[], timings?: MeasurementTiming[], options?: { weekdays?: number[]; effectiveFrom?: string; effectiveTo?: string }) {
   const weekdays = options?.weekdays ?? [];
   return times.length === readingsPerDay
     && times.every(isValidMeasurementTime)
@@ -39,7 +39,7 @@ export function isValidMeasurementWindow(window: MeasurementWindow) {
     && ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'].includes(window.timing);
 }
 
-export function validateMeasurementWindows(readingsPerDay: 1 | 2 | 3, windows: MeasurementWindow[]) {
+export function validateMeasurementWindows(readingsPerDay: MeasurementReadingsPerDay, windows: MeasurementWindow[]) {
   return windows.length === readingsPerDay && windows.every(isValidMeasurementWindow);
 }
 

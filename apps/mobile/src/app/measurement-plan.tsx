@@ -8,10 +8,11 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { colors, radii, spacing } from '../theme/tokens';
 import { isValidMeasurementTime, legacyMeasurementWindows, validateMeasurementPlan, validateMeasurementWindows } from '../domain/measurementPlan';
-import { measurementTimingLabel, type MeasurementTiming, type MeasurementWindow } from '../types/measurement';
+import { measurementTimingLabel, type MeasurementReadingsPerDay, type MeasurementTiming, type MeasurementWindow } from '../types/measurement';
 import { mealTypeLabel, type MealType } from '../types/meals';
 
-const defaultTimes = ['08:00', '14:00', '20:00'];
+const defaultTimes = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00', '23:00'];
+const readingCountOptions: MeasurementReadingsPerDay[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const timingOptions: MeasurementTiming[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 const weekdayOptions = [{ value: 1, label: 'L', name: 'lunes' }, { value: 2, label: 'M', name: 'martes' }, { value: 3, label: 'X', name: 'miércoles' }, { value: 4, label: 'J', name: 'jueves' }, { value: 5, label: 'V', name: 'viernes' }, { value: 6, label: 'S', name: 'sábado' }, { value: 7, label: 'D', name: 'domingo' }];
 const everyDay = weekdayOptions.map((day) => day.value);
@@ -21,7 +22,7 @@ const defaultWindow = (index: number): MeasurementWindow => ({ kind: 'fixed', ti
 export default function MeasurementPlanScreen() {
   const { measurementPlan, saveMeasurementPlan } = useCare();
   const initialCount = measurementPlan?.readingsPerDay ?? 1;
-  const [count, setCount] = useState<1 | 2 | 3>(initialCount);
+  const [count, setCount] = useState<MeasurementReadingsPerDay>(initialCount);
   const initialWindows = measurementPlan ? legacyMeasurementWindows(measurementPlan) : [defaultWindow(0)];
   const [modes, setModes] = useState<('fixed' | 'meal_relative')[]>(initialWindows.map((window) => window.kind));
   const [times, setTimes] = useState<string[]>(initialWindows.map((window) => window.kind === 'fixed' ? window.time : defaultTimes[0]));
@@ -36,7 +37,7 @@ export default function MeasurementPlanScreen() {
 
   const selectedTimes = useMemo(() => times.slice(0, count), [times, count]);
 
-  function changeCount(next: 1 | 2 | 3) {
+  function changeCount(next: MeasurementReadingsPerDay) {
     setCount(next);
     setTimes((current) => Array.from({ length: next }, (_, index) => current[index] ?? defaultTimes[index]));
     setTimings((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'other'));
@@ -85,11 +86,12 @@ export default function MeasurementPlanScreen() {
       <Panel>
         <Caption>LECTURAS POR DÍA</Caption>
         <View style={styles.chips}>
-          {[1, 2, 3].map((option) => {
-            const value = option as 1 | 2 | 3;
+          {readingCountOptions.map((option) => {
+            const value = option;
             return <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: count === value }} onPress={() => changeCount(value)} style={[styles.chip, count === value && styles.chipSelected]}><Text style={[styles.chipText, count === value && styles.chipSelectedText]}>{option}</Text></Pressable>;
           })}
         </View>
+        <Body>Si necesitas una, dos o tres mediciones después de cada comida, configura 3, 6 o 9 ventanas y elige desayuno, almuerzo y cena como referencia. Ajusta cada minuto según la indicación de tu equipo.</Body>
       </Panel>
       <Panel>
         <Caption>HORAS SUGERIDAS</Caption>
@@ -126,7 +128,7 @@ export default function MeasurementPlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: 'row', gap: spacing.xs },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chip: { minWidth: 56, minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber },
   chipText: { color: colors.textSecondary, fontSize: 18, fontWeight: '700' },

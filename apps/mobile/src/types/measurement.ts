@@ -1,6 +1,7 @@
 import type { MealType } from './meals';
 
 export type MeasurementTiming = 'fasting' | 'before_meal' | 'after_meal' | 'bedtime' | 'other';
+export type MeasurementReadingsPerDay = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type MeasurementWindow =
   | { kind: 'fixed'; time: string; timing: MeasurementTiming }
@@ -8,7 +9,7 @@ export type MeasurementWindow =
 
 export type MeasurementPlan = {
   id: 'default';
-  readingsPerDay: 1 | 2 | 3;
+  readingsPerDay: MeasurementReadingsPerDay;
   times: string[];
   timings?: MeasurementTiming[];
   /** Canonical slot definitions. Missing on legacy plans, which use times/timings. */

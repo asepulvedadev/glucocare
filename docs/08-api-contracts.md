@@ -148,7 +148,7 @@ a payload includes an `id`, it must match `entityId`; this prevents a valid
 event from being stored under a different record key.
 
 For `measurement_plan` events the API validates the mobile MVP contract before
-projection: one to three windows, `HH:MM` fixed times, explicit meal-relative
+projection: one to nine windows, `HH:MM` fixed times, explicit meal-relative
 offsets from -240 to +1440 minutes, valid weekdays, and ordered ISO date-only
 validity bounds. These checks validate structure only; the server never derives
 clinical targets or changes the patient's instructions.

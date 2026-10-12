@@ -36,7 +36,8 @@ After save, the app shows the care-plan category and the exact clinician-approve
 
 ### 3. Follow a measurement plan
 
-- Support one to many checks per day.
+- Support one to nine checks per day, including one, two, or three explicit
+  post-meal windows for each main meal when prescribed.
 - Support fixed times and relative-to-meal windows.
 - Allow day-of-week exceptions and temporary sick-day plans.
 - Record due, completed, skipped, and expired occurrences.

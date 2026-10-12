@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 42;
+const DATABASE_VERSION = 43;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -539,6 +539,35 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!privacyColumns.some((column) => column.name === 'recipients_json')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN recipients_json TEXT NOT NULL DEFAULT '[]'");
     if (!privacyColumns.some((column) => column.name === 'evidence_method')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN evidence_method TEXT NOT NULL DEFAULT 'in_app_checkbox'");
     currentVersion = 42;
+  }
+
+  if (currentVersion < 43) {
+    // SQLite cannot alter a CHECK constraint in place. Rebuild this small
+    // table so existing one-to-three-reading plans remain intact while the
+    // patient can configure up to three post-meal checks for each of the
+    // breakfast, lunch, and dinner anchors (nine windows per day).
+    await db.execAsync(`
+      BEGIN;
+      ALTER TABLE measurement_plans RENAME TO measurement_plans_legacy;
+      CREATE TABLE measurement_plans (
+        id TEXT PRIMARY KEY NOT NULL,
+        readings_per_day INTEGER NOT NULL CHECK (readings_per_day BETWEEN 1 AND 9),
+        times_json TEXT NOT NULL,
+        timings_json TEXT,
+        windows_json TEXT,
+        weekdays_json TEXT,
+        effective_from TEXT,
+        effective_to TEXT,
+        instructions TEXT,
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
+        SELECT id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at
+        FROM measurement_plans_legacy;
+      DROP TABLE measurement_plans_legacy;
+      COMMIT;
+    `);
+    currentVersion = 43;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
