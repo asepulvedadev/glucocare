@@ -19,6 +19,10 @@ import { AppErrorBoundary } from '../components/AppErrorBoundary';
 
 async function initializeDatabase(db: Parameters<typeof migrateDbIfNeeded>[0]) {
   await initializeDatabaseEncryption(db);
+  // SQLite does not enable referential actions by default. Turn them on for
+  // every platform before migrations/repositories run so deletes cannot leave
+  // orphaned occurrences, meal links, or audit projections behind.
+  await db.execAsync('PRAGMA foreign_keys = ON');
   await migrateDbIfNeeded(db);
 }
 

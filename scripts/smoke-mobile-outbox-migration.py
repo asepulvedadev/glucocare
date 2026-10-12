@@ -100,6 +100,9 @@ def migration_sql(version: int) -> str:
 
 def main() -> int:
     db = sqlite3.connect(":memory:")
+    db.execute("PRAGMA foreign_keys = ON")
+    if db.execute("PRAGMA foreign_keys").fetchone() != (1,):
+        raise SystemExit("SQLite foreign-key enforcement could not be enabled")
     db.executescript(
         """
         CREATE TABLE sync_outbox (
@@ -182,6 +185,9 @@ def main() -> int:
     planned = db.execute("SELECT status FROM medication_occurrences WHERE id = 'occurrence-2'").fetchone()
     if planned != ("planned",):
         raise SystemExit(f"Unexpected planned medication occurrence: {planned!r}")
+    db.execute("DELETE FROM medications WHERE id = 'medication-1'")
+    if db.execute("SELECT COUNT(*) FROM medication_occurrences WHERE medication_id = 'medication-1'").fetchone() != (0,):
+        raise SystemExit("Medication deletion left orphaned occurrences")
     db.executescript(migration_sql(35))
     db.execute("INSERT INTO change_audit_events (id, entity_type, entity_id, occurred_at, action, after_json) VALUES ('audit-1', 'medication', 'medication-1', 'now', 'created', '{}')")
     if db.execute("SELECT COUNT(*) FROM change_audit_events").fetchone() != (1,):
@@ -207,7 +213,7 @@ def main() -> int:
     risk_columns = {row[1] for row in db.execute("PRAGMA table_info(glucose_readings)").fetchall()}
     if not {"risk_rule_id", "risk_plan_updated_at"}.issubset(risk_columns):
         raise SystemExit(f"Unexpected risk provenance migration columns: {risk_columns!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, and risk provenance v40 migrations passed.")
+    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, and risk provenance v40 migrations passed.")
     return 0
 
 

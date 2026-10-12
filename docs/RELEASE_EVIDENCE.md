@@ -10,7 +10,7 @@ beta authorization.
 | Area | Evidence | Status |
 |---|---|---|
 | Expo domain and UI code | `apps/mobile`, TypeScript, lint, and Vitest suite | Automated; current local checks pass |
-| Local data durability | SQLite migrations, repositories, outbox, export/restore, deletion | Automated; migration and domain coverage present |
+| Local data durability | SQLite migrations, repositories, outbox, export/restore, deletion, and enabled foreign-key cascades | Automated; migration and domain coverage present |
 | Reminder cleanup | Data deletion and replace-style restore cancel medication, appointment, and payload-identified glucose-check reminders before clearing local records | Automated code path; native device cancellation evidence pending |
 | Native data protection | SQLCipher initialization and device-bound SecureStore key | Code-reviewed; physical reinstall/restore evidence pending |
 | Unit integrity | Original glucose value/unit are retained alongside a deterministic canonical mg/dL value and conversion version on device and cloud sync | Automated conversion, migration, trigger, and domain coverage; clinician sign-off pending |
