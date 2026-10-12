@@ -91,7 +91,7 @@ export default function MedicationScreen() {
         <TextInput accessibilityLabel="Fecha de inicio del medicamento" value={startDate} onChangeText={setStartDate} placeholder="Inicio · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Fecha de finalización del medicamento" value={endDate} onChangeText={setEndDate} placeholder="Fin · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Instrucciones del medicamento" value={instructions} onChangeText={setInstructions} placeholder="Ej. tomar con alimentos" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
-        <Body>La vigencia documenta la indicación recibida; no cambia las dosis ni detiene recordatorios automáticamente.</Body>
+        <Body>La vigencia documenta la indicación recibida; no cambia las dosis. Fuera de esas fechas no se generan tomas ni recordatorios.</Body>
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar medicamento'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Los recordatorios son una ayuda y no garantizan la entrega. Si pierdes una toma, sigue tu plan de atención.</Text>

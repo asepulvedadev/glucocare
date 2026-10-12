@@ -14,6 +14,7 @@ import { appointmentStatusLabel } from '../../types/appointments';
 import { availableAppointmentTransitions } from '../../domain/appointmentState';
 import { isCarePlanExpired } from '../../domain/glucoseRisk';
 import { isMeasurementPlanActive } from '../../domain/measurementPlan';
+import { isMedicationActive } from '../../domain/medication';
 import { colors, spacing } from '../../theme/tokens';
 
 function formatTime(hour: number, minute: number) {
@@ -108,7 +109,7 @@ export default function CareScreen() {
               {medication.prescriberName ? <Caption>Indicado por {medication.prescriberName}</Caption> : null}
               {medication.startDate || medication.endDate ? <Caption>Vigencia: {medication.startDate ?? 'sin fecha inicial'} → {medication.endDate ?? 'sin fecha final'}</Caption> : null}
               {medication.instructions ? <Caption>{medication.instructions}</Caption> : null}
-              <Text style={[styles.reminder, medication.reminderState !== 'scheduled' && styles.reminderMuted]}>{medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text>
+              <Text style={[styles.reminder, (!isMedicationActive(medication) || medication.reminderState !== 'scheduled') && styles.reminderMuted]}>{!isMedicationActive(medication) ? 'Fuera de vigencia; no se generan tomas ni recordatorios' : medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text>
               {medicationOccurrences.filter((occurrence) => occurrence.medicationId === medication.id).map((occurrence) => {
                 const actionable = occurrence.status === 'due' || occurrence.status === 'snoozed';
                 const scheduledTime = new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });

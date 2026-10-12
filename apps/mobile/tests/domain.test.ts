@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { availableAppointmentTransitions, canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
 import { isMeasurementPlanActive, isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
+import { isMedicationActive } from '../src/domain/medication';
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
@@ -52,6 +53,14 @@ describe('local identifiers', () => {
 });
 
 describe('medication occurrence state machine', () => {
+  it('honors medication validity windows before generating reminders', () => {
+    const medication = { enabled: true, startDate: '2026-10-10', endDate: '2026-10-12' };
+    expect(isMedicationActive(medication, new Date('2026-10-09T12:00:00-05:00'))).toBe(false);
+    expect(isMedicationActive(medication, new Date('2026-10-12T12:00:00-05:00'))).toBe(true);
+    expect(isMedicationActive(medication, new Date('2026-10-13T12:00:00-05:00'))).toBe(false);
+    expect(isMedicationActive({ ...medication, enabled: false }, new Date('2026-10-11T12:00:00-05:00'))).toBe(false);
+  });
+
   it('allows a due occurrence to be acknowledged or skipped', () => {
     expect(canTransitionMedicationOccurrence('due', 'taken')).toBe(true);
     expect(canTransitionMedicationOccurrence('due', 'skipped')).toBe(true);

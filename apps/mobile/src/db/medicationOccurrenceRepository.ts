@@ -3,6 +3,7 @@ import { newId } from '../ids';
 import type { Medication } from '../types/care';
 import type { MedicationOccurrence, MedicationOccurrenceStatus } from '../types/medicationOccurrences';
 import { transitionMedicationOccurrence } from '../domain/medicationOccurrenceState';
+import { isMedicationActive } from '../domain/medication';
 import { enqueueOutbox } from './outboxRepository';
 
 type MedicationOccurrenceRow = {
@@ -40,8 +41,24 @@ function occurrenceTimesForToday(medication: Medication, now: Date) {
 export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medications: Medication[], now = new Date()) {
   const createdAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
-    for (const medication of medications.filter((item) => item.enabled)) {
-      for (const scheduledAt of occurrenceTimesForToday(medication, now)) {
+    for (const medication of medications) {
+      const times = occurrenceTimesForToday(medication, now);
+      if (!isMedicationActive(medication, now)) {
+        if (times.length > 0) {
+          const placeholders = times.map(() => '?').join(', ');
+          await db.runAsync(
+            `DELETE FROM medication_occurrences
+             WHERE medication_id = ? AND scheduled_at >= ? AND scheduled_at < ?
+             AND status IN ('due', 'snoozed') AND scheduled_at IN (${placeholders})`,
+            medication.id,
+            startOfLocalDay(now).toISOString(),
+            new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString(),
+            ...times,
+          );
+        }
+        continue;
+      }
+      for (const scheduledAt of times) {
         await db.runAsync(
           `INSERT OR IGNORE INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at)
            VALUES (?, ?, ?, 'due', ?)`,

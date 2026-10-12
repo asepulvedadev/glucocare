@@ -2,6 +2,7 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
+import { isMedicationActive } from './domain/medication';
 
 const MEDICATION_CHANNEL = 'medications';
 
@@ -39,6 +40,7 @@ export async function ensurePermission(): Promise<ReminderPermission> {
 }
 
 export async function scheduleMedicationReminder(medication: Medication): Promise<{ state: ReminderPermission; notificationId?: string; notificationIds?: string[] }> {
+  if (!isMedicationActive(medication)) return { state: 'unavailable' };
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission };
 
@@ -107,9 +109,13 @@ async function hasScheduledNotifications(notificationIds: string[]) {
 
 export async function reconcileMedicationReminder(medication: Medication) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const };
+  const notificationIds = medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []);
+  if (!isMedicationActive(medication)) {
+    await cancelReminder(notificationIds);
+    return { state: 'unavailable' as const, notificationId: undefined, notificationIds: [] };
+  }
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission as ReminderPermission };
-  const notificationIds = medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []);
   if (await hasScheduledNotifications(notificationIds)) return { state: 'granted' as const, notificationId: notificationIds[0], notificationIds };
   await cancelReminder(notificationIds);
   return scheduleMedicationReminder(medication);
