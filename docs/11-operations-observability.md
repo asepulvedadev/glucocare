@@ -74,14 +74,11 @@ Ticket/non-page:
 
 ## Runbooks required before beta
 
-1. Notification provider outage.
-2. VPS API or PostgreSQL outage/degraded authentication.
-3. Failed database migration/app rollback.
-4. Suspected data breach or cross-patient access.
-5. Lost signing key or leaked credential.
-6. Account deletion/export failure.
-7. Clinically unsafe content/rule rollback.
-8. App-store forced update for critical safety fix.
+The actionable procedures are in [Incident runbooks](13-incident-runbooks.md).
+They cover provider outage, VPS/PostgreSQL outage, migration rollback, breach,
+credential rotation, deletion/export, unsafe clinical content, and critical
+mobile updates. A runbook is not considered exercised until its checklist has a
+dated tabletop or staging result.
 
 Each runbook identifies owner, detection, containment, user messaging, recovery, verification, and post-incident review.
 
