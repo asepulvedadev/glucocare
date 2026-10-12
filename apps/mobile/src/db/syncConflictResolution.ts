@@ -58,10 +58,21 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
         );
         break;
       case 'medication':
-        await db.runAsync(
-          `UPDATE medications SET name = ?, dose_text = ?, route = ?, enabled = ?, created_at = ? WHERE id = ?`,
-          requiredString(payload.name, 'name'), requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
-        );
+        {
+          const times = Array.isArray(payload.times) ? payload.times.map(String).filter((time) => /^\d{2}:\d{2}$/.test(time)) : [];
+          const firstTime = times[0]?.match(/^(\d{2}):(\d{2})$/);
+          if (firstTime) {
+            await db.runAsync(
+              `UPDATE medications SET name = ?, dose_text = ?, route = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, created_at = ? WHERE id = ?`,
+              requiredString(payload.name, 'name'), requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), Number(firstTime[1]), Number(firstTime[2]), JSON.stringify(times), payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
+            );
+          } else {
+            await db.runAsync(
+              `UPDATE medications SET name = ?, dose_text = ?, route = ?, enabled = ?, created_at = ? WHERE id = ?`,
+              requiredString(payload.name, 'name'), requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
+            );
+          }
+        }
         break;
       case 'medication_occurrence':
         await db.runAsync(

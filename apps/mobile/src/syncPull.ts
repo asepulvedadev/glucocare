@@ -94,8 +94,8 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       downloaded += 1;
     }
     for (const medication of medicationsResult.data ?? []) {
-      if (await preserveLocalChange('medication', medication.id, medication as unknown as Record<string, unknown>)) continue;
       const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'] };
+      if (await preserveLocalChange('medication', medication.id, { ...(medication as unknown as Record<string, unknown>), times: time.times })) continue;
       await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, hour, minute, times_json, enabled, reminder_state, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
         ON CONFLICT(id) DO UPDATE SET name = excluded.name, dose_text = excluded.dose_text, route = excluded.route, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, enabled = excluded.enabled`,
