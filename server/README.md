@@ -37,6 +37,7 @@ DATABASE_URL=postgresql://glucocare_app:local-only-password@127.0.0.1:5432/gluco
 | `RESEND_API_KEY`, `RESEND_FROM` | habilitan el adaptador de correo; déjalas vacías para mantener `not_configured` |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | habilitan el adaptador SMS; déjalas vacías para mantener `not_configured` |
 | `ALERT_WORKER_INTERVAL_MS`, `ALERT_WORKER_BATCH_SIZE`, `ALERT_WORKER_MAX_ATTEMPTS` | frecuencia, lote y reintentos del worker privado |
+| `ALERT_WORKER_HEARTBEAT_FILE` | ruta writable del heartbeat usado por el healthcheck del contenedor; por defecto `/tmp/glucocare-alert-worker.heartbeat` |
 
 El contenedor de producción se ejecuta sin root y con el filesystem de solo
 lectura. PostgreSQL solo está en la red interna de Compose.
