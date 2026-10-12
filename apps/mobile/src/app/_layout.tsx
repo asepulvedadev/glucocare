@@ -1,14 +1,37 @@
 import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
+import { AppState } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { GlucoseProvider } from '../context';
 import { CareProvider } from '../careContext';
 import { SafetyProvider } from '../safetyContext';
-import { AuthProvider } from '../authContext';
+import { AuthProvider, useAuth } from '../authContext';
 import { AccessibilityProvider } from '../accessibilityContext';
 import { migrateDbIfNeeded } from '../db/migrations';
 import { colors } from '../theme/tokens';
 import { PrivacyProvider } from '../privacyContext';
+import { syncPendingData } from '../sync';
+
+/** Replays the local outbox when a cloud session is active or the app resumes. */
+function SyncBridge() {
+  const db = useSQLiteContext();
+  const { session } = useAuth();
+  const syncing = useRef(false);
+  const sync = useCallback(async () => {
+    if (!session || syncing.current) return;
+    syncing.current = true;
+    try { await syncPendingData(db, session); } catch { /* Local-first data remains available when cloud sync is offline. */ }
+    finally { syncing.current = false; }
+  }, [db, session]);
+
+  useEffect(() => { void sync(); }, [sync]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') void sync(); });
+    return () => subscription.remove();
+  }, [sync]);
+  return null;
+}
 
 export default function RootLayout() {
   return (
@@ -17,6 +40,7 @@ export default function RootLayout() {
         <PrivacyProvider>
           <AccessibilityProvider>
             <AuthProvider>
+              <SyncBridge />
               <CareProvider>
                 <SafetyProvider>
                 <StatusBar style="light" />
