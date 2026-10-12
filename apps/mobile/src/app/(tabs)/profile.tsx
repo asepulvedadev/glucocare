@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Alert, Platform, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
@@ -19,6 +20,30 @@ import { useAccessibility } from '../../accessibilityContext';
 import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictRepository';
 import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
+import { supabase } from '../../supabase';
+
+type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
+
+const invitationStatusLabel: Record<InvitationStatus, string> = {
+  pending: 'Invitación pendiente de aceptación',
+  accepted: 'Invitación aceptada',
+  declined: 'Invitación rechazada',
+  revoked: 'Invitación revocada',
+  expired: 'Invitación vencida',
+};
+
+async function fetchInvitationStatuses(session: Session | null) {
+  if (!session || !supabase) return {} as Record<string, InvitationStatus>;
+  const { data } = await supabase
+    .from('contact_invitations')
+    .select('contact_id,status,created_at')
+    .order('created_at', { ascending: false });
+  const next: Record<string, InvitationStatus> = {};
+  for (const invitation of data ?? []) {
+    if (!next[invitation.contact_id]) next[invitation.contact_id] = invitation.status as InvitationStatus;
+  }
+  return next;
+}
 
 export default function ProfileScreen() {
   const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, grantTrustedContactConsent, sendTrustedContactInvitation, revokeTrustedContact } = useSafety();
@@ -32,6 +57,17 @@ export default function ProfileScreen() {
   const [reporting, setReporting] = useState(false);
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
+  const [invitationStatuses, setInvitationStatuses] = useState<Record<string, InvitationStatus>>({});
+
+  const refreshInvitationStatuses = useCallback(async () => {
+    setInvitationStatuses(await fetchInvitationStatuses(session));
+  }, [session]);
+
+  useEffect(() => {
+    let active = true;
+    void fetchInvitationStatuses(session).then((next) => { if (active) setInvitationStatuses(next); });
+    return () => { active = false; };
+  }, [session]);
 
   const refreshSyncConflicts = useCallback(async () => {
     setSyncConflicts(await listOpenSyncConflicts(db));
@@ -42,7 +78,7 @@ export default function ProfileScreen() {
     setSyncing(true);
     try {
       const result = await syncPendingData(db, session);
-      await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts()]);
+      await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts(), refreshInvitationStatuses()]);
       if (result.state === 'disabled') Alert.alert('Sincronización no disponible', 'Este build no tiene configurada la conexión cloud.');
       else if (result.state === 'consent_required') Alert.alert('Consentimiento necesario', 'Activa la sincronización cloud desde Privacidad y consentimiento antes de enviar registros.');
       else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
@@ -58,7 +94,7 @@ export default function ProfileScreen() {
         setSyncing(true);
         try {
           await applyRemoteSyncConflict(db, conflict);
-          await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts()]);
+          await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts(), refreshInvitationStatuses()]);
           Alert.alert('Conflicto resuelto', 'Aplicamos la versión cloud.');
         } catch { Alert.alert('No se pudo resolver', 'Conservamos tu copia local. Vuelve a sincronizar antes de elegir otra versión.'); }
         finally { setSyncing(false); }
@@ -147,6 +183,7 @@ export default function ProfileScreen() {
         setInvitingContactId(contact.id);
         try {
           await sendTrustedContactInvitation(contact.id, channel);
+          setInvitationStatuses((current) => ({ ...current, [contact.id]: 'pending' }));
           Alert.alert('Invitación enviada', `${contact.name} debe aceptar antes de recibir avisos.`);
         } catch { Alert.alert('No se pudo enviar', 'El proveedor de correo/SMS puede no estar configurado. Tu contacto sigue guardado localmente.'); }
         finally { setInvitingContactId(null); }
@@ -172,7 +209,11 @@ export default function ProfileScreen() {
       </Panel>
       <Panel>
         <Caption>PERSONA DE APOYO</Caption>
-        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>{contact.consentGranted ? <PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /> : <PrimaryButton label="Confirmar consentimiento" tone="quiet" onPress={() => requestGrantContact(contact.id, contact.name)} />}{contact.consentGranted && session && (contact.email || contact.phone) ? <PrimaryButton label={invitingContactId === contact.id ? 'Enviando invitación…' : 'Enviar invitación verificada'} tone="quiet" disabled={invitingContactId === contact.id} onPress={() => requestInvite(contact)} /> : null}</Panel>)}
+        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => {
+          const invitationStatus = invitationStatuses[contact.id];
+          const canSendInvitation = invitationStatus !== 'pending' && invitationStatus !== 'accepted';
+          return <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>{invitationStatus ? <Body>{invitationStatusLabel[invitationStatus]}</Body> : null}{contact.consentGranted ? <PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /> : <PrimaryButton label="Confirmar consentimiento" tone="quiet" onPress={() => requestGrantContact(contact.id, contact.name)} />}{contact.consentGranted && canSendInvitation && session && (contact.email || contact.phone) ? <PrimaryButton label={invitingContactId === contact.id ? 'Enviando invitación…' : 'Enviar invitación verificada'} tone="quiet" disabled={invitingContactId === contact.id} onPress={() => requestInvite(contact)} /> : null}</Panel>;
+        })}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
       </Panel>
       <Panel>
