@@ -6,17 +6,21 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useGlucose } from '../context';
-import { glucoseContextLabel, type GlucoseContext, type GlucoseUnit } from '../types/domain';
+import { glucoseContextLabel, type GlucoseContext, type GlucoseSource, type GlucoseUnit } from '../types/domain';
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
+const sources: GlucoseSource[] = ['manual', 'glucometer'];
+const sourceLabel: Record<GlucoseSource, string> = { manual: 'Digitada', import: 'Importada', cgm: 'CGM', glucometer: 'Glucometro' };
 
 export default function LogScreen() {
   const { addReading } = useGlucose();
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<GlucoseUnit>('mg/dL');
   const [context, setContext] = useState<GlucoseContext>('other');
+  const [source, setSource] = useState<GlucoseSource>('manual');
+  const [mealOffset, setMealOffset] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [urgentSymptoms, setUrgentSymptoms] = useState(false);
   const [note, setNote] = useState('');
@@ -26,10 +30,15 @@ export default function LogScreen() {
     if (!Number.isFinite(numericValue) || numericValue <= 0 || numericValue > 1000) {
       Alert.alert('Revisa el valor', 'Escribe un número mayor que 0. Si crees que tu lectura es anormal, busca ayuda según tu plan de emergencia.'); return;
     }
+    const normalizedMealOffset = mealOffset.trim();
+    const parsedMealOffset = normalizedMealOffset ? Number(normalizedMealOffset) : undefined;
+    if (context === 'after_meal' && (parsedMealOffset !== undefined && (!Number.isInteger(parsedMealOffset) || parsedMealOffset < 0 || parsedMealOffset > 1440))) {
+      Alert.alert('Revisa el tiempo desde la comida', 'Usa un número entero entre 0 y 1440 minutos.'); return;
+    }
     setSaving(true);
     try {
       const symptomsValue = [urgentSymptoms ? URGENT_SYMPTOM_NOTICE : '', symptoms.trim()].filter(Boolean).join('. ');
-      const saved = await addReading({ value: numericValue, unit, context, recordedAt: new Date().toISOString(), symptoms: symptomsValue || undefined, note: note.trim() || undefined });
+      const saved = await addReading({ value: numericValue, unit, context, source, mealOffsetMinutes: context === 'after_meal' ? parsedMealOffset : undefined, recordedAt: new Date().toISOString(), symptoms: symptomsValue || undefined, note: note.trim() || undefined });
       if (hasUrgentSymptoms(saved.symptoms)) {
         Alert.alert('Busca ayuda ahora', 'Los síntomas graves requieren ayuda humana aunque la lectura parezca normal. Llama a emergencias o usa la pantalla de ayuda.', [{ text: 'Abrir ayuda', onPress: () => router.replace('/help') }, { text: 'Cerrar', style: 'cancel', onPress: () => router.back() }]);
         if (Platform.OS === 'web') router.replace('/help');
@@ -64,6 +73,12 @@ export default function LogScreen() {
       <Panel>
         <Caption>CONTEXTO</Caption>
         <View style={styles.chips}>{contexts.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: context === option }} onPress={() => setContext(option)} style={[styles.chip, context === option && styles.chipSelected]}><Text style={[styles.chipText, context === option && styles.chipSelectedText]}>{glucoseContextLabel[option]}</Text></Pressable>)}</View>
+        {context === 'after_meal' ? <TextInput accessibilityLabel="Minutos desde la comida" value={mealOffset} onChangeText={setMealOffset} keyboardType="number-pad" placeholder="Minutos desde la comida (opcional)" placeholderTextColor={colors.textDisabled} style={styles.textInput} /> : null}
+      </Panel>
+      <Panel>
+        <Caption>ORIGEN DE LA LECTURA</Caption>
+        <View style={styles.chips}>{sources.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: source === option }} onPress={() => setSource(option)} style={[styles.chip, source === option && styles.chipSelected]}><Text style={[styles.chipText, source === option && styles.chipSelectedText]}>{sourceLabel[option]}</Text></Pressable>)}</View>
+        <Body>Las importaciones de CGM y otros dispositivos se incorporarán en una versión posterior; aquí puedes identificar una lectura tomada con tu glucómetro.</Body>
       </Panel>
       <Panel>
         <Caption>OPCIONAL</Caption>

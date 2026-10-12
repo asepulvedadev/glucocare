@@ -2,12 +2,15 @@ import type { GlucoseRiskClassification } from './carePlan';
 
 export type GlucoseUnit = 'mg/dL' | 'mmol/L';
 export type GlucoseContext = 'fasting' | 'before_meal' | 'after_meal' | 'bedtime' | 'other';
+export type GlucoseSource = 'manual' | 'import' | 'cgm' | 'glucometer';
 
 export type GlucoseReading = {
   id: string;
   value: number;
   unit: GlucoseUnit;
   context: GlucoseContext;
+  source?: GlucoseSource;
+  mealOffsetMinutes?: number;
   recordedAt: string;
   symptoms?: string;
   note?: string;

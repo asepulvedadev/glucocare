@@ -59,11 +59,12 @@ export default function HistoryScreen() {
           <View style={styles.row}>
             <View>
               <Text style={styles.value}>{reading.value} <Text style={styles.unit}>{reading.unit}</Text></Text>
-              <Caption>{glucoseContextLabel[reading.context]}</Caption>
+              <Caption>{glucoseContextLabel[reading.context]}{reading.mealOffsetMinutes !== undefined ? ` · ${reading.mealOffsetMinutes} min después` : ''}</Caption>
             </View>
             <Caption>{new Date(reading.recordedAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption>
           </View>
           {reading.symptoms ? <Body>Síntomas: {reading.symptoms}</Body> : null}
+          {reading.source && reading.source !== 'manual' ? <Body>Origen: {reading.source === 'glucometer' ? 'Glucómetro' : reading.source}</Body> : null}
           {reading.note ? <Body>Nota: {reading.note}</Body> : null}
           {reading.riskClassification && reading.riskClassification !== 'unclassified' ? <Text style={styles.risk}>{glucoseRiskLabel[reading.riskClassification]}</Text> : null}
           <Text style={styles.local}>{reading.syncState === 'synced' ? 'Sincronizado' : reading.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>

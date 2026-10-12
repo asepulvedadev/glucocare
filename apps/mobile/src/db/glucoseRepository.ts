@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import type { GlucoseContext, GlucoseReading, GlucoseUnit } from '../types/domain';
+import type { GlucoseContext, GlucoseReading, GlucoseSource, GlucoseUnit } from '../types/domain';
 import type { GlucoseRiskClassification } from '../types/carePlan';
 import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
@@ -12,6 +12,8 @@ type GlucoseRow = {
   value: number;
   unit: GlucoseUnit;
   context: GlucoseContext;
+  source: GlucoseSource | null;
+  meal_offset_minutes: number | null;
   recorded_at: string;
   symptoms: string | null;
   note: string | null;
@@ -25,6 +27,8 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     value: row.value,
     unit: row.unit,
     context: row.context,
+    source: row.source ?? 'manual',
+    mealOffsetMinutes: row.meal_offset_minutes ?? undefined,
     recordedAt: row.recorded_at,
     symptoms: row.symptoms ?? undefined,
     note: row.note ?? undefined,
@@ -51,9 +55,9 @@ export async function insertGlucoseReading(
   };
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stored.id, stored.value, stored.unit, stored.context, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
+      `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });

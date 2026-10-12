@@ -23,6 +23,10 @@ function toContext(context: unknown) {
   return ['fasting', 'before_meal', 'after_meal', 'bedtime'].includes(String(context)) ? String(context) : 'other';
 }
 
+function toSource(source: unknown) {
+  return ['manual', 'import', 'cgm', 'glucometer'].includes(String(source)) ? String(source) : 'manual';
+}
+
 function isUuid(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -40,7 +44,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const { error } = await supabase.from('glucose_readings').upsert({
         id: event.entityId, patient_id: patientId, value_original: Number(payload.value), unit_original: toUnit(payload.unit),
         measured_at: stringValue(payload.recordedAt, new Date().toISOString()), recorded_at: stringValue(payload.recordedAt, new Date().toISOString()),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', context: toContext(payload.context),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', context: toContext(payload.context), source: toSource(payload.source), meal_offset_minutes: typeof payload.mealOffsetMinutes === 'number' ? payload.mealOffsetMinutes : null,
         symptoms: payload.symptoms ? [String(payload.symptoms)] : [], note: payload.note ? String(payload.note) : null,
         classification: payload.riskClassification ? String(payload.riskClassification) : null,
       });

@@ -32,6 +32,10 @@ function localUnit(value: unknown) {
   return value === 'mmol_l' ? 'mmol/L' : 'mg/dL';
 }
 
+function localSource(value: unknown) {
+  return ['manual', 'import', 'cgm', 'glucometer'].includes(String(value)) ? String(value) : 'manual';
+}
+
 function localContext(value: unknown) {
   return ['fasting', 'before_meal', 'after_meal', 'bedtime'].includes(String(value)) ? String(value) : 'other';
 }
@@ -55,10 +59,10 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
     switch (conflict.entityType) {
       case 'glucose_reading':
         await db.runAsync(
-          `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', ?)
-           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, recorded_at = excluded.recorded_at, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
-          conflict.entityId, numberValue(payload.value_original, 'value'), localUnit(payload.unit_original), localContext(payload.context), requiredString(payload.measured_at, 'measured_at'), Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, payload.classification ? String(payload.classification) : null,
+          `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+           ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
+          conflict.entityId, numberValue(payload.value_original, 'value'), localUnit(payload.unit_original), localContext(payload.context), localSource(payload.source), typeof payload.meal_offset_minutes === 'number' ? payload.meal_offset_minutes : null, requiredString(payload.measured_at, 'measured_at'), Array.isArray(payload.symptoms) ? payload.symptoms.map(String).join(', ') : null, payload.note ? String(payload.note) : null, payload.classification ? String(payload.classification) : null,
         );
         break;
       case 'medication':

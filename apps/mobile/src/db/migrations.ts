@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 24;
+const DATABASE_VERSION = 25;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -329,6 +329,13 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!appointmentColumns.some((column) => column.name === 'virtual_url')) await db.execAsync('ALTER TABLE appointments ADD COLUMN virtual_url TEXT');
     if (!appointmentColumns.some((column) => column.name === 'preparation_notes')) await db.execAsync('ALTER TABLE appointments ADD COLUMN preparation_notes TEXT');
     currentVersion = 24;
+  }
+
+  if (currentVersion < 25) {
+    const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
+    if (!glucoseColumns.some((column) => column.name === 'source')) await db.execAsync("ALTER TABLE glucose_readings ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
+    if (!glucoseColumns.some((column) => column.name === 'meal_offset_minutes')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN meal_offset_minutes INTEGER');
+    currentVersion = 25;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

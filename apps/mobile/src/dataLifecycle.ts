@@ -17,7 +17,7 @@ const MAX_ROWS_PER_TABLE = 25_000;
 export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared: boolean }> {
   const [card, readings, medications, appointments] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
-    db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
+    db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
   ]);
@@ -220,10 +220,12 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
     for (const row of glucose) {
       enumValue(row, 'unit', ['mg/dL', 'mmol/L'] as const);
       const context = enumValue(row, 'context', ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'] as const);
+      const source = enumValue(row, 'source', ['manual', 'import', 'cgm', 'glucometer'] as const, 'manual');
+      const mealOffsetMinutes = row.meal_offset_minutes === undefined || row.meal_offset_minutes === null || row.meal_offset_minutes === '' ? null : integer(row, 'meal_offset_minutes', 0, 1440);
       await db.runAsync(
-        `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
-        requiredString(row, 'id'), nullableNumber(row, 'value') ?? (() => { throw new Error('Invalid value.'); })(), context,
+        `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
+        requiredString(row, 'id'), nullableNumber(row, 'value') ?? (() => { throw new Error('Invalid value.'); })(), context, source, mealOffsetMinutes,
         requiredString(row, 'recorded_at'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
       );
     }

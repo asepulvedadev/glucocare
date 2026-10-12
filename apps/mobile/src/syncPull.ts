@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { supabase } from './supabase';
-import type { GlucoseContext, GlucoseUnit } from './types/domain';
+import type { GlucoseContext, GlucoseSource, GlucoseUnit } from './types/domain';
 import type { GlucoseRiskClassification, CarePlan } from './types/carePlan';
 import type { MedicationRoute } from './types/care';
 import type { AppointmentStatus } from './types/appointments';
@@ -14,6 +14,10 @@ function localUnit(unit: string): GlucoseUnit {
 
 function localContext(context: string): GlucoseContext {
   return ['fasting', 'before_meal', 'after_meal', 'bedtime'].includes(context) ? context as GlucoseContext : 'other';
+}
+
+function localSource(source: string | null): GlucoseSource {
+  return ['manual', 'import', 'cgm', 'glucometer'].includes(String(source)) ? source as GlucoseSource : 'manual';
 }
 
 function localRisk(value: string | null): GlucoseRiskClassification | undefined {
@@ -46,7 +50,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   // is in flight are picked up by the next run instead of being skipped.
   const until = new Date().toISOString();
   const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
-    supabase.from('glucose_readings').select('id,value_original,unit_original,measured_at,context,symptoms,note,classification,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('glucose_readings').select('id,value_original,unit_original,measured_at,context,source,meal_offset_minutes,symptoms,note,classification,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medications').select('id,name,dose_text,route,prescriber_name,instructions,start_date,end_date,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
     supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
@@ -91,10 +95,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   await db.withTransactionAsync(async () => {
     for (const reading of glucoseResult.data ?? []) {
       if (await preserveLocalChange('glucose_reading', reading.id, reading as unknown as Record<string, unknown>)) continue;
-      await db.runAsync(`INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', ?)
-        ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, recorded_at = excluded.recorded_at, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
-        reading.id, Number(reading.value_original), localUnit(reading.unit_original), localContext(reading.context), reading.measured_at, reading.symptoms?.join(', ') ?? null, reading.note ?? null, localRisk(reading.classification) ?? null);
+      await db.runAsync(`INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
+        ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
+        reading.id, Number(reading.value_original), localUnit(reading.unit_original), localContext(reading.context), localSource(reading.source), reading.meal_offset_minutes, reading.measured_at, reading.symptoms?.join(', ') ?? null, reading.note ?? null, localRisk(reading.classification) ?? null);
       downloaded += 1;
     }
     for (const medication of medicationsResult.data ?? []) {
