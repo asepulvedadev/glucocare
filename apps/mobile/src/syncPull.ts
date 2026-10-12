@@ -71,12 +71,16 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     return true;
   }
 
-  const schedules = new Map<string, { hour: number; minute: number }>();
+  const schedules = new Map<string, { hour: number; minute: number; times: string[] }>();
   for (const schedule of schedulesResult.data ?? []) {
     if (schedules.has(schedule.medication_id)) continue;
     const firstTime = jsonArray(schedule.times_json)[0];
     const match = firstTime?.match(/^(\d{1,2}):(\d{2})$/);
-    if (match) schedules.set(schedule.medication_id, { hour: Number(match[1]), minute: Number(match[2]) });
+    if (match) {
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) schedules.set(schedule.medication_id, { hour, minute, times: jsonArray(schedule.times_json) });
+    }
   }
 
   let downloaded = 0;
@@ -91,11 +95,11 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     }
     for (const medication of medicationsResult.data ?? []) {
       if (await preserveLocalChange('medication', medication.id, medication as unknown as Record<string, unknown>)) continue;
-      const time = schedules.get(medication.id) ?? { hour: 8, minute: 0 };
-      await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, hour, minute, enabled, reminder_state, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
-        ON CONFLICT(id) DO UPDATE SET name = excluded.name, dose_text = excluded.dose_text, route = excluded.route, hour = excluded.hour, minute = excluded.minute, enabled = excluded.enabled`,
-        medication.id, medication.name, medication.dose_text, localRoute(medication.route), time.hour, time.minute, medication.enabled ? 1 : 0, medication.created_at);
+      const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'] };
+      await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, hour, minute, times_json, enabled, reminder_state, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
+        ON CONFLICT(id) DO UPDATE SET name = excluded.name, dose_text = excluded.dose_text, route = excluded.route, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, enabled = excluded.enabled`,
+        medication.id, medication.name, medication.dose_text, localRoute(medication.route), time.hour, time.minute, JSON.stringify(time.times), medication.enabled ? 1 : 0, medication.created_at);
       downloaded += 1;
     }
     const plan = planResult.data;

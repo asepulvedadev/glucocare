@@ -53,7 +53,9 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         route: stringValue(payload.route, 'other'), enabled: payload.enabled !== false, created_at: stringValue(payload.createdAt, new Date().toISOString()),
       });
       if (error) throw error;
-      const timesJson = [`${String(payload.hour ?? 0).padStart(2, '0')}:${String(payload.minute ?? 0).padStart(2, '0')}`];
+      const timesJson = Array.isArray(payload.times) && payload.times.length
+        ? payload.times.map(String)
+        : [`${String(payload.hour ?? 0).padStart(2, '0')}:${String(payload.minute ?? 0).padStart(2, '0')}`];
       const schedule = await supabase.from('medication_schedule_revisions').upsert({
         id: event.id, medication_id: event.entityId, patient_id: patientId, revision_number: 1, times_json: timesJson,
       }, { onConflict: 'medication_id,revision_number' });

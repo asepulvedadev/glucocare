@@ -29,20 +29,25 @@ function startOfLocalDay(now: Date) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-function occurrenceTimeForToday(medication: Medication, now: Date) {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), medication.hour, medication.minute);
+function occurrenceTimesForToday(medication: Medication, now: Date) {
+  const times = medication.times?.length ? medication.times : [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`];
+  return times.map((time) => {
+    const [hour, minute] = time.split(':').map(Number);
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute).toISOString();
+  });
 }
 
 export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medications: Medication[], now = new Date()) {
   const createdAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     for (const medication of medications.filter((item) => item.enabled)) {
-      const scheduledAt = occurrenceTimeForToday(medication, now).toISOString();
-      await db.runAsync(
-        `INSERT OR IGNORE INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at)
-         VALUES (?, ?, ?, 'due', ?)`,
-        newId(), medication.id, scheduledAt, createdAt,
-      );
+      for (const scheduledAt of occurrenceTimesForToday(medication, now)) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at)
+           VALUES (?, ?, ?, 'due', ?)`,
+          newId(), medication.id, scheduledAt, createdAt,
+        );
+      }
     }
   });
 }

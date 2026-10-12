@@ -25,18 +25,20 @@ export default function MedicationScreen() {
   const [name, setName] = useState('');
   const [doseText, setDoseText] = useState('');
   const [route, setRoute] = useState<MedicationRoute>('oral');
-  const [time, setTime] = useState('08:00');
+  const [times, setTimes] = useState(['08:00', '', '']);
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    const parsedTime = parseTime(time);
-    if (!name.trim() || !doseText.trim() || !parsedTime) {
-      Alert.alert('Completa los datos', 'Escribe el nombre, la dosis indicada por tu equipo y una hora válida en formato HH:MM.');
+    const parsedTimes = times.filter((value) => value.trim()).map(parseTime);
+    if (!name.trim() || !doseText.trim() || parsedTimes.some((value) => !value) || parsedTimes.length < 1) {
+      Alert.alert('Completa los datos', 'Escribe el nombre, la dosis indicada por tu equipo y al menos una hora válida en formato HH:MM.');
       return;
     }
+    const validTimes = parsedTimes.filter((value): value is { hour: number; minute: number } => Boolean(value));
+    const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
     setSaving(true);
     try {
-      const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), route, hour: parsedTime.hour, minute: parsedTime.minute, enabled: true });
+      const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled: true });
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas. Actívalas en la configuración del dispositivo para recibir recordatorios.');
       } else if (state === 'unavailable') {
@@ -65,9 +67,9 @@ export default function MedicationScreen() {
         <View style={styles.chips}>{routes.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: route === option }} onPress={() => setRoute(option)} style={[styles.chip, route === option && styles.chipSelected]}><Text style={[styles.chipText, route === option && styles.chipSelectedText]}>{medicationRouteLabel[option]}</Text></Pressable>)}</View>
       </Panel>
       <Panel>
-        <Caption>HORA DEL RECORDATORIO</Caption>
-        <TextInput accessibilityLabel="Hora del recordatorio" value={time} onChangeText={setTime} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />
-        <Body>Se repetirá todos los días a esta hora. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
+        <Caption>HORAS DEL RECORDATORIO</Caption>
+        {times.map((value, index) => <TextInput key={index} accessibilityLabel={`Hora del recordatorio ${index + 1}`} value={value} onChangeText={(next) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} keyboardType="numbers-and-punctuation" placeholder={index === 0 ? '08:00' : 'Opcional · HH:MM'} placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
+        <Body>Se repetirá cada día en las horas indicadas. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar medicamento'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Los recordatorios son una ayuda y no garantizan la entrega. Si pierdes una toma, sigue tu plan de atención.</Text>

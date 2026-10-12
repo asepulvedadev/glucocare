@@ -54,8 +54,8 @@ export function CareProvider({ children }: PropsWithChildren) {
     const updatedMedications = storedMedications.map((medication) => {
       const result = medicationResults.find((item) => item.medication.id === medication.id);
       if (!result) return medication;
-      const next = { ...medication, notificationId: result.scheduled.notificationId, reminderState: result.scheduled.state === 'granted' ? 'scheduled' as const : result.scheduled.state };
-      if (next.reminderState !== medication.reminderState || next.notificationId !== medication.notificationId) void updateMedicationReminder(db, medication.id, next.reminderState, next.notificationId);
+      const next = { ...medication, notificationId: result.scheduled.notificationId, notificationIds: result.scheduled.notificationIds ?? (result.scheduled.notificationId ? [result.scheduled.notificationId] : []), reminderState: result.scheduled.state === 'granted' ? 'scheduled' as const : result.scheduled.state };
+      if (next.reminderState !== medication.reminderState || next.notificationId !== medication.notificationId || JSON.stringify(next.notificationIds) !== JSON.stringify(medication.notificationIds)) void updateMedicationReminder(db, medication.id, next.reminderState, next.notificationId, next.notificationIds);
       return next;
     });
     const updatedAppointments = storedAppointments.map((appointment) => {
@@ -119,6 +119,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     const stored: Medication = {
       ...medication,
       notificationId: scheduled.notificationId,
+      notificationIds: scheduled.notificationIds,
       reminderState: scheduled.state === 'granted' ? 'scheduled' : scheduled.state,
     };
     await insertMedication(db, stored);

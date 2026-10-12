@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 14;
+const DATABASE_VERSION = 15;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -236,6 +236,17 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       await db.execAsync('ALTER TABLE emergency_card ADD COLUMN care_facility TEXT');
     }
     currentVersion = 14;
+  }
+
+  if (currentVersion < 15) {
+    const medicationColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(medications)');
+    if (!medicationColumns.some((column) => column.name === 'times_json')) {
+      await db.execAsync("ALTER TABLE medications ADD COLUMN times_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!medicationColumns.some((column) => column.name === 'notification_ids_json')) {
+      await db.execAsync("ALTER TABLE medications ADD COLUMN notification_ids_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    currentVersion = 15;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

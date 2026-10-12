@@ -31,23 +31,27 @@ export async function ensurePermission(): Promise<ReminderPermission> {
   return result.status === 'granted' ? 'granted' : 'permission_denied';
 }
 
-export async function scheduleMedicationReminder(medication: Medication): Promise<{ state: ReminderPermission; notificationId?: string }> {
+export async function scheduleMedicationReminder(medication: Medication): Promise<{ state: ReminderPermission; notificationId?: string; notificationIds?: string[] }> {
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission };
 
-  const trigger: Notifications.SchedulableNotificationTriggerInput = Platform.OS === 'android'
-    ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: medication.hour, minute: medication.minute, channelId: MEDICATION_CHANNEL }
-    : { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour: medication.hour, minute: medication.minute, repeats: true };
-
-  const notificationId = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: `Recordatorio: ${medication.name}`,
-      body: `Hora de tomar ${medication.doseText}. Sigue las instrucciones de tu equipo de salud.`,
-      data: { url: '/care', medicationId: medication.id },
-    },
-    trigger,
-  });
-  return { state: permission, notificationId };
+  const times = medication.times?.length ? medication.times : [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`];
+  const notificationIds: string[] = [];
+  for (const time of times) {
+    const [hour, minute] = time.split(':').map(Number);
+    const trigger: Notifications.SchedulableNotificationTriggerInput = Platform.OS === 'android'
+      ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: MEDICATION_CHANNEL }
+      : { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour, minute, repeats: true };
+    notificationIds.push(await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Recordatorio de rutina',
+        body: 'Tienes una tarea de salud programada. Abre GlucoCare para ver los detalles.',
+        data: { url: '/care', medicationId: medication.id, time },
+      },
+      trigger,
+    }));
+  }
+  return { state: permission, notificationId: notificationIds[0], notificationIds };
 }
 
 export async function scheduleMedicationSnooze(medication: Medication, minutes = 10): Promise<ReminderPermission> {
@@ -55,8 +59,8 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
   if (permission !== 'granted') return permission;
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: `Recordatorio pospuesto: ${medication.name}`,
-      body: `Revisa la indicación de ${medication.doseText} en ${minutes} minutos.`,
+      title: 'Recordatorio pospuesto',
+      body: 'Revisa tu tarea de salud en GlucoCare.',
       data: { url: '/care', medicationId: medication.id, snoozed: true },
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: MEDICATION_CHANNEL },
@@ -64,25 +68,28 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
   return permission;
 }
 
-export async function cancelReminder(notificationId?: string) {
-  if (notificationId && Platform.OS !== 'web') {
-    await Notifications.cancelScheduledNotificationAsync(notificationId);
-  }
+export async function cancelReminder(notificationId?: string | string[]) {
+  if (!notificationId || Platform.OS === 'web') return;
+  const ids = Array.isArray(notificationId) ? notificationId : [notificationId];
+  await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
 }
 
 export const cancelMedicationReminder = cancelReminder;
 
-async function hasScheduledNotification(notificationId?: string) {
-  if (!notificationId || Platform.OS === 'web') return false;
+async function hasScheduledNotifications(notificationIds: string[]) {
+  if (!notificationIds.length || Platform.OS === 'web') return false;
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  return scheduled.some((request) => request.identifier === notificationId);
+  const scheduledIds = new Set(scheduled.map((request) => request.identifier));
+  return notificationIds.every((id) => scheduledIds.has(id));
 }
 
 export async function reconcileMedicationReminder(medication: Medication) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const };
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission as ReminderPermission };
-  if (await hasScheduledNotification(medication.notificationId)) return { state: 'granted' as const, notificationId: medication.notificationId };
+  const notificationIds = medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []);
+  if (await hasScheduledNotifications(notificationIds)) return { state: 'granted' as const, notificationId: notificationIds[0], notificationIds };
+  await cancelReminder(notificationIds);
   return scheduleMedicationReminder(medication);
 }
 
@@ -96,8 +103,8 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
   if (permission !== 'granted') return { state: permission };
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: `Cita mañana: ${appointment.title}`,
-      body: `${appointment.provider} · Revisa los detalles de tu cita.`,
+      title: 'Recordatorio de cita',
+      body: 'Tienes una cita próxima. Abre GlucoCare para ver los detalles.',
       data: { url: '/care', appointmentId: appointment.id },
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: reminderAt, channelId: MEDICATION_CHANNEL },
@@ -113,6 +120,6 @@ export async function reconcileAppointmentReminder(appointment: Appointment) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const };
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission as ReminderPermission };
-  if (await hasScheduledNotification(appointment.notificationId)) return { state: 'granted' as const, notificationId: appointment.notificationId };
+  if (await hasScheduledNotifications(appointment.notificationId ? [appointment.notificationId] : [])) return { state: 'granted' as const, notificationId: appointment.notificationId };
   return scheduleAppointmentReminder(appointment);
 }

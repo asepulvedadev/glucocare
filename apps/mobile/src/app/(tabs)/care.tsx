@@ -97,7 +97,7 @@ export default function CareScreen() {
           </>
         ) : medications.map((medication) => (
           <View key={medication.id} style={styles.medicationRow}>
-            <View style={styles.timeBox}><Text style={styles.time}>{formatTime(medication.hour, medication.minute)}</Text><Caption>diario</Caption></View>
+            <View style={styles.timeBox}><Text style={styles.time}>{(medication.times?.length ? medication.times : [formatTime(medication.hour, medication.minute)]).join(' · ')}</Text><Caption>diario</Caption></View>
             <View style={styles.medicationCopy}>
               <Text style={styles.medicationName}>{medication.name}</Text>
               <Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>

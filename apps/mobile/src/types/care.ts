@@ -8,8 +8,10 @@ export type Medication = {
   route: MedicationRoute;
   hour: number;
   minute: number;
+  times?: string[];
   enabled: boolean;
   notificationId?: string;
+  notificationIds?: string[];
   reminderState: ReminderState;
   createdAt: string;
 };
