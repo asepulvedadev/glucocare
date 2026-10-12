@@ -104,6 +104,10 @@ export async function deleteAccount(userId: string, token: string | undefined) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO account_deletion_events (id, user_id_hash) VALUES ($1, $2)`,
+      [randomUUID(), tokenHash(userId)],
+    );
     await client.query('DELETE FROM app_users WHERE id = $1', [userId]);
     if (token) await client.query('DELETE FROM app_sessions WHERE token_hash = $1', [tokenHash(token)]);
     await client.query('COMMIT');

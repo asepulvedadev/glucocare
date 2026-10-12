@@ -91,6 +91,12 @@ Before beta, approve a retention schedule for clinical records, delivery logs, a
 - What is deleted immediately.
 - What remains in backups and for how long.
 - What must be retained by law, if applicable.
+
+The VPS deletion transaction removes the account, sessions, health records,
+invitation and delivery data through PostgreSQL cascades. It retains only a
+pseudonymous user-id hash and completion timestamp in `account_deletion_events`
+so the operator can prove the request was processed without retaining the
+patient's email or clinical payload.
 - Effects on trusted contacts and synced devices.
 
 ## Incident response

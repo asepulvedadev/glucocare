@@ -16,6 +16,7 @@ done
 test -f "$root/server/Dockerfile"
 test -f "$root/server/migrations/001_initial.sql"
 test -f "$root/server/migrations/002_alert_delivery_worker.sql"
+test -f "$root/server/migrations/003_account_deletion_audit.sql"
 test -f "$root/deploy/vps/glucocare-db-backup.service"
 test -f "$root/deploy/vps/glucocare-db-backup.timer"
 

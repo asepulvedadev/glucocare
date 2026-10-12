@@ -44,4 +44,8 @@ const alert = await call('/v1/emergency-alerts', { method: 'POST', headers: { au
 if (alert.status !== 'queued' || alert.deliveries[0]?.status !== 'queued') throw new Error('alert was not queued honestly');
 const deliveries = await call(`/v1/emergency-alerts/${incidentId}/deliveries`, { headers: { authorization: `Bearer ${first.session.accessToken}` } });
 if (deliveries.deliveries.length !== 1) throw new Error('expected one alert delivery');
+const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
+if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
+const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });
+if (deletedSession.status !== 401) throw new Error('deleted account session remained usable');
 console.log('api-smoke=passed');
