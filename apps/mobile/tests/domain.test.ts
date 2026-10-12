@@ -5,6 +5,7 @@ import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 import { classifyGlucose, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
+import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -73,5 +74,26 @@ describe('clinician-provided glucose risk plan', () => {
 
   it('converts mmol/L using an explicit fixed conversion for comparison', () => {
     expect(classifyGlucose(10.5, 'mmol/L', { id: 'default', ...plan, clinicianVerified: true, updatedAt: new Date().toISOString() })).toBe('high');
+  });
+});
+
+describe('glucose history summary', () => {
+  const now = new Date('2026-10-12T12:00:00.000Z');
+
+  it('normalizes mmol/L and summarizes only the selected window', () => {
+    expect(toMgDl(10, 'mmol/L')).toBeCloseTo(180.182);
+    const summary = summarizeGlucose([
+      { id: 'old', value: 100, unit: 'mg/dL', context: 'fasting', recordedAt: '2026-10-01T12:00:00.000Z', syncState: 'synced' },
+      { id: 'one', value: 5, unit: 'mmol/L', context: 'fasting', recordedAt: '2026-10-09T12:00:00.000Z', syncState: 'local' },
+      { id: 'two', value: 7, unit: 'mmol/L', context: 'after_meal', recordedAt: '2026-10-12T10:00:00.000Z', syncState: 'pending' },
+    ], now);
+    expect(summary.count).toBe(2);
+    expect(summary.minimumMgDl).toBeCloseTo(90.091);
+    expect(summary.maximumMgDl).toBeCloseTo(126.1274);
+    expect(summary.trend).toBe('higher');
+  });
+
+  it('returns an explicit empty state instead of inventing an average', () => {
+    expect(summarizeGlucose([], now)).toEqual({ count: 0, trend: 'none', points: [] });
   });
 });
