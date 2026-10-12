@@ -26,6 +26,9 @@ jobs:
       - name: Scan tracked files for high-confidence secrets
         run: python3 scripts/scan-secrets.py
 
+      - name: Validate deployment scripts and Compose configuration
+        run: bash scripts/validate-deployment.sh
+
       - name: Build deployment image
         run: docker build --pull --tag glucocare-docs:test .
 
