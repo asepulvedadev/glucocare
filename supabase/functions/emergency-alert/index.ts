@@ -56,9 +56,12 @@ Deno.serve(async (request) => {
   if (body.occurredAt && !isIsoDate(body.occurredAt)) return response({ error: { code: "INVALID_OCCURRED_AT", message: "The event time is invalid." } }, 400);
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: existingIncident, error: existingIncidentError } = await admin.from("emergency_incidents").select("id").eq("id", body.incidentId).eq("patient_id", userId).maybeSingle();
-  if (existingIncidentError) return response({ error: { code: "INCIDENT_LOOKUP_FAILED", message: "The incident could not be checked." } }, 500);
-  if (!existingIncident) {
+  // The mobile sync may upload the local incident before this function runs.
+  // Treat it as a replay only when this alert already created a delivery row;
+  // checking emergency_incidents alone would bypass the rate limit.
+  const { count: existingDeliveryCount, error: existingDeliveryError } = await admin.from("alert_deliveries").select("id", { count: "exact", head: true }).eq("incident_id", body.incidentId).eq("patient_id", userId);
+  if (existingDeliveryError) return response({ error: { code: "DELIVERY_LOOKUP_FAILED", message: "The alert could not be checked." } }, 500);
+  if ((existingDeliveryCount ?? 0) === 0) {
     const configuredLimit = Number(Deno.env.get("EMERGENCY_ALERT_MAX_PER_WINDOW") ?? DEFAULT_RATE_LIMIT);
     const maxAlerts = Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : DEFAULT_RATE_LIMIT;
     const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
