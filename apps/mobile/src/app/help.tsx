@@ -8,7 +8,7 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { colors } from '../theme/tokens';
 import { useSafety } from '../safetyContext';
-import { listHelpEvents, recordHelpEvent, type HelpEvent } from '../db/helpRepository';
+import { listHelpEvents, recordHelpEvent, updateHelpEventState, type HelpEvent } from '../db/helpRepository';
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
 import { queueEmergencyAlert } from '../alerts';
@@ -51,13 +51,22 @@ export default function HelpScreen() {
         }
       }
       if (!primaryContact?.phone) {
+        await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'queued_local');
+        setHelpEvents(await listHelpEvents(db));
         Alert.alert('Alerta registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
         return;
       }
       const url = `tel:${primaryContact.phone}`;
       const supported = await Linking.canOpenURL(url);
-      if (supported) await Linking.openURL(url);
-      else Alert.alert('Alerta registrada', 'Guardamos el evento, pero no pudimos abrir el marcador.');
+      if (supported) {
+        await updateHelpEventState(db, incidentId, 'call_opened');
+        setHelpEvents(await listHelpEvents(db));
+        await Linking.openURL(url);
+      } else {
+        await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'call_unavailable');
+        setHelpEvents(await listHelpEvents(db));
+        Alert.alert('Alerta registrada', 'Guardamos el evento, pero no pudimos abrir el marcador.');
+      }
     } finally {
       setProcessing(false);
     }
@@ -104,7 +113,7 @@ export default function HelpScreen() {
       <Panel>
         <Caption>HISTORIAL DE AYUDA</Caption>
         {helpEvents.length === 0 ? <Body>Aún no hay eventos registrados.</Body> : helpEvents.slice(0, 5).map((event) => (
-          <Text key={event.id} style={styles.event}>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })} · {event.contactState === 'queued_local' ? 'Guardado en este dispositivo' : event.contactState}</Text>
+          <Text key={event.id} style={styles.event}>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })} · {event.contactState === 'queued_local' ? 'Guardado en este dispositivo' : event.contactState === 'remote_queued' ? 'Aviso remoto encolado' : event.contactState === 'call_opened' ? 'Marcador abierto' : event.contactState === 'call_unavailable' ? 'Marcador no disponible' : event.contactState}</Text>
         ))}
         <Body>Este historial solo indica que se registró una solicitud; no confirma que alguien haya respondido.</Body>
       </Panel>
