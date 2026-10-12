@@ -8,7 +8,7 @@ import { pullCloudData } from './syncPull';
 import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
 import { getPrivacyConsent } from './db/privacyRepository';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from './syncConsent';
-import { conversionVersionForUnit, toMgDl } from './domain/glucoseSummary';
+import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 
 type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'consent_required' | 'failed';
@@ -47,7 +47,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const glucoseValue = Number(glucosePayload.value);
       const glucoseUnit = glucosePayload.unit === 'mmol/L' ? 'mmol/L' : 'mg/dL';
       const { error } = await supabase.from('glucose_readings').upsert({
-        id: event.entityId, patient_id: patientId, value_original: glucoseValue, unit_original: toUnit(glucoseUnit), value_mg_dl: toMgDl(glucoseValue, glucoseUnit), conversion_version: conversionVersionForUnit(glucoseUnit),
+        id: event.entityId, patient_id: patientId, value_original: glucoseValue, unit_original: toUnit(glucoseUnit), value_mg_dl: toCanonicalMgDl(glucoseValue, glucoseUnit), conversion_version: conversionVersionForUnit(glucoseUnit),
         measured_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()), recorded_at: stringValue(glucosePayload.recordedAt, new Date().toISOString()),
         timezone: stringValue(glucosePayload.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), utc_offset_minutes: typeof glucosePayload.utcOffsetMinutes === 'number' ? glucosePayload.utcOffsetMinutes : null, time_edited: glucosePayload.timeEdited === true, context: toContext(glucosePayload.context), source: toSource(glucosePayload.source), meal_offset_minutes: typeof glucosePayload.mealOffsetMinutes === 'number' ? glucosePayload.mealOffsetMinutes : null,
         symptoms: glucosePayload.symptoms ? [String(glucosePayload.symptoms)] : [], note: glucosePayload.note ? String(glucosePayload.note) : null,

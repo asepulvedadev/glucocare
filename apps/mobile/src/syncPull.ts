@@ -8,7 +8,7 @@ import type { MealType } from './types/meals';
 import { setLastPulledAt } from './db/syncMetadataRepository';
 import { listPendingSyncEntities } from './db/outboxRepository';
 import { recordSyncConflict } from './db/syncConflictRepository';
-import { conversionVersionForUnit, toMgDl } from './domain/glucoseSummary';
+import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 
 function localUnit(unit: string): GlucoseUnit {
   return unit === 'mmol_l' ? 'mmol/L' : 'mg/dL';
@@ -111,7 +111,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       await db.runAsync(`INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)
         ON CONFLICT(id) DO UPDATE SET value = excluded.value, unit = excluded.unit, value_mg_dl = excluded.value_mg_dl, conversion_version = excluded.conversion_version, context = excluded.context, source = excluded.source, meal_offset_minutes = excluded.meal_offset_minutes, recorded_at = excluded.recorded_at, timezone = excluded.timezone, utc_offset_minutes = excluded.utc_offset_minutes, time_edited = excluded.time_edited, symptoms = excluded.symptoms, note = excluded.note, sync_state = 'synced', risk_classification = excluded.risk_classification`,
-        reading.id, value, unit, typeof reading.value_mg_dl === 'number' ? reading.value_mg_dl : toMgDl(value, unit), reading.conversion_version ?? conversionVersionForUnit(unit), localContext(reading.context), localSource(reading.source), reading.meal_offset_minutes, reading.measured_at, reading.timezone, reading.utc_offset_minutes, reading.time_edited ? 1 : 0, reading.symptoms?.join(', ') ?? null, reading.note ?? null, localRisk(reading.classification) ?? null);
+        reading.id, value, unit, typeof reading.value_mg_dl === 'number' ? reading.value_mg_dl : toCanonicalMgDl(value, unit), reading.conversion_version ?? conversionVersionForUnit(unit), localContext(reading.context), localSource(reading.source), reading.meal_offset_minutes, reading.measured_at, reading.timezone, reading.utc_offset_minutes, reading.time_edited ? 1 : 0, reading.symptoms?.join(', ') ?? null, reading.note ?? null, localRisk(reading.classification) ?? null);
       downloaded += 1;
     }
     for (const medication of medicationsResult.data ?? []) {

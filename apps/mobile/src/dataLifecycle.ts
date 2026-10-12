@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { cancelMeasurementPlanReminders, cancelMedicationReminder } from './notifications';
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
-import { conversionVersionForUnit, toMgDl } from './domain/glucoseSummary';
+import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -265,7 +265,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       await db.runAsync(
         `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
-        requiredString(row, 'id'), value, unit, toMgDl(value, unit), conversionVersionForUnit(unit), context, source, mealOffsetMinutes,
+        requiredString(row, 'id'), value, unit, toCanonicalMgDl(value, unit), conversionVersionForUnit(unit), context, source, mealOffsetMinutes,
         requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
       );
     }

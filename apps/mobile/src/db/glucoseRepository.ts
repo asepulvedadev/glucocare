@@ -5,7 +5,7 @@ import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
 import { completeNearestMeasurementOccurrence } from './measurementOccurrenceRepository';
 import { insertGlucoseAuditEvent } from './glucoseAuditRepository';
-import { conversionVersionForUnit, toMgDl } from '../domain/glucoseSummary';
+import { conversionVersionForUnit, toCanonicalMgDl } from '../domain/glucoseSummary';
 
 export type NewGlucoseReading = Omit<GlucoseReading, 'id' | 'syncState'>;
 
@@ -33,7 +33,7 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     id: row.id,
     value: row.value,
     unit: row.unit,
-    valueMgDl: row.value_mg_dl ?? toMgDl(row.value, row.unit),
+    valueMgDl: row.value_mg_dl ?? toCanonicalMgDl(row.value, row.unit),
     conversionVersion: row.conversion_version ?? conversionVersionForUnit(row.unit),
     context: row.context,
     source: row.source ?? 'manual',
@@ -63,11 +63,11 @@ export async function insertGlucoseReading(
   const stored: GlucoseReading = {
     ...reading,
     id: newId(),
-    valueMgDl: toMgDl(reading.value, reading.unit),
+    valueMgDl: toCanonicalMgDl(reading.value, reading.unit),
     conversionVersion: conversionVersionForUnit(reading.unit),
     syncState: 'pending',
   };
-  const canonicalValueMgDl = toMgDl(reading.value, reading.unit);
+  const canonicalValueMgDl = toCanonicalMgDl(reading.value, reading.unit);
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
@@ -86,7 +86,7 @@ export async function insertGlucoseReading(
 
 export async function updateGlucoseReading(db: SQLiteDatabase, before: GlucoseReading, next: GlucoseReading, reason = 'user_corrected') {
   const occurredAt = new Date().toISOString();
-  const canonicalValueMgDl = toMgDl(next.value, next.unit);
+  const canonicalValueMgDl = toCanonicalMgDl(next.value, next.unit);
   const conversionVersion = conversionVersionForUnit(next.unit);
   const normalizedNext: GlucoseReading = { ...next, valueMgDl: canonicalValueMgDl, conversionVersion };
   const audit = {

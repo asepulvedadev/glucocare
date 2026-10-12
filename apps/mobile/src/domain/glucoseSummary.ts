@@ -23,6 +23,11 @@ export function toMgDl(value: number, unit: GlucoseUnit) {
   return unit === 'mmol/L' ? value * MG_DL_PER_MMOL_L : value;
 }
 
+/** Canonical storage precision matches Supabase numeric(8,2). */
+export function toCanonicalMgDl(value: number, unit: GlucoseUnit) {
+  return Math.round(toMgDl(value, unit) * 100) / 100;
+}
+
 function average(values: number[]) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }

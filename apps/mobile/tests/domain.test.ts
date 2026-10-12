@@ -6,7 +6,7 @@ import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
-import { conversionVersionForUnit, summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
+import { conversionVersionForUnit, summarizeGlucose, toCanonicalMgDl, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
@@ -224,6 +224,7 @@ describe('glucose history summary', () => {
 
   it('normalizes mmol/L and summarizes only the selected window', () => {
     expect(toMgDl(10, 'mmol/L')).toBeCloseTo(180.182);
+    expect(toCanonicalMgDl(10, 'mmol/L')).toBe(180.18);
     expect(conversionVersionForUnit('mmol/L')).toBe('fixed-18.0182-v1');
     expect(conversionVersionForUnit('mg/dL')).toBe('identity-mgdl-v1');
     const summary = summarizeGlucose([
