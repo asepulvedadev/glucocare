@@ -16,7 +16,7 @@ import { emergencyConfig } from '../config';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
-  const { trustedContacts } = useSafety();
+  const { trustedContacts, emergencyCard } = useSafety();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   const [processing, setProcessing] = useState(false);
@@ -76,6 +76,11 @@ export default function HelpScreen() {
         <Text style={styles.title}>Llama al número local de emergencias</Text>
         <Body>En {emergencyConfig.region}, el número configurado es {emergencyConfig.number}. Si estás en otro lugar, usa el número local de emergencias.</Body>
         <PrimaryButton label="Llamar a emergencias" tone="urgent" onPress={() => void callEmergency()} />
+      </Panel>
+      <Panel>
+        <Caption>TARJETA OFFLINE</Caption>
+        {emergencyCard ? <><Text style={styles.title}>{emergencyCard.fullName}</Text>{emergencyCard.diabetesType ? <Body>Tipo: {emergencyCard.diabetesType}</Body> : null}{emergencyCard.allergies ? <Body>Alergias: {emergencyCard.allergies}</Body> : null}{emergencyCard.careFacility ? <Body>Lugar habitual: {emergencyCard.careFacility}</Body> : null}{emergencyCard.careProvider ? <Body>Contacto de atención: {emergencyCard.careProvider}</Body> : null}</> : <Body>Configura una tarjeta para que esta información esté disponible sin cuenta ni conexión.</Body>}
+        <PrimaryButton label={emergencyCard ? 'Editar tarjeta' : 'Configurar tarjeta'} tone="quiet" onPress={() => router.push('/emergency-card')} />
       </Panel>
       <Panel>
         <Caption>CONTACTO DE APOYO</Caption>

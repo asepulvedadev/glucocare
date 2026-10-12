@@ -15,6 +15,7 @@ export default function EmergencyCardScreen() {
   const [diabetesType, setDiabetesType] = useState(emergencyCard?.diabetesType ?? '');
   const [allergies, setAllergies] = useState(emergencyCard?.allergies ?? '');
   const [careProvider, setCareProvider] = useState(emergencyCard?.careProvider ?? '');
+  const [careFacility, setCareFacility] = useState(emergencyCard?.careFacility ?? '');
   const [emergencyNotes, setEmergencyNotes] = useState(emergencyCard?.emergencyNotes ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -31,6 +32,7 @@ export default function EmergencyCardScreen() {
         diabetesType: diabetesType.trim() || undefined,
         allergies: allergies.trim() || undefined,
         careProvider: careProvider.trim() || undefined,
+        careFacility: careFacility.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
       });
       router.back();
@@ -59,6 +61,7 @@ export default function EmergencyCardScreen() {
         <Caption>DATOS IMPORTANTES</Caption>
         <TextInput accessibilityLabel="Alergias" value={allergies} onChangeText={setAllergies} placeholder="Alergias conocidas" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Profesional o centro de atención" value={careProvider} onChangeText={setCareProvider} placeholder="Profesional o centro de atención" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Lugar habitual de atención" value={careFacility} onChangeText={setCareFacility} placeholder="Hospital, clínica o dirección" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Notas de emergencia" value={emergencyNotes} onChangeText={setEmergencyNotes} placeholder="Indicaciones para quien te ayude" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar tarjeta'} onPress={() => void save()} disabled={saving} />

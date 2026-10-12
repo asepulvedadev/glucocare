@@ -327,6 +327,7 @@ export type Database = {
         Row: {
           allergies: string | null
           birth_date: string | null
+          care_facility: string | null
           care_provider: string | null
           deleted_at: string | null
           diabetes_type: string | null
@@ -338,6 +339,7 @@ export type Database = {
         Insert: {
           allergies?: string | null
           birth_date?: string | null
+          care_facility?: string | null
           care_provider?: string | null
           deleted_at?: string | null
           diabetes_type?: string | null
@@ -349,6 +351,7 @@ export type Database = {
         Update: {
           allergies?: string | null
           birth_date?: string | null
+          care_facility?: string | null
           care_provider?: string | null
           deleted_at?: string | null
           diabetes_type?: string | null

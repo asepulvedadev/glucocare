@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 13;
+const DATABASE_VERSION = 14;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -228,6 +228,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_sync_conflicts_open ON sync_conflicts(status, detected_at DESC);
     `);
     currentVersion = 13;
+  }
+
+  if (currentVersion < 14) {
+    const emergencyColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(emergency_card)');
+    if (!emergencyColumns.some((column) => column.name === 'care_facility')) {
+      await db.execAsync('ALTER TABLE emergency_card ADD COLUMN care_facility TEXT');
+    }
+    currentVersion = 14;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
