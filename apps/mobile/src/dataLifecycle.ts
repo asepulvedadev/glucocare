@@ -4,7 +4,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { cancelMedicationReminder } from './notifications';
-import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportMedication, type ClinicianReportReading } from './report';
+import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -15,13 +15,31 @@ const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS_PER_TABLE = 25_000;
 
 export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared: boolean }> {
-  const [card, readings, medications, appointments] = await Promise.all([
+  const [card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, auditEvents] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
+    db.getAllAsync<ClinicianReportMeal>('SELECT meal_type, occurred_at, note FROM meal_events ORDER BY occurred_at DESC LIMIT 200'),
+    db.getAllAsync<ClinicianReportMedicationOccurrence>('SELECT medications.name AS medication_name, medications.dose_text, medication_occurrences.scheduled_at, medication_occurrences.status, medication_occurrences.acted_at FROM medication_occurrences INNER JOIN medications ON medications.id = medication_occurrences.medication_id ORDER BY medication_occurrences.scheduled_at DESC LIMIT 300'),
+    db.getAllAsync<ClinicianReportHelpEvent>('SELECT created_at, reason, contact_state FROM help_events ORDER BY created_at DESC LIMIT 100'),
+    db.getAllAsync<{ occurred_at: string; reason: string | null; before_json: string; after_json: string }>('SELECT occurred_at, reason, before_json, after_json FROM glucose_audit_events ORDER BY occurred_at DESC LIMIT 200'),
   ]);
-  const html = buildClinicianReportHtml({ card, readings, medications, appointments });
+  const corrections: ClinicianReportCorrection[] = auditEvents.map((event) => {
+    let before: Record<string, unknown> = {};
+    let after: Record<string, unknown> = {};
+    try { before = JSON.parse(event.before_json) as Record<string, unknown>; } catch { /* Keep malformed legacy rows readable. */ }
+    try { after = JSON.parse(event.after_json) as Record<string, unknown>; } catch { /* Keep malformed legacy rows readable. */ }
+    return {
+      occurred_at: event.occurred_at,
+      reason: event.reason,
+      before_value: typeof before.value === 'number' ? before.value : null,
+      before_unit: typeof before.unit === 'string' ? before.unit : null,
+      after_value: typeof after.value === 'number' ? after.value : null,
+      after_unit: typeof after.unit === 'string' ? after.unit : null,
+    };
+  });
+  const html = buildClinicianReportHtml({ card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, corrections });
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });
     return { shared: true };
