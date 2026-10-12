@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import { AppState } from 'react-native';
 import { useCallback, useEffect, useRef } from 'react';
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
@@ -7,7 +7,7 @@ import { GlucoseProvider } from '../context';
 import { CareProvider } from '../careContext';
 import { SafetyProvider } from '../safetyContext';
 import { AuthProvider, useAuth } from '../authContext';
-import { AccessibilityProvider } from '../accessibilityContext';
+import { AccessibilityProvider, useAccessibility } from '../accessibilityContext';
 import { migrateDbIfNeeded } from '../db/migrations';
 import { colors } from '../theme/tokens';
 import { PrivacyProvider } from '../privacyContext';
@@ -33,6 +33,30 @@ function SyncBridge() {
   return null;
 }
 
+function AppNavigator() {
+  const { preferences, isLoading } = useAccessibility();
+  const pathname = usePathname();
+  const router = useRouter();
+  useEffect(() => {
+    if (!isLoading && !preferences.onboardingCompleted && pathname !== '/onboarding' && pathname !== '/help') router.replace('/onboarding');
+  }, [isLoading, pathname, preferences.onboardingCompleted, router]);
+
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
+    <Stack.Screen name="onboarding" options={{ presentation: 'card' }} />
+    <Stack.Screen name="(tabs)" />
+    <Stack.Screen name="log" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="help" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="medication" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="appointment" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="measurement-plan" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="care-plan" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="emergency-card" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="trusted-contact" options={{ presentation: 'modal' }} />
+    <Stack.Screen name="privacy-consent" options={{ presentation: 'modal' }} />
+  </Stack>;
+}
+
 export default function RootLayout() {
   return (
     <SQLiteProvider databaseName="glucocare.db" onInit={migrateDbIfNeeded}>
@@ -44,19 +68,7 @@ export default function RootLayout() {
               <CareProvider>
                 <SafetyProvider>
                 <StatusBar style="light" />
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="log" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="help" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="medication" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="appointment" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="measurement-plan" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="care-plan" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="emergency-card" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="trusted-contact" options={{ presentation: 'modal' }} />
-                  <Stack.Screen name="privacy-consent" options={{ presentation: 'modal' }} />
-                </Stack>
+                <AppNavigator />
                 </SafetyProvider>
               </CareProvider>
             </AuthProvider>

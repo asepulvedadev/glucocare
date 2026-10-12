@@ -15,7 +15,7 @@ const AccessibilityContext = createContext<AccessibilityContextValue | null>(nul
 
 export function AccessibilityProvider({ children }: PropsWithChildren) {
   const db = useSQLiteContext();
-  const [preferences, setPreferences] = useState<AccessibilityPreferences>({ id: 'default', simpleMode: false, largeText: false, highContrast: false, reduceMotion: false, updatedAt: new Date().toISOString() });
+  const [preferences, setPreferences] = useState<AccessibilityPreferences>({ id: 'default', simpleMode: false, largeText: false, highContrast: false, reduceMotion: false, onboardingCompleted: false, updatedAt: new Date().toISOString() });
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {

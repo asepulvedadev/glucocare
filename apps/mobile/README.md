@@ -5,6 +5,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 ## Implemented vertical slice
 
 - Expo Router navigation: Today, History, Care, Profile, Help.
+- Guided first-run onboarding for accessibility preferences, local-data consent, and optional emergency-card setup.
 - Atmos-inspired dark amber visual tokens.
 - Accessible 44 pt touch targets, labels, semantic status colors, and large readable values.
 - Offline glucose entry backed by SQLite, automatic timestamp, unit, context, symptoms, and notes.

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 18;
+const DATABASE_VERSION = 19;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -277,6 +277,13 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!emergencyColumns.some((column) => column.name === 'emergency_number')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN emergency_number TEXT');
     if (!emergencyColumns.some((column) => column.name === 'emergency_region')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN emergency_region TEXT');
     currentVersion = 18;
+  }
+
+  if (currentVersion < 19) {
+    const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
+    if (!preferenceColumns.some((column) => column.name === 'onboarding_completed')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0');
+    await db.runAsync(`UPDATE accessibility_preferences SET onboarding_completed = 1 WHERE onboarding_completed = 0 AND EXISTS (SELECT 1 FROM privacy_consents WHERE privacy_consents.id = 'default' AND privacy_consents.local_data_consent = 1)`);
+    currentVersion = 19;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
