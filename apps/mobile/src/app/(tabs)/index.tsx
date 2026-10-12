@@ -10,11 +10,13 @@ import { glucoseContextLabel } from '../../types/domain';
 import { colors, radii, spacing } from '../../theme/tokens';
 import { useAccessibility } from '../../accessibilityContext';
 import { glucoseRiskLabel } from '../../types/carePlan';
+import { usePrivacy } from '../../privacyContext';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
   const { measurementPlan, medications, appointments } = useCare();
   const { preferences } = useAccessibility();
+  const { consent } = usePrivacy();
   const latest = readings[0];
   const latestTime = latest ? new Date(latest.recordedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
 
@@ -29,6 +31,12 @@ export default function TodayScreen() {
           <Text style={styles.helpText}>Necesito ayuda</Text>
         </Pressable>
       </View>
+      {!consent?.localDataConsent ? <Panel tone="urgent">
+        <Caption>PRIVACIDAD</Caption>
+        <Text style={styles.cardTitle}>Configura tu consentimiento</Text>
+        <Body>Antes de guardar registros, revisa cómo se almacenan y comparten tus datos.</Body>
+        <PrimaryButton label="Revisar preferencias" tone="quiet" onPress={() => router.push('/privacy-consent')} />
+      </Panel> : null}
       <Panel tone="teal">
         <Caption>PRÓXIMA ACCIÓN</Caption>
         <Text style={styles.cardTitle}>Registrar cómo estás</Text>
