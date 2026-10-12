@@ -29,12 +29,14 @@ command is the local operator script:
 
 The script always performs this order and aborts on the first failure:
 
-1. require a clean `main` branch whose `HEAD` exactly matches `origin/main`;
-2. validate Markdown, secrets, deployment scripts, and Compose configuration;
-3. install dependencies and run mobile typecheck, lint, and tests;
-4. export the Expo web bundle;
-5. stream the release to `glucocare-deploy` on `2.24.115.58`;
-6. run the VPS health check and verify both staging containers and endpoints.
+**Preflight:** require a clean `main` branch whose `HEAD` exactly matches
+`origin/main` and verify the local VPS password file.
+
+1. validate Markdown, secrets, deployment scripts, and Compose configuration;
+2. install dependencies and run mobile typecheck, lint, and tests;
+3. export the Expo web bundle;
+4. stream the release to `glucocare-deploy` on `2.24.115.58`;
+5. run the VPS health check and verify both staging containers and endpoints.
 
 It reads the root SSH password only from `~/.autoking-vps-password` (or the
 path in `AUTOKING_VPS_PASSWORD_FILE`). It never stores that password in the
