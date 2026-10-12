@@ -31,6 +31,10 @@ require_https_origin GLUCOCARE_CORS_ORIGIN
 postgres_password=${POSTGRES_PASSWORD:-}
 [[ ${#postgres_password} -ge 32 ]] || die 'POSTGRES_PASSWORD must contain at least 32 characters'
 
+backup_recipient=${GLUCOCARE_BACKUP_GPG_RECIPIENT:-}
+[[ -n "$backup_recipient" ]] || die 'GLUCOCARE_BACKUP_GPG_RECIPIENT must identify an off-host GPG public key'
+[[ ${#backup_recipient} -le 320 ]] || die 'GLUCOCARE_BACKUP_GPG_RECIPIENT is too long'
+
 callback_secret=${GLUCOCARE_PROVIDER_CALLBACK_SECRET:-}
 if [[ -n "$callback_secret" && ${#callback_secret} -lt 32 ]]; then
   die 'GLUCOCARE_PROVIDER_CALLBACK_SECRET must contain at least 32 characters when set'

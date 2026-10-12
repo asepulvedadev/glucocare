@@ -24,6 +24,7 @@ cat >"$valid_config" <<'EOF'
 POSTGRES_PASSWORD=synthetic-password-with-at-least-32-characters
 GLUCOCARE_PUBLIC_API_URL=https://api.synthetic.example
 GLUCOCARE_CORS_ORIGIN=https://app.synthetic.example
+GLUCOCARE_BACKUP_GPG_RECIPIENT=backup@example.invalid
 EOF
 cat >"$invalid_config" <<'EOF'
 POSTGRES_PASSWORD=short

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Create an encrypted-at-rest-ready PostgreSQL custom-format dump. Encryption
-# and off-host retention are intentionally delegated to the VPS backup system;
-# this script never prints credentials or application payloads.
+# Create a PostgreSQL custom-format dump. Production deployments must provide a
+# GPG recipient so the local artifact is encrypted before it can leave the VPS;
+# localhost staging may omit it while the operator is wiring the key. This
+# script never prints credentials or application payloads.
 base="${GLUCOCARE_BASE:-/srv/glucocare}"
 env_file="$base/.env"
 compose_file="$base/release/deploy/compose.yml"
@@ -20,23 +21,35 @@ set -a
 set +a
 : "${POSTGRES_DB:?POSTGRES_DB is required in $env_file}"
 : "${POSTGRES_USER:?POSTGRES_USER is required in $env_file}"
+backup_recipient="${GLUCOCARE_BACKUP_GPG_RECIPIENT:-}"
 
 install -d -o root -g root -m 0700 "$backup_dir"
 umask 077
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 temporary="$backup_dir/.glucocare-$stamp.dump.tmp"
+encrypted_temporary="$backup_dir/.glucocare-$stamp.dump.gpg.tmp"
 destination="$backup_dir/glucocare-$stamp.dump"
-trap 'rm -f "$temporary"' EXIT
+trap 'rm -f "$temporary" "$encrypted_temporary"' EXIT
 
 /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$compose_file" exec -T glucocare-db \
   pg_dump --format=custom --no-owner --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" > "$temporary"
 
 test -s "$temporary"
-mv "$temporary" "$destination"
+if [ -n "$backup_recipient" ]; then
+  command -v gpg >/dev/null 2>&1 || { printf 'glucocare-db-backup: gpg is required when GLUCOCARE_BACKUP_GPG_RECIPIENT is set\n' >&2; exit 1; }
+  destination="$backup_dir/glucocare-$stamp.dump.gpg"
+  gpg --batch --yes --no-tty --trust-model always --recipient "$backup_recipient" \
+    --output "$encrypted_temporary" --encrypt "$temporary"
+  test -s "$encrypted_temporary"
+  mv "$encrypted_temporary" "$destination"
+  rm -f "$temporary"
+else
+  mv "$temporary" "$destination"
+fi
 chmod 600 "$destination"
 
-# Keep 30 days locally. Off-host encrypted retention remains the operator's
+# Keep 30 days locally. Off-host retention remains the operator's
 # responsibility and should run after this timer.
-find "$backup_dir" -type f -name 'glucocare-*.dump' -mtime +30 -delete
+find "$backup_dir" -type f \( -name 'glucocare-*.dump' -o -name 'glucocare-*.dump.gpg' \) -mtime +30 -delete
 printf 'glucocare-db-backup: created %s\n' "$destination"

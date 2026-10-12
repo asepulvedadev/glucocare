@@ -15,7 +15,7 @@ test "$(stat -c '%a' "$env_file")" = 600
 test -f "$compose_file"
 
 if [ -z "$backup" ]; then
-  backup=$(find "$backup_dir" -maxdepth 1 -type f -name 'glucocare-*.dump' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
+  backup=$(find "$backup_dir" -maxdepth 1 -type f \( -name 'glucocare-*.dump' -o -name 'glucocare-*.dump.gpg' \) -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
 fi
 test -n "${backup:-}"
 case "$backup" in
@@ -33,12 +33,25 @@ set +a
 
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
 restore_db="${POSTGRES_DB}_restore_${stamp}"
+restore_input="$backup"
+decrypted_backup="$backup_dir/.restore-$stamp.dump.tmp"
 cleanup() {
   /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
     -f "$compose_file" exec -T glucocare-db \
     dropdb --if-exists --username="$POSTGRES_USER" "$restore_db" >/dev/null 2>&1 || true
+  rm -f "$decrypted_backup"
 }
 trap cleanup EXIT
+
+case "$backup" in
+  *.dump.gpg)
+    command -v gpg >/dev/null 2>&1 || { printf 'restore-check: gpg is required for encrypted backups\n' >&2; exit 1; }
+    umask 077
+    gpg --batch --no-tty --decrypt --output "$decrypted_backup" "$backup"
+    test -s "$decrypted_backup"
+    restore_input="$decrypted_backup"
+    ;;
+esac
 
 /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$compose_file" exec -T glucocare-db \
@@ -46,7 +59,7 @@ trap cleanup EXIT
 
 /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$compose_file" exec -T glucocare-db \
-  pg_restore --exit-on-error --no-owner --username="$POSTGRES_USER" --dbname="$restore_db" < "$backup"
+  pg_restore --exit-on-error --no-owner --username="$POSTGRES_USER" --dbname="$restore_db" < "$restore_input"
 
 /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
   -f "$compose_file" exec -T glucocare-db \

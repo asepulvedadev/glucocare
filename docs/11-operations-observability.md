@@ -121,14 +121,19 @@ marks expired pending contact invitations. This is housekeeping only: it never
 deletes health records or changes an accepted consent into a different state.
 
 The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
-PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd
-timer keeps 30 days locally; operations must also copy the dumps to encrypted
-off-host storage and exercise a restore before beta. The backup command never
-logs database credentials or clinical payloads.
+PostgreSQL custom-format dump under `/srv/glucocare/backups`. Production
+configuration requires `GLUCOCARE_BACKUP_GPG_RECIPIENT`, the fingerprint or
+email of an off-host GPG public key; the timer then stores an encrypted
+`.dump.gpg` artifact. Localhost staging may leave the value empty while the
+key-management handoff is prepared. Its daily systemd timer keeps 30 days
+locally; operations must still copy encrypted dumps to a separate off-host
+location and exercise a restore before beta. The backup command never logs
+database credentials or clinical payloads.
 
-`deploy/vps/glucocare-db-restore-check` exercises the newest dump in a
-disposable database, verifies the migration table, and drops the temporary
-database. The checked-in `glucocare-db-restore-check.timer` runs this drill on
+`deploy/vps/glucocare-db-restore-check` decrypts a `.dump.gpg` artifact when
+needed, exercises the newest dump in a disposable database, verifies the
+migration table, and drops the temporary database. The checked-in
+`glucocare-db-restore-check.timer` runs this drill on
 the first day of each month with a random delay; operators must still record a
 quarterly reviewed result and keep an off-host encrypted copy. It does not
 replace a reviewed disaster-recovery runbook.
