@@ -11,6 +11,11 @@ type SyncEvent = {
  * previous remote consent can still be withdrawn.
  */
 export function canUploadEventForConsent(event: SyncEvent, consent: PrivacyConsent) {
+  if (event.entityType === 'privacy_consent') {
+    // Withdrawal remains uploadable after cloud sync is disabled. A remote
+    // grant still requires the current local cloud-sync consent.
+    return event.payload.emergencySharingConsent !== true || consent.cloudSyncConsent;
+  }
   if (event.entityType !== 'trusted_contact' || consent.emergencySharingConsent) return true;
   return event.payload.revoked === true;
 }

@@ -54,6 +54,7 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 - PostgreSQL is private to the VPS Docker network; the API enforces deny-by-default patient scoping on every record query.
 - Client contains only publishable credentials. Secret/service-role keys stay server-side.
 - Privileged API routes validate the revocable session, patient relationship, schema, rate limits, consent, and idempotency.
+- Emergency-sharing consent is also projected to the VPS through an explicit, revocable `privacy.consent.updated.v1` event; invitation creation, alert queueing, and worker dispatch recheck that server-side authorization instead of trusting only the mobile UI.
 - PostgreSQL volume encryption, backup permissions, and restore controls are
   operated and verified on the AutoKing VPS; encrypted off-host copies remain a
   release requirement.

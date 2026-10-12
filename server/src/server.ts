@@ -13,7 +13,7 @@ const apiBaseUrl = (process.env.PUBLIC_API_URL ?? `http://127.0.0.1:${port}`).re
 const supportedEntityTypes = new Set([
   'glucose_reading', 'medication', 'medication_occurrence', 'appointment', 'measurement_plan',
   'measurement_occurrence', 'meal_event', 'care_plan', 'emergency_card', 'trusted_contact',
-  'emergency_incident',
+  'emergency_incident', 'privacy_consent',
 ]);
 
 type JsonObject = Record<string, unknown>;
@@ -165,7 +165,7 @@ function validateGlucosePayload(payload: JsonObject) {
 
 function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
   if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
-  if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card'))) return 'INVALID_ENTITY_ID';
+  if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card' || entityType === 'privacy_consent'))) return 'INVALID_ENTITY_ID';
   if (typeof payload.id === 'string' && payload.id !== entityId) return 'ENTITY_ID_MISMATCH';
   for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt']) {
     if (field in payload && (typeof payload[field] !== 'string' || Number.isNaN(Date.parse(String(payload[field]))))) return 'INVALID_EVENT_DATE';
@@ -191,6 +191,11 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
     }
   }
   if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
+  if (entityType === 'privacy_consent') {
+    if (entityId !== 'default') return 'INVALID_ENTITY_ID';
+    if (typeof payload.localDataConsent !== 'boolean' || typeof payload.cloudSyncConsent !== 'boolean' || typeof payload.emergencySharingConsent !== 'boolean') return 'INVALID_PRIVACY_CONSENT';
+    if (!isBoundedString(payload.policyVersion, 128)) return 'INVALID_PRIVACY_POLICY';
+  }
   return null;
 }
 
@@ -223,6 +228,12 @@ function hashJson(value: unknown) {
  */
 function contactConsentGranted(payload: JsonObject) {
   return payload.consentGranted === true || payload.consent_status === 'accepted';
+}
+
+function privacyConsentGranted(payload: JsonObject) {
+  return payload.localDataConsent === true
+    && payload.cloudSyncConsent === true
+    && payload.emergencySharingConsent === true;
 }
 
 function callbackSignature(rawBody: Buffer) {
@@ -347,6 +358,15 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
           [user.id, entityId],
         );
       }
+      if (entityType === 'privacy_consent' && !privacyConsentGranted(payload)) {
+        // A privacy withdrawal invalidates every accepted invitation. Re-
+        // enabling the purpose must require a fresh, explicit invitation.
+        await client.query(
+          `UPDATE contact_invitations SET status = 'revoked'
+           WHERE patient_id = $1 AND status IN ('pending', 'accepted')`,
+          [user.id],
+        );
+      }
       if (eventType.includes('corrected') || entityType === 'care_plan' || entityType === 'medication' || entityType === 'appointment' || entityType === 'emergency_card' || entityType === 'trusted_contact' || entityType === 'measurement_plan') {
         await client.query(
           `INSERT INTO audit_events (id, patient_id, action, entity_type, entity_id, occurred_at, before_data, after_data)
@@ -390,6 +410,13 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
     `SELECT payload FROM health_records WHERE patient_id = $1 AND entity_type = 'trusted_contact' AND entity_id = $2`, [user.id, contactId],
   );
   if (!contact.rows[0]) { fail(response, 404, 'CONTACT_NOT_FOUND', 'El contacto no existe.'); return; }
+  const privacy = await pool.query<{ payload: JsonObject }>(
+    `SELECT payload FROM health_records WHERE patient_id = $1 AND entity_type = 'privacy_consent' AND entity_id = 'default'`, [user.id],
+  );
+  if (!privacy.rows[0] || !privacyConsentGranted(privacy.rows[0].payload)) {
+    fail(response, 403, 'PRIVACY_CONSENT_REQUIRED', 'Activa el consentimiento de avisos de ayuda antes de invitar a una persona de apoyo.');
+    return;
+  }
   const contactPayload = contact.rows[0].payload;
   if (!contactConsentGranted(contactPayload)) {
     fail(response, 403, 'CONTACT_CONSENT_REQUIRED', 'Confirma el consentimiento de esta persona antes de enviarle una invitación.');
@@ -478,6 +505,13 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
     `SELECT r.entity_id, r.payload FROM health_records r
      WHERE r.patient_id = $1 AND r.entity_type = 'trusted_contact' AND r.entity_id = ANY($2::text[])
        AND (r.payload->>'consentGranted' = 'true' OR r.payload->>'consent_status' = 'accepted')
+       AND EXISTS (
+         SELECT 1 FROM health_records privacy
+         WHERE privacy.patient_id = r.patient_id AND privacy.entity_type = 'privacy_consent' AND privacy.entity_id = 'default'
+           AND privacy.payload->>'localDataConsent' = 'true'
+           AND privacy.payload->>'cloudSyncConsent' = 'true'
+           AND privacy.payload->>'emergencySharingConsent' = 'true'
+       )
        AND EXISTS (
          SELECT 1 FROM contact_invitations i
          WHERE i.patient_id = r.patient_id AND i.contact_id = r.entity_id

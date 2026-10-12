@@ -55,7 +55,16 @@ async function claimBatch() {
           AND consent_record.entity_type = 'trusted_contact'
           AND consent_record.entity_id = i.contact_id
          WHERE a.id = d.alert_id AND i.contact_id = d.contact_id AND i.status = 'accepted'
-           AND (consent_record.payload->>'consentGranted' = 'true' OR consent_record.payload->>'consent_status' = 'accepted')) AS consent_accepted,
+           AND (consent_record.payload->>'consentGranted' = 'true' OR consent_record.payload->>'consent_status' = 'accepted')
+           AND EXISTS (
+             SELECT 1 FROM health_records privacy_record
+             WHERE privacy_record.patient_id = a.patient_id
+               AND privacy_record.entity_type = 'privacy_consent'
+               AND privacy_record.entity_id = 'default'
+               AND privacy_record.payload->>'localDataConsent' = 'true'
+               AND privacy_record.payload->>'cloudSyncConsent' = 'true'
+               AND privacy_record.payload->>'emergencySharingConsent' = 'true'
+           )) AS consent_accepted,
        COALESCE((SELECT r.payload FROM health_records r
          JOIN emergency_alerts a ON a.patient_id = r.patient_id
          WHERE a.id = d.alert_id AND r.entity_type = 'trusted_contact' AND r.entity_id = d.contact_id), '{}'::jsonb) AS contact`,

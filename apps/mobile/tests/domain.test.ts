@@ -372,6 +372,11 @@ describe('consent-aware cloud sync', () => {
     expect(canUploadEventForConsent({ entityType: 'trusted_contact', payload: { revoked: true } }, consent)).toBe(true);
   });
 
+  it('keeps privacy withdrawal uploadable but blocks a remote grant without cloud consent', () => {
+    expect(canUploadEventForConsent({ entityType: 'privacy_consent', payload: { emergencySharingConsent: false } }, consent)).toBe(true);
+    expect(canUploadEventForConsent({ entityType: 'privacy_consent', payload: { emergencySharingConsent: true } }, { ...consent, cloudSyncConsent: false })).toBe(false);
+  });
+
   it('never lets a client self-assert accepted remote consent', () => {
     expect(cloudTrustedContactConsentStatus({ consentGranted: true })).toBe('pending');
     expect(cloudTrustedContactConsentStatus({ revoked: true })).toBe('revoked');

@@ -19,6 +19,17 @@ const first = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringi
 // projection must remain patient-scoped while stale events cannot regress it.
 const firstDeviceTwo = await call('/v1/auth/signin', { method: 'POST', body: JSON.stringify({ email: firstEmail, password }) });
 const second = await call('/v1/auth/signup', { method: 'POST', body: JSON.stringify({ email: `other-${suffix}@example.invalid`, password }) });
+const noPrivacyContactId = crypto.randomUUID();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${second.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'trusted_contact.created.v1', entityType: 'trusted_contact', entityId: noPrivacyContactId,
+  payload: { id: noPrivacyContactId, name: 'No privacy contact', phone: '+10000000002', consentGranted: true, updatedAt: new Date().toISOString() },
+}) });
+const noPrivacyInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${second.session.accessToken}` }, body: JSON.stringify({ contactId: noPrivacyContactId, channel: 'sms' }) });
+if (noPrivacyInvitation.status !== 403) throw new Error('invitation bypassed patient privacy consent');
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'privacy.consent.updated.v1', entityType: 'privacy_consent', entityId: 'default',
+  payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true, updatedAt: new Date().toISOString() },
+}) });
 const anonymousSync = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`);
 if (anonymousSync.status !== 401) throw new Error(`anonymous sync returned ${anonymousSync.status}`);
 const invalidMedication = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
@@ -207,6 +218,12 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
 }) });
 const revokedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [revokedContactId], channels: ['sms'] }) });
 if (revokedAlert.status !== 400) throw new Error('revoked contact remained eligible for an alert');
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'privacy.consent.updated.v1', entityType: 'privacy_consent', entityId: 'default',
+  payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', localDataConsent: true, cloudSyncConsent: false, emergencySharingConsent: false, updatedAt: new Date().toISOString() },
+}) });
+const privacyBlockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId: crypto.randomUUID(), contactIds: [contactId], channels: ['sms'] }) });
+if (privacyBlockedAlert.status !== 400) throw new Error('privacy withdrawal did not block a remote alert');
 const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
 const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });

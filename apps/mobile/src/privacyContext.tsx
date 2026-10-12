@@ -1,6 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getPrivacyConsent, POLICY_VERSION, savePrivacyConsent } from './db/privacyRepository';
+import { ensurePrivacyConsentOutbox, getPrivacyConsent, POLICY_VERSION, savePrivacyConsent } from './db/privacyRepository';
 import type { NewPrivacyConsent, PrivacyConsent } from './types/privacy';
 
 type PrivacyContextValue = {
@@ -19,12 +19,19 @@ export function PrivacyProvider({ children }: PropsWithChildren) {
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
-    try { setConsent(await getPrivacyConsent(db)); } finally { setIsLoading(false); }
+    try {
+      const stored = await getPrivacyConsent(db);
+      if (stored) await ensurePrivacyConsentOutbox(db, stored).catch(() => undefined);
+      setConsent(stored);
+    } finally { setIsLoading(false); }
   }, [db]);
 
   useEffect(() => {
     let active = true;
-    void getPrivacyConsent(db).then((stored) => { if (active) setConsent(stored); }).finally(() => { if (active) setIsLoading(false); });
+    void getPrivacyConsent(db).then(async (stored) => {
+      if (stored) await ensurePrivacyConsentOutbox(db, stored).catch(() => undefined);
+      if (active) setConsent(stored);
+    }).finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, [db]);
 

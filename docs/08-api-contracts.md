@@ -9,13 +9,13 @@
 - Errors use stable machine codes plus safe, localized client copy.
 - Client-provided patient IDs never bypass authorization derived from the authenticated relationship.
 - Clinical values are not placed in URLs, query strings, tracing baggage, or provider metadata.
-- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, and emergency-card IDs), invalid event timestamps, invalid glucose values/units/contexts/risk metadata, and invalid medication schedule metadata before PostgreSQL persistence.
+- Sync writes reject malformed event types, non-UUID entity IDs (except the explicit `default` care-plan, measurement-plan, emergency-card, and privacy-consent IDs), invalid event timestamps, invalid glucose values/units/contexts/risk metadata, invalid medication schedule metadata, and malformed privacy-consent payloads before PostgreSQL persistence.
 
 ## Authentication model
 
 - Core local mode: no cloud API required.
 - Sync mode: revocable VPS API session stored in SecureStore.
-- Privileged dispatch: the VPS API verifies the session, contact ownership, accepted invitation, and request schema.
+- Privileged dispatch: the VPS API verifies the session, patient privacy consent, contact ownership, contact consent, accepted invitation, and request schema.
 - Trusted-contact acknowledgement: a short-lived invitation token changes consent state; it grants no record access.
 
 ## Representative endpoints
@@ -30,7 +30,7 @@
 | `POST` | `/v1/contact-invitations/accept` | Confirm the browser invitation form with its one-time token. |
 | `GET` | `/v1/contact-invitations` | Read the patient's pending/accepted invitation states. |
 | `POST` | `/v1/contact-invitations/revoke` | Revoke a contact invitation and future alerts. |
-| `POST` | `/v1/emergency-alerts` | Queue alerts only for accepted contacts. |
+| `POST` | `/v1/emergency-alerts` | Queue alerts only when patient sharing consent and contact consent are active. |
 | `GET` | `/v1/emergency-alerts/{incidentId}/deliveries` | Read delivery states for the patient's incident. |
 | `POST` | `/v1/internal/provider-callback` | Accept a signed provider delivery update; disabled without the VPS callback secret. |
 | `DELETE` | `/v1/account` | Start verified account deletion workflow. |
@@ -60,7 +60,9 @@ Response `202 Accepted` means queued, not delivered. A private VPS worker later
 transitions each channel to `provider_accepted`, `not_configured`, or `failed`;
 provider acceptance still does not prove that a person read the message. The
 API returns `400 INVALID_ALERT_CONTACTS` unless every contact has a non-expired
-accepted invitation. It creates one delivery only for a requested channel that
+accepted invitation and current contact consent, and rejects the request unless
+the patient has explicitly synced local, cloud, and emergency-sharing consent.
+It creates one delivery only for a requested channel that
 matches an address stored on that contact (email uses `email`; SMS/voice use
 `phone`), so a mixed request never creates impossible cross-channel deliveries:
 
@@ -101,8 +103,9 @@ work. A new incident ID is required to intentionally start another alert.
 
 ## Contact invitation delivery
 
-`POST /v1/contact-invitations` validates that the selected channel has a
-matching contact address. It always creates the expiring invitation record, then
+`POST /v1/contact-invitations` validates patient emergency-sharing consent,
+contact consent, and that the selected channel has a matching contact address.
+It then creates the expiring invitation record, then
 reports `deliveryStatus` as `provider_accepted`, `failed`, or `not_configured`.
 A `provider_accepted` invitation means only that the email/SMS provider
 accepted the request; the patient can still share the returned URL manually
@@ -156,6 +159,7 @@ event from being stored under a different record key.
 | `appointment.status_changed.v1` | Enforces legal transition. |
 | `contact.updated.v1` | Replaces contact details and requires consent confirmation again. |
 | `contact.consent_changed.v1` | Accepted/revoked and scopes. |
+| `privacy.consent.updated.v1` | Server-side privacy and emergency-sharing authorization; withdrawals remain uploadable so stale alerts are revoked. |
 | `emergency.incident.started.v1` | Minimal incident record. |
 | `emergency.alert.status_changed.v1` | Provider status, not clinical state. |
 

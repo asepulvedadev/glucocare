@@ -70,6 +70,11 @@ try {
     [patientId, contactId, JSON.stringify({ id: contactId, name: 'Synthetic contact', email: 'contact@example.invalid', consentGranted: true })],
   );
   await client.query(
+    `INSERT INTO health_records (patient_id, entity_type, entity_id, payload)
+     VALUES ($1, 'privacy_consent', 'default', $2::jsonb)`,
+    [patientId, JSON.stringify({ id: 'default', policyVersion: 'synthetic-privacy-v1', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true })],
+  );
+  await client.query(
     `INSERT INTO contact_invitations (id, patient_id, contact_id, channel, token_hash, status, expires_at)
      VALUES ($1, $2, $3, 'email', $4, 'accepted', now() + interval '1 hour')`,
     [invitationId, patientId, contactId, `provider-retry-token-${invitationId}`],
