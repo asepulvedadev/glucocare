@@ -100,6 +100,12 @@ describe('medication occurrence state machine', () => {
     expect(transitionMedicationOccurrence('due', 'taken')).toBe('taken');
   });
 
+  it('expires due and snoozed occurrences without reopening terminal records', () => {
+    expect(transitionMedicationOccurrence('due', 'expired')).toBe('expired');
+    expect(transitionMedicationOccurrence('snoozed', 'expired')).toBe('expired');
+    expect(canTransitionMedicationOccurrence('expired', 'due')).toBe(false);
+  });
+
   it('does not allow a completed occurrence to be changed silently', () => {
     expect(canTransitionMedicationOccurrence('taken', 'skipped')).toBe(false);
     expect(() => transitionMedicationOccurrence('taken', 'skipped')).toThrow('Invalid medication occurrence transition');
@@ -146,6 +152,12 @@ describe('measurement occurrence state machine', () => {
   it('moves a planned measurement to due or completed', () => {
     expect(canTransitionMeasurementOccurrence('planned', 'due')).toBe(true);
     expect(transitionMeasurementOccurrence('planned', 'completed')).toBe('completed');
+  });
+
+  it('expires planned and due measurements when their window is no longer valid', () => {
+    expect(transitionMeasurementOccurrence('planned', 'expired')).toBe('expired');
+    expect(transitionMeasurementOccurrence('due', 'expired')).toBe('expired');
+    expect(canTransitionMeasurementOccurrence('expired', 'planned')).toBe(false);
   });
 
   it('keeps completed measurements immutable', () => {
