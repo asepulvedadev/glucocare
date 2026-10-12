@@ -37,6 +37,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         measured_at: stringValue(payload.recordedAt, new Date().toISOString()), recorded_at: stringValue(payload.recordedAt, new Date().toISOString()),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', context: toContext(payload.context),
         symptoms: payload.symptoms ? [String(payload.symptoms)] : [], note: payload.note ? String(payload.note) : null,
+        classification: payload.riskClassification ? String(payload.riskClassification) : null,
       });
       if (error) throw error;
       return;
@@ -104,6 +105,24 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         completed_reading_id: payload.completedReadingId ? String(payload.completedReadingId) : null,
         completed_at: payload.completedAt ? String(payload.completedAt) : null,
       }, { onConflict: 'id' });
+      if (error) throw error;
+      return;
+    }
+    case 'care_plan': {
+      const { error } = await supabase.from('care_plan_revisions').upsert({
+        patient_id: patientId,
+        revision_number: 1,
+        effective_from: stringValue(payload.updatedAt, new Date().toISOString()),
+        target_bands: {
+          low: payload.lowThreshold ?? null,
+          urgent_low: payload.urgentLowThreshold ?? null,
+          high: payload.highThreshold ?? null,
+          urgent_high: payload.urgentHighThreshold ?? null,
+        } as Json,
+        symptom_actions: payload.instructions ? [String(payload.instructions)] : [],
+        source: payload.clinicianVerified ? 'clinician_verified' : 'patient_entered',
+        clinician_verified: payload.clinicianVerified === true,
+      }, { onConflict: 'patient_id,revision_number' });
       if (error) throw error;
       return;
     }

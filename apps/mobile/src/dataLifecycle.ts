@@ -18,6 +18,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     schemaVersion: 2,
     exportedAt,
     glucoseReadings: await rows(db, 'glucose_readings'),
+    carePlan: await rows(db, 'care_plan'),
     medications: await rows(db, 'medications'),
     medicationOccurrences: await rows(db, 'medication_occurrences'),
     appointments: await rows(db, 'appointments'),
@@ -62,6 +63,7 @@ export async function deleteAllLocalData(db: SQLiteDatabase) {
   for (const row of scheduled) await cancelMedicationReminder(row.notification_id ?? undefined);
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM glucose_readings');
+    await db.runAsync('DELETE FROM care_plan');
     await db.runAsync('DELETE FROM medication_occurrences');
     await db.runAsync('DELETE FROM medications');
     await db.runAsync('DELETE FROM appointments');

@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications } from './db/careRepository';
 import { insertAppointment, listAppointments } from './db/appointmentsRepository';
 import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
+import { getCarePlan, upsertCarePlan } from './db/carePlanRepository';
 import { ensureTodaysMedicationOccurrences, listTodaysMedicationOccurrences, recordMedicationOccurrence } from './db/medicationOccurrenceRepository';
 import { ensureTodaysMeasurementOccurrences, listTodaysMeasurementOccurrences, recordMeasurementOccurrence } from './db/measurementOccurrenceRepository';
 import { scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
@@ -11,6 +12,7 @@ import type { Appointment, NewAppointment } from './types/appointments';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
 import type { MedicationOccurrence, MedicationOccurrenceStatus } from './types/medicationOccurrences';
 import type { MeasurementOccurrence, MeasurementOccurrenceStatus } from './types/measurementOccurrences';
+import type { CarePlan, NewCarePlan } from './types/carePlan';
 import { newId } from './ids';
 
 type CareContextValue = {
@@ -19,10 +21,12 @@ type CareContextValue = {
   measurementOccurrences: MeasurementOccurrence[];
   appointments: Appointment[];
   measurementPlan: MeasurementPlan | null;
+  carePlan: CarePlan | null;
   isLoading: boolean;
   addMedication: (input: NewMedication) => Promise<ReminderPermission>;
   addAppointment: (input: NewAppointment) => Promise<ReminderPermission>;
   saveMeasurementPlan: (input: NewMeasurementPlan) => Promise<void>;
+  saveCarePlan: (input: NewCarePlan) => Promise<void>;
   markMedicationOccurrence: (occurrenceId: string, status: MedicationOccurrenceStatus) => Promise<void>;
   markMeasurementOccurrence: (occurrenceId: string, status: MeasurementOccurrenceStatus) => Promise<void>;
   refresh: () => Promise<void>;
@@ -37,12 +41,13 @@ export function CareProvider({ children }: PropsWithChildren) {
   const [measurementOccurrences, setMeasurementOccurrences] = useState<MeasurementOccurrence[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [measurementPlan, setMeasurementPlan] = useState<MeasurementPlan | null>(null);
+  const [carePlan, setCarePlan] = useState<CarePlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [storedMedications, storedAppointments, storedPlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]);
+      const [storedMedications, storedAppointments, storedPlan, storedCarePlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]);
       await ensureTodaysMedicationOccurrences(db, storedMedications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
@@ -50,6 +55,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       setMedications(storedMedications);
       setMedicationOccurrences(storedOccurrences);
       setMeasurementOccurrences(storedMeasurementOccurrences);
+      setCarePlan(storedCarePlan);
       setAppointments(storedAppointments);
       setMeasurementPlan(storedPlan);
     } finally { setIsLoading(false); }
@@ -57,7 +63,7 @@ export function CareProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]).then(async ([storedMedications, storedAppointments, storedPlan]) => {
+    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]).then(async ([storedMedications, storedAppointments, storedPlan, storedCarePlan]) => {
       await ensureTodaysMedicationOccurrences(db, storedMedications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
@@ -66,6 +72,7 @@ export function CareProvider({ children }: PropsWithChildren) {
         setMedications(storedMedications);
         setMedicationOccurrences(storedOccurrences);
         setMeasurementOccurrences(storedMeasurementOccurrences);
+        setCarePlan(storedCarePlan);
         setAppointments(storedAppointments);
         setMeasurementPlan(storedPlan);
       }
@@ -121,6 +128,12 @@ export function CareProvider({ children }: PropsWithChildren) {
     setMeasurementOccurrences(await listTodaysMeasurementOccurrences(db));
   }, [db]);
 
+  const saveCarePlan = useCallback(async (input: NewCarePlan) => {
+    const plan: CarePlan = { id: 'default', ...input, updatedAt: new Date().toISOString() };
+    await upsertCarePlan(db, plan);
+    setCarePlan(plan);
+  }, [db]);
+
   const markMedicationOccurrence = useCallback(async (occurrenceId: string, status: MedicationOccurrenceStatus) => {
     const updated = await recordMedicationOccurrence(db, occurrenceId, status);
     setMedicationOccurrences((current) => current.map((occurrence) => occurrence.id === updated.id ? updated : occurrence));
@@ -131,7 +144,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     setMeasurementOccurrences((current) => current.map((occurrence) => occurrence.id === updated.id ? updated : occurrence));
   }, [db]);
 
-  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, markMedicationOccurrence, markMeasurementOccurrence, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, markMedicationOccurrence, markMeasurementOccurrence, refresh]);
+  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, markMeasurementOccurrence, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 

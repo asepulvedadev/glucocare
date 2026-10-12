@@ -6,6 +6,7 @@ import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useGlucose } from '../../context';
 import { glucoseContextLabel } from '../../types/domain';
+import { glucoseRiskLabel } from '../../types/carePlan';
 import { colors, spacing } from '../../theme/tokens';
 
 export default function HistoryScreen() {
@@ -32,6 +33,7 @@ export default function HistoryScreen() {
           </View>
           {reading.symptoms ? <Body>Síntomas: {reading.symptoms}</Body> : null}
           {reading.note ? <Body>Nota: {reading.note}</Body> : null}
+          {reading.riskClassification && reading.riskClassification !== 'unclassified' ? <Text style={styles.risk}>{glucoseRiskLabel[reading.riskClassification]}</Text> : null}
           <Text style={styles.local}>{reading.syncState === 'synced' ? 'Sincronizado' : reading.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
         </Panel>
       ))}
@@ -45,4 +47,5 @@ const styles = StyleSheet.create({
   value: { color: colors.textPrimary, fontSize: 26, fontWeight: '700' },
   unit: { color: colors.textSecondary, fontSize: 15, fontWeight: '500' },
   local: { color: colors.teal, fontSize: 12 },
+  risk: { color: colors.attention, fontSize: 13, lineHeight: 19, fontWeight: '700' },
 });

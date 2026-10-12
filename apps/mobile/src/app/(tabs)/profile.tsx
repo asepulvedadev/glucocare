@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   }
 
   function requestDelete() {
-    Alert.alert('Borrar datos locales', 'Esta acción elimina lecturas, medicamentos, citas, contactos, tarjeta y eventos de ayuda de este dispositivo.', [
+    Alert.alert('Borrar datos locales', 'Esta acción elimina lecturas, planes, tomas, medicamentos, citas, contactos, tarjeta y eventos de ayuda de este dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Borrar todo', style: 'destructive', onPress: () => void (async () => { try { await deleteAllLocalData(db); await Promise.all([refreshGlucose(), refreshCare(), refreshSafety()]); Alert.alert('Datos eliminados', 'La información local fue eliminada.'); } catch { Alert.alert('No se pudo borrar', 'Vuelve a intentarlo.'); } })() },
     ]);

@@ -17,7 +17,7 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, refresh } = useCare();
+  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, refresh } = useCare();
   const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
   const [actingMeasurementId, setActingMeasurementId] = useState<string | null>(null);
 
@@ -52,6 +52,13 @@ export default function CareScreen() {
       <Eyebrow>Cuidado</Eyebrow>
       <Heading>Tu rutina</Heading>
       <Body>Aquí verás los medicamentos, mediciones y citas que configures con tu equipo de salud.</Body>
+      <Panel>
+        <View style={styles.sectionHeader}>
+          <Caption>PLAN CLÍNICO</Caption>
+          <PrimaryButton label={carePlan ? 'Editar' : 'Configurar'} tone="quiet" onPress={() => router.push('/care-plan')} />
+        </View>
+        {carePlan ? <><Text style={styles.title}>{carePlan.clinicianVerified ? 'Instrucciones confirmadas por ti' : 'Valores guardados en este dispositivo'}</Text><Body>{carePlan.instructions ?? 'Hay umbrales configurados para clasificar lecturas; revisa siempre las instrucciones de tu equipo.'}</Body></> : <Body>Guarda los umbrales e instrucciones que te haya dado tu equipo de salud para clasificar tus lecturas sin inventar objetivos.</Body>}
+      </Panel>
       <Panel>
         <View style={styles.sectionHeader}>
           <Caption>MEDICAMENTOS</Caption>

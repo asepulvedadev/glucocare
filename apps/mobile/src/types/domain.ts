@@ -1,3 +1,5 @@
+import type { GlucoseRiskClassification } from './carePlan';
+
 export type GlucoseUnit = 'mg/dL' | 'mmol/L';
 export type GlucoseContext = 'fasting' | 'before_meal' | 'after_meal' | 'bedtime' | 'other';
 
@@ -9,6 +11,7 @@ export type GlucoseReading = {
   recordedAt: string;
   symptoms?: string;
   note?: string;
+  riskClassification?: GlucoseRiskClassification;
   syncState: 'local' | 'pending' | 'synced' | 'failed';
 };
 

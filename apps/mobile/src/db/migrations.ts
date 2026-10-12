@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 10;
+const DATABASE_VERSION = 11;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -178,6 +178,23 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_measurement_occurrences_scheduled_at ON measurement_occurrences(scheduled_at ASC);
     `);
     currentVersion = 10;
+  }
+
+  if (currentVersion < 11) {
+    await db.execAsync(`
+      ALTER TABLE glucose_readings ADD COLUMN risk_classification TEXT;
+      CREATE TABLE IF NOT EXISTS care_plan (
+        id TEXT PRIMARY KEY NOT NULL,
+        low_threshold REAL,
+        urgent_low_threshold REAL,
+        high_threshold REAL,
+        urgent_high_threshold REAL,
+        instructions TEXT,
+        clinician_verified INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    currentVersion = 11;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { GlucoseContext, GlucoseReading, GlucoseUnit } from '../types/domain';
+import type { GlucoseRiskClassification } from '../types/carePlan';
 import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
 import { completeNearestMeasurementOccurrence } from './measurementOccurrenceRepository';
@@ -15,6 +16,7 @@ type GlucoseRow = {
   symptoms: string | null;
   note: string | null;
   sync_state: 'local' | 'pending' | 'synced' | 'failed';
+  risk_classification: GlucoseRiskClassification | null;
 };
 
 function mapRow(row: GlucoseRow): GlucoseReading {
@@ -26,6 +28,7 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     recordedAt: row.recorded_at,
     symptoms: row.symptoms ?? undefined,
     note: row.note ?? undefined,
+    riskClassification: row.risk_classification ?? undefined,
     syncState: row.sync_state,
   };
 }
@@ -48,9 +51,9 @@ export async function insertGlucoseReading(
   };
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      stored.id, stored.value, stored.unit, stored.context, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState,
+      `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state, risk_classification)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, stored.context, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });

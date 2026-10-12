@@ -9,6 +9,7 @@ import { useCare } from '../../careContext';
 import { glucoseContextLabel } from '../../types/domain';
 import { colors, radii, spacing } from '../../theme/tokens';
 import { useAccessibility } from '../../accessibilityContext';
+import { glucoseRiskLabel } from '../../types/carePlan';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
@@ -41,6 +42,7 @@ export default function TodayScreen() {
             <View>
               <Text style={styles.value}>{latest.value} <Text style={styles.unit}>{latest.unit}</Text></Text>
               <Caption>{glucoseContextLabel[latest.context]} · {latestTime}</Caption>
+              {latest.riskClassification && latest.riskClassification !== 'unclassified' ? <Caption>{glucoseRiskLabel[latest.riskClassification]}</Caption> : null}
             </View>
             <Text style={styles.localBadge}>{latest.syncState === 'synced' ? 'Sincronizado' : latest.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
           </View>

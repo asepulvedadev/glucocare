@@ -4,6 +4,7 @@ import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/m
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
+import { classifyGlucose, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -58,5 +59,19 @@ describe('measurement occurrence state machine', () => {
   it('keeps completed measurements immutable', () => {
     expect(canTransitionMeasurementOccurrence('completed', 'skipped')).toBe(false);
     expect(() => transitionMeasurementOccurrence('completed', 'skipped')).toThrow('Invalid measurement occurrence transition');
+  });
+});
+
+describe('clinician-provided glucose risk plan', () => {
+  const plan = { urgentLowThreshold: 54, lowThreshold: 70, highThreshold: 180, urgentHighThreshold: 250 };
+
+  it('requires strictly ordered thresholds and classifies without inventing defaults', () => {
+    expect(validateCarePlanThresholds(plan)).toBe(true);
+    expect(classifyGlucose(50, 'mg/dL', { id: 'default', ...plan, clinicianVerified: true, updatedAt: new Date().toISOString() })).toBe('urgent_low');
+    expect(classifyGlucose(10, 'mg/dL', null)).toBe('unclassified');
+  });
+
+  it('converts mmol/L using an explicit fixed conversion for comparison', () => {
+    expect(classifyGlucose(10.5, 'mmol/L', { id: 'default', ...plan, clinicianVerified: true, updatedAt: new Date().toISOString() })).toBe('high');
   });
 });

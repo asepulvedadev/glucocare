@@ -2,11 +2,13 @@ import { PropsWithChildren, createContext, useCallback, useContext, useEffect, u
 import { useSQLiteContext } from 'expo-sqlite';
 import { insertGlucoseReading, listGlucoseReadings, type NewGlucoseReading } from './db/glucoseRepository';
 import type { GlucoseReading } from './types/domain';
+import { getCarePlan } from './db/carePlanRepository';
+import { classifyGlucose } from './domain/glucoseRisk';
 
 type GlucoseContextValue = {
   readings: GlucoseReading[];
   isLoading: boolean;
-  addReading: (reading: NewGlucoseReading) => Promise<void>;
+  addReading: (reading: NewGlucoseReading) => Promise<GlucoseReading>;
   refresh: () => Promise<void>;
 };
 
@@ -33,8 +35,10 @@ export function GlucoseProvider({ children }: PropsWithChildren) {
   }, [db]);
 
   const addReading = useCallback(async (reading: NewGlucoseReading) => {
-    const saved = await insertGlucoseReading(db, reading);
+    const carePlan = await getCarePlan(db);
+    const saved = await insertGlucoseReading(db, { ...reading, riskClassification: classifyGlucose(reading.value, reading.unit, carePlan) });
     setReadings((current) => [saved, ...current]);
+    return saved;
   }, [db]);
 
   const value = useMemo(() => ({ readings, isLoading, addReading, refresh }), [readings, isLoading, addReading, refresh]);

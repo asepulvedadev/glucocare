@@ -25,6 +25,7 @@ export default function RootLayout() {
                   <Stack.Screen name="medication" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="appointment" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="measurement-plan" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="care-plan" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="emergency-card" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="trusted-contact" options={{ presentation: 'modal' }} />

@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useGlucose } from '../context';
 import { glucoseContextLabel, type GlucoseContext, type GlucoseUnit } from '../types/domain';
+import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 
@@ -25,7 +26,12 @@ export default function LogScreen() {
     }
     setSaving(true);
     try {
-      await addReading({ value: numericValue, unit, context, recordedAt: new Date().toISOString(), symptoms: symptoms.trim() || undefined, note: note.trim() || undefined });
+      const saved = await addReading({ value: numericValue, unit, context, recordedAt: new Date().toISOString(), symptoms: symptoms.trim() || undefined, note: note.trim() || undefined });
+      if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') {
+        Alert.alert('Revisa tu plan de ayuda', `${glucoseRiskLabel[saved.riskClassification]}. Sigue las instrucciones de tu equipo de salud o llama a emergencias si te sientes muy mal.`, [{ text: 'Entendido', onPress: () => router.back() }]);
+        if (Platform.OS === 'web') router.back();
+        return;
+      }
       router.back();
     } catch { Alert.alert('No se pudo guardar', 'Conserva la lectura y vuelve a intentarlo.'); } finally { setSaving(false); }
   }
