@@ -13,6 +13,8 @@ type AlertRequest = {
 
 const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const allowedChannels = new Set<Channel>(["push", "email", "sms", "voice"]);
+const DEFAULT_RATE_LIMIT = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 function response(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers });
@@ -54,6 +56,16 @@ Deno.serve(async (request) => {
   if (body.occurredAt && !isIsoDate(body.occurredAt)) return response({ error: { code: "INVALID_OCCURRED_AT", message: "The event time is invalid." } }, 400);
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: existingIncident, error: existingIncidentError } = await admin.from("emergency_incidents").select("id").eq("id", body.incidentId).eq("patient_id", userId).maybeSingle();
+  if (existingIncidentError) return response({ error: { code: "INCIDENT_LOOKUP_FAILED", message: "The incident could not be checked." } }, 500);
+  if (!existingIncident) {
+    const configuredLimit = Number(Deno.env.get("EMERGENCY_ALERT_MAX_PER_WINDOW") ?? DEFAULT_RATE_LIMIT);
+    const maxAlerts = Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : DEFAULT_RATE_LIMIT;
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    const { count, error: rateError } = await admin.from("emergency_incidents").select("id", { count: "exact", head: true }).eq("patient_id", userId).gte("created_at", since);
+    if (rateError) return response({ error: { code: "RATE_LIMIT_LOOKUP_FAILED", message: "The alert limit could not be checked." } }, 500);
+    if ((count ?? 0) >= maxAlerts) return response({ error: { code: "ALERT_RATE_LIMITED", message: "Too many help requests were recorded recently. Use the direct call option if you need immediate assistance.", retryAfterSeconds: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000) } }, 429);
+  }
   const { data: contacts, error: contactsError } = await admin.from("trusted_contacts").select("id,name,email,phone,consent_status,allowed_event_types").eq("patient_id", userId).in("id", contactIds);
   if (contactsError) return response({ error: { code: "CONTACT_LOOKUP_FAILED", message: "The contact list could not be checked." } }, 500);
   const accepted = (contacts ?? []).filter((contact) => contact.consent_status === "accepted" && (contact.allowed_event_types ?? []).includes("emergency"));
