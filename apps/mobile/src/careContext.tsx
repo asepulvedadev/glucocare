@@ -10,6 +10,7 @@ import { ensureTodaysMeasurementOccurrences, listTodaysMeasurementOccurrences, r
 import { cancelReminder, reconcileAppointmentReminder, reconcileMedicationReminder, refreshMeasurementPlanReminders, scheduleAppointmentReminder, scheduleMedicationSnooze, scheduleMedicationReminder, type ReminderPermission } from './notifications';
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
+import { isTerminalAppointmentStatus } from './domain/appointmentState';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
 import type { MedicationOccurrence, MedicationOccurrenceStatus } from './types/medicationOccurrences';
 import type { MeasurementOccurrence, MeasurementOccurrenceStatus } from './types/measurementOccurrences';
@@ -192,7 +193,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       createdAt: current.createdAt,
       reminderState: 'unavailable',
     };
-    const scheduled = ['completed', 'missed', 'denied', 'cancelled'].includes(appointment.status)
+    const scheduled = isTerminalAppointmentStatus(appointment.status)
       ? { state: 'unavailable' as const, notificationId: undefined }
       : await scheduleAppointmentReminder(appointment);
     const stored: Appointment = {
@@ -252,8 +253,18 @@ export function CareProvider({ children }: PropsWithChildren) {
 
   const updateAppointmentStatus = useCallback(async (appointmentId: string, status: Appointment['status']) => {
     const updated = await updateStoredAppointmentStatus(db, appointmentId, status);
-    if (['completed', 'missed', 'denied', 'cancelled'].includes(status)) await cancelReminder(updated.notificationId);
-    setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
+    const terminal = isTerminalAppointmentStatus(status);
+    if (terminal) await cancelReminder(updated.notificationId);
+    const scheduled = terminal
+      ? { state: 'unavailable' as const, notificationId: undefined }
+      : await reconcileAppointmentReminder(updated);
+    const next = {
+      ...updated,
+      notificationId: scheduled.notificationId,
+      reminderState: scheduled.state === 'granted' ? 'scheduled' as const : scheduled.state,
+    };
+    await updateAppointmentReminder(db, next.id, next.reminderState, next.notificationId);
+    setAppointments((current) => current.map((appointment) => appointment.id === next.id ? next : appointment));
   }, [db]);
 
   const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, updateAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, updateAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);

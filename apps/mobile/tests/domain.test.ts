@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availableAppointmentTransitions, canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
+import { availableAppointmentTransitions, canTransitionAppointment, isTerminalAppointmentStatus, transitionAppointment } from '../src/domain/appointmentState';
 import { isMeasurementPlanActive, isValidMeasurementTime, validateMeasurementPlan, validateMeasurementWindows } from '../src/domain/measurementPlan';
 import { isMedicationActive, isValidMedicationDate } from '../src/domain/medication';
 import { newId } from '../src/ids';
@@ -27,6 +27,13 @@ describe('appointment state machine', () => {
     expect(transitionAppointment('scheduled', 'missed')).toBe('missed');
     expect(canTransitionAppointment('denied', 'requested')).toBe(true);
     expect(canTransitionAppointment('missed', 'requested')).toBe(true);
+  });
+
+  it('identifies states that must not keep reminders scheduled', () => {
+    expect(isTerminalAppointmentStatus('completed')).toBe(true);
+    expect(isTerminalAppointmentStatus('missed')).toBe(true);
+    expect(isTerminalAppointmentStatus('denied')).toBe(true);
+    expect(isTerminalAppointmentStatus('requested')).toBe(false);
   });
 
   it('rejects reopening a completed appointment', () => {

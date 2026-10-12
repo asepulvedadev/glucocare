@@ -11,6 +11,10 @@ const transitions: Record<AppointmentStatus, AppointmentStatus[]> = {
   cancelled: [],
 };
 
+export function isTerminalAppointmentStatus(status: AppointmentStatus) {
+  return status === 'completed' || status === 'missed' || status === 'denied' || status === 'cancelled';
+}
+
 export function canTransitionAppointment(from: AppointmentStatus, to: AppointmentStatus) {
   return transitions[from].includes(to);
 }

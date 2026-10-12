@@ -12,6 +12,7 @@ import { listAppointments, updateAppointmentReminder } from './db/appointmentsRe
 import { getMeasurementPlan } from './db/measurementRepository';
 import { listMealEvents } from './db/mealRepository';
 import type { SQLiteDatabase } from 'expo-sqlite';
+import { isTerminalAppointmentStatus } from './domain/appointmentState';
 
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
@@ -216,7 +217,7 @@ export async function reconcileMedicationReminder(medication: Medication) {
 }
 
 export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
-  if (appointment.status === 'completed' || appointment.status === 'missed' || appointment.status === 'denied' || appointment.status === 'cancelled') {
+  if (isTerminalAppointmentStatus(appointment.status)) {
     return { state: 'unavailable' };
   }
   const appointmentAt = new Date(appointment.scheduledAt);
@@ -239,7 +240,7 @@ export async function scheduleAppointmentReminder(appointment: Appointment): Pro
 }
 
 export async function reconcileAppointmentReminder(appointment: Appointment) {
-  if (appointment.status === 'completed' || appointment.status === 'missed' || appointment.status === 'denied' || appointment.status === 'cancelled') {
+  if (isTerminalAppointmentStatus(appointment.status)) {
     await cancelReminder(appointment.notificationId);
     return { state: 'unavailable' as const };
   }

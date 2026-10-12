@@ -67,6 +67,8 @@ Canonical states:
 
 `requested → pending_authorization → authorized → scheduled → completed`
 
+The record also preserves the reviewed terminal outcomes `denied`, `missed`, and `cancelled`. A denied or missed appointment may be returned to `requested` when the user starts a new authorization request; terminal states never keep an active reminder.
+
 Alternative terminal states: `denied`, `cancelled`, `missed`.
 
 Fields include specialty, provider, EPS/insurer, authorization number, requested date, scheduled time, location/video link, preparation notes, documents, and reminders.
