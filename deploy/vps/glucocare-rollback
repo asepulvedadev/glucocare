@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Roll back to the newest retained release, or to a named directory under
+# /srv/glucocare/releases. Run as glucocare-deploy (or root) on the VPS.
+base="${GLUCOCARE_BASE:-/srv/glucocare}"
+release="$base/release"
+history="$base/releases"
+requested="${1:-latest}"
+
+if [ "$requested" = latest ]; then
+  target=$(
+    find "$history" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
+      | sort -nr \
+      | head -n 1 \
+      | cut -d' ' -f2-
+  )
+else
+  case "$requested" in
+    /*) target="$requested" ;;
+    *) target="$history/$requested" ;;
+  esac
+fi
+
+test -n "${target:-}"
+test -f "$target/deploy/compose.yml"
+
+rollback_backup="$base/release.rollback.$$"
+staged="$base/.rollback.$$"
+cp -a "$target" "$staged"
+mv "$release" "$rollback_backup"
+mv "$staged" "$release"
+
+restore() {
+  rm -rf "$release"
+  mv "$rollback_backup" "$release"
+  /usr/bin/docker compose --project-name glucocare \
+    -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
+}
+trap 'restore' ERR
+
+/usr/bin/docker compose --project-name glucocare \
+  -f "$release/deploy/compose.yml" up -d --build --remove-orphans
+"$release/deploy/vps/glucocare-healthcheck"
+trap - ERR
+
+rm -rf "$rollback_backup"
+printf 'Rollback complete: %s\n' "$target"

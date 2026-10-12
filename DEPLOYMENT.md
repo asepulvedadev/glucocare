@@ -12,6 +12,9 @@ This repository contains GlucoCare product/design documentation, the Expo mobile
 - Compose project name: `glucocare` (explicit to avoid collisions with other `deploy` directories on the shared VPS).
 - Host bindings: `127.0.0.1:18080` (docs) and `127.0.0.1:18082` (Expo web).
 - No nginx public route or new port is opened by this deployment.
+- Successful releases retain the three most recent previous bundles under
+  `/srv/glucocare/releases`; this is a static-artifact rollback cache, not a
+  patient-data backup.
 
 The localhost-only binding is intentional because no public domain was supplied and the server is shared. Add a domain and TLS reverse-proxy route only as a separate reviewed change.
 
@@ -60,3 +63,33 @@ ssh -N \
 Then open `http://127.0.0.1:18080/` for docs or `http://127.0.0.1:18082/` for the Expo web companion.
 
 Native Android/iOS binaries are distributed through EAS/App Store/Google Play; they are not served by this VPS container.
+
+## Health monitoring and rollback
+
+The repository includes a payload-free synthetic check at
+`deploy/vps/glucocare-healthcheck`. It verifies both container health checks,
+the two localhost `/healthz` endpoints, and the cross-origin headers required by
+the Expo SQLite web worker. Install the supplied systemd units once as root on
+the VPS; the timer runs every five minutes and keeps evidence in the system
+journal:
+
+```bash
+install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-rollback /usr/local/sbin/glucocare-rollback
+install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-healthcheck.service /etc/systemd/system/glucocare-healthcheck.service
+install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-healthcheck.timer /etc/systemd/system/glucocare-healthcheck.timer
+systemctl daemon-reload
+systemctl enable --now glucocare-healthcheck.timer
+systemctl start glucocare-healthcheck.service
+systemctl status glucocare-healthcheck.timer --no-pager
+journalctl -u glucocare-healthcheck.service -n 20 --no-pager
+```
+
+The rollback command restores the newest retained release and re-runs the same
+health check. A named snapshot can be selected with
+`glucocare-rollback 20261012T120000Z-1234`. The command automatically restores
+the current release if the candidate does not become healthy.
+
+These checks are intentionally local because the staging surfaces are not
+public. External alerting still requires an operations credential/channel and
+must be configured separately; no health check logs application or clinical
+payloads.

@@ -8,6 +8,9 @@ base=/srv/glucocare
 incoming="$base/.incoming"
 release="$base/release"
 previous="$base/release.previous"
+history="$base/releases"
+
+install -d -o glucocare-deploy -g glucocare-deploy -m 0750 "$history"
 
 rm -rf "$incoming"
 install -d -o glucocare-deploy -g glucocare-deploy -m 0750 "$incoming"
@@ -54,5 +57,15 @@ if ! wait_for_health; then
   exit 1
 fi
 
-rm -rf "$previous"
+if [ -d "$previous" ]; then
+  # Keep a small, local release history so an operator can roll back after the
+  # one-shot previous-release window has already been consumed.
+  snapshot="$history/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  mv "$previous" "$snapshot"
+  find "$history" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+    | sort -nr \
+    | tail -n +4 \
+    | cut -d' ' -f2- \
+    | xargs -r rm -rf
+fi
 /usr/bin/docker image prune --force --filter "until=168h" >/dev/null || true

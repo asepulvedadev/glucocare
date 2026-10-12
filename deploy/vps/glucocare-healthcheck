@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Synthetic health check for the static docs and Expo web staging surfaces.
+# It never reads application payloads or user data.
+base="${GLUCOCARE_BASE:-/srv/glucocare}"
+compose_file="$base/release/deploy/compose.yml"
+web_container="glucocare-glucocare-web-1"
+docs_container="glucocare-docs"
+
+log() {
+  printf '%s glucocare-health %s\n' "$(date -u +%FT%H:%M:%SZ)" "$*"
+}
+
+require_healthy() {
+  local container="$1"
+  local state
+  state=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || true)
+  if [ "$state" != healthy ]; then
+    log "container=$container health=$state"
+    return 1
+  fi
+}
+
+check_http() {
+  local url="$1"
+  /usr/bin/curl --fail --silent --show-error --max-time 10 "$url" >/dev/null
+  log "http=ok url=$url"
+}
+
+check_web_headers() {
+  local headers
+  headers=$(/usr/bin/curl --fail --silent --show-error --max-time 10 --head http://127.0.0.1:18082/)
+  grep -iq '^Cross-Origin-Opener-Policy: same-origin' <<<"$headers"
+  grep -iq '^Cross-Origin-Embedder-Policy: require-corp' <<<"$headers"
+  log "web_headers=ok"
+}
+
+test -f "$compose_file"
+require_healthy "$web_container"
+require_healthy "$docs_container"
+check_http http://127.0.0.1:18080/healthz
+check_http http://127.0.0.1:18082/healthz
+check_web_headers
+log "status=healthy"

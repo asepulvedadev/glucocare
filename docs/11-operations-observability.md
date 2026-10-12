@@ -94,6 +94,19 @@ Each runbook identifies owner, detection, containment, user messaging, recovery,
 - Record evidence without patient payloads.
 - Ensure deletion commitments include backup expiration behavior.
 
+For the current static VPS staging deployment, each successful release retains
+the three most recent bundles in `/srv/glucocare/releases`. The checked-in
+`deploy/vps/glucocare-rollback` command rehydrates one of those bundles, rebuilds
+the Compose project, and restores the previous bundle if the synthetic health
+check fails. This is a deployment rollback cache, not a backup of local mobile
+records or hosted Supabase data; provider backups and user-controlled exports
+remain the recovery sources for those datasets.
+
+The checked-in `deploy/vps/glucocare-healthcheck` script is payload-free. It
+checks container health, both localhost health endpoints, and the COOP/COEP
+headers needed by the web SQLite worker. Install its systemd timer before beta;
+the timer is a detection mechanism, not a substitute for on-call alerting.
+
 ## Release strategy
 
 - Internal dogfood with synthetic data.
