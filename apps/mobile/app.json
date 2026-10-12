@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "GlucoCare",
+    "slug": "glucocare",
+    "scheme": "glucocare",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.glucocare.app"
+    },
+    "android": {
+      "package": "com.glucocare.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0D0F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-secure-store",
+      "expo-notifications",
+      "expo-font"
+    ]
+  }
+}

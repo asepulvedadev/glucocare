@@ -1,0 +1,21 @@
+export type GlucoseUnit = 'mg/dL' | 'mmol/L';
+export type GlucoseContext = 'fasting' | 'before_meal' | 'after_meal' | 'bedtime' | 'other';
+
+export type GlucoseReading = {
+  id: string;
+  value: number;
+  unit: GlucoseUnit;
+  context: GlucoseContext;
+  recordedAt: string;
+  symptoms?: string;
+  note?: string;
+  syncState: 'local';
+};
+
+export const glucoseContextLabel: Record<GlucoseContext, string> = {
+  fasting: 'En ayunas',
+  before_meal: 'Antes de comer',
+  after_meal: 'Después de comer',
+  bedtime: 'Antes de dormir',
+  other: 'Otro momento',
+};

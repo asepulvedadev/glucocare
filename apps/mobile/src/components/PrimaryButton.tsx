@@ -1,0 +1,26 @@
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { colors, radii, spacing } from '../theme/tokens';
+
+export function PrimaryButton({ label, onPress, tone = 'primary', disabled = false }: { label: string; onPress: () => void; tone?: 'primary' | 'urgent' | 'quiet'; disabled?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [styles.base, tone === 'urgent' && styles.urgent, tone === 'quiet' && styles.quiet, pressed && styles.pressed, disabled && styles.disabled]}
+    >
+      <Text style={[styles.label, tone === 'quiet' && styles.quietLabel]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  base: { minHeight: 52, borderRadius: radii.sm, backgroundColor: colors.amber, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md },
+  urgent: { backgroundColor: colors.urgent },
+  quiet: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
+  label: { color: colors.canvas, fontSize: 16, fontWeight: '700' },
+  quietLabel: { color: colors.textPrimary },
+  pressed: { opacity: 0.78 },
+  disabled: { opacity: 0.45 },
+});
