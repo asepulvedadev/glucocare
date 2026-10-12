@@ -42,6 +42,11 @@ check_web_headers() {
 
 test -f "$compose_file"
 test -r "$env_file"
+set -a
+. "$env_file"
+set +a
+: "${POSTGRES_DB:?POSTGRES_DB is required in $env_file}"
+: "${POSTGRES_USER:?POSTGRES_USER is required in $env_file}"
 require_healthy "$web_container"
 require_healthy "$docs_container"
 require_healthy "$api_container"
@@ -51,4 +56,18 @@ check_http http://127.0.0.1:18080/healthz
 check_http http://127.0.0.1:18082/healthz
 check_http http://127.0.0.1:18084/healthz
 check_web_headers
+queue_limit="${GLUCOCARE_ALERT_QUEUE_BACKLOG_LIMIT:-100}"
+queued=$(/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+  -f "$compose_file" exec -T glucocare-db \
+  psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align \
+  --command="SELECT count(*) FROM alert_deliveries WHERE status IN ('queued', 'processing') AND queued_at < now() - interval '10 minutes'" | tr -d '[:space:]')
+if ! [[ "$queued" =~ ^[0-9]+$ ]]; then
+  log "alert_queue_backlog=invalid"
+  exit 1
+fi
+if [ "$queued" -gt "$queue_limit" ]; then
+  log "alert_queue_backlog=$queued limit=$queue_limit"
+  exit 1
+fi
+log "alert_queue_backlog=$queued limit=$queue_limit"
 log "status=healthy"

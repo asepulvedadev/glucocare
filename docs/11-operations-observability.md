@@ -103,9 +103,10 @@ records or PostgreSQL data; encrypted PostgreSQL backups and user-controlled
 exports remain the recovery sources for those datasets.
 
 The checked-in `deploy/vps/glucocare-healthcheck` script is payload-free. It
-checks container health, both localhost health endpoints, and the COOP/COEP
-headers needed by the web SQLite worker. Install its systemd timer before beta;
-the timer is a detection mechanism, not a substitute for on-call alerting.
+checks container health, both localhost health endpoints, the COOP/COEP
+headers needed by the web SQLite worker, and the age-bounded alert queue
+backlog. Install its systemd timer before beta; the timer is a detection
+mechanism, not a substitute for on-call alerting.
 
 The API records alert requests and delivery states on the VPS. The private
 worker is deployed with email and SMS adapters disabled by default; operators
