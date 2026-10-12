@@ -15,10 +15,10 @@ concurrency:
 jobs:
   validate:
     name: Validate documentation and image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate Markdown links and required files
         run: python3 scripts/validate-docs.py
@@ -40,7 +40,7 @@ jobs:
     name: Deploy documentation staging to AutoKing VPS
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -50,7 +50,7 @@ jobs:
       DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure SSH
         shell: bash
