@@ -4,6 +4,10 @@
 
 Build vertical slices that are usable and testable on a physical device. Do not build every screen first and postpone safety, offline storage, or accessibility.
 
+## Implementation status
+
+The current repository has completed the local-first core through the first continuity slice: glucose capture/history, clinician-provided risk classification, measurement and medication occurrence tracking, appointments, emergency card/help, trusted contacts, export/deletion, accessibility preferences, optional Auth, replayable outbox uploads, a cursor-bounded pull projection, Supabase RLS/account deletion, a private alert-delivery worker scaffold, CI, and AutoKing web staging. The remaining release blockers are conflict resolution across devices, native physical-device evidence, provider credentials/monitoring, clinician/legal review, and a clinician portal if that scope is approved.
+
 ## Phase 0 — validation and governance (2–3 weeks)
 
 ### Outcomes

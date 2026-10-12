@@ -2,7 +2,7 @@
 
 GlucoCare is an accessible, local-first Expo application that helps people living with diabetes record glucose, follow clinician-defined routines, remember medicines and appointments, and reach a trusted person in an urgent situation. This plan turns the current product and safety blueprint into an executable 18-week delivery sequence.
 
-> **Current baseline:** the Expo mobile application contains a working offline-first vertical slice (glucose logging, measurement plans, medication reminders, appointments, safety card/help, trusted contacts, local export/deletion, optional Auth, and a glucose outbox sync foundation). The Supabase schema/RLS foundation is versioned and locally linted; clinician configuration, full multi-entity sync, automated test depth, and hosted production deployment remain to be delivered.
+> **Current baseline (2026-10-12):** the Expo mobile application contains a working offline-first vertical slice with glucose logging and clinician-provided risk classification, measurement and medication occurrence ledgers, appointments, safety card/help, trusted contacts, local export/deletion, accessibility preferences, optional Auth, replayable outbox uploads, and a cursor-bounded cloud pull projection. The Supabase schema/RLS foundation, account deletion flow, private alert-delivery worker scaffold, CI, EAS profiles, and AutoKing-hosted web staging are versioned and validated. Full conflict resolution, native physical-device evidence, production provider credentials, clinician portal/configuration, and clinical/legal sign-off remain release gates.
 
 ## 1. Outcome and boundaries
 

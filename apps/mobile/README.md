@@ -20,7 +20,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Configurable measurement plan with one, two, or three daily times and optional care-team instructions.
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.
 - Device-local accessibility preferences for large text, high contrast, simple mode, and reduced motion.
-- Optional Supabase Auth session with SecureStore/local web persistence and an explicit glucose outbox sync action.
+- Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.
 - Cloud account deletion workflow that leaves local data available until the user separately deletes it.
 - SQLCipher config enabled for native builds; web SQLite uses the documented WASM/COOP/COEP setup.
 

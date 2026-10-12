@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 11;
+const DATABASE_VERSION = 12;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -181,8 +181,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   }
 
   if (currentVersion < 11) {
+    const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
+    if (!glucoseColumns.some((column) => column.name === 'risk_classification')) {
+      await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN risk_classification TEXT');
+    }
     await db.execAsync(`
-      ALTER TABLE glucose_readings ADD COLUMN risk_classification TEXT;
       CREATE TABLE IF NOT EXISTS care_plan (
         id TEXT PRIMARY KEY NOT NULL,
         low_threshold REAL,
@@ -195,6 +198,16 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       );
     `);
     currentVersion = 11;
+  }
+
+  if (currentVersion < 12) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sync_metadata (
+        id TEXT PRIMARY KEY NOT NULL,
+        last_pulled_at TEXT
+      );
+    `);
+    currentVersion = 12;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

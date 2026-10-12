@@ -29,9 +29,10 @@ export default function ProfileScreen() {
     setSyncing(true);
     try {
       const result = await syncPendingData(db, session);
+      await Promise.all([refreshGlucose(), refreshCare(), refreshSafety()]);
       if (result.state === 'disabled') Alert.alert('Sincronización no disponible', 'Este build no tiene configurada la conexión cloud.');
-      else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
-      else Alert.alert('Sincronización lista', result.uploaded ? `Se subieron ${result.uploaded} registro(s).` : 'No había registros pendientes.');
+      else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
+      else Alert.alert('Sincronización lista', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}.`);
     } catch { Alert.alert('Sincronización no disponible', 'No se pudo conectar. Tu información local permanece intacta.'); }
     finally { setSyncing(false); }
   }

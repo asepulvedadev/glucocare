@@ -3,11 +3,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { markOutboxAcked, markOutboxFailed, listPendingOutbox } from './db/outboxRepository';
 import { supabase } from './supabase';
 import type { Json } from './types/supabase';
+import { getLastPulledAt } from './db/syncMetadataRepository';
+import { pullCloudData } from './syncPull';
 
 type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'failed';
   uploaded: number;
   failed: number;
+  downloaded: number;
 };
 
 function toUnit(unit: unknown) {
@@ -157,8 +160,8 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
 }
 
 export async function syncPendingData(db: SQLiteDatabase, session: Session | null): Promise<SyncResult> {
-  if (!supabase) return { state: 'disabled', uploaded: 0, failed: 0 };
-  if (!session?.user.id) return { state: 'signed_out', uploaded: 0, failed: 0 };
+  if (!supabase) return { state: 'disabled', uploaded: 0, failed: 0, downloaded: 0 };
+  if (!session?.user.id) return { state: 'signed_out', uploaded: 0, failed: 0, downloaded: 0 };
 
   const { error: patientError } = await supabase.from('patients').upsert({ id: session.user.id, display_name: session.user.email ?? '' }, { onConflict: 'id', ignoreDuplicates: true });
   if (patientError) throw patientError;
@@ -196,5 +199,11 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
       failed += 1;
     }
   }
-  return { state: failed > 0 ? 'failed' : 'synced', uploaded, failed };
+  let downloaded = 0;
+  try {
+    downloaded = await pullCloudData(db, session.user.id, await getLastPulledAt(db));
+  } catch {
+    failed += 1;
+  }
+  return { state: failed > 0 ? 'failed' : 'synced', uploaded, failed, downloaded };
 }

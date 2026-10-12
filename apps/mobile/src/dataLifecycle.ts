@@ -28,6 +28,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     measurementPlan: await rows(db, 'measurement_plans'),
     measurementOccurrences: await rows(db, 'measurement_occurrences'),
     syncOutbox: await rows(db, 'sync_outbox'),
+    syncMetadata: await rows(db, 'sync_metadata'),
     accessibilityPreferences: await rows(db, 'accessibility_preferences'),
   };
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
@@ -73,6 +74,7 @@ export async function deleteAllLocalData(db: SQLiteDatabase) {
     await db.runAsync('DELETE FROM measurement_occurrences');
     await db.runAsync('DELETE FROM measurement_plans');
     await db.runAsync('DELETE FROM sync_outbox');
+    await db.runAsync('DELETE FROM sync_metadata');
     await db.runAsync('DELETE FROM accessibility_preferences');
   });
 }
