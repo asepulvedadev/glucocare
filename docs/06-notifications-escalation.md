@@ -19,7 +19,7 @@ Expo supports scheduling local notifications and receiving push notifications, b
 
 ### Bounded horizon
 
-The mobile implementation schedules a rolling 14-day window of one-shot medication notifications, capped by the medication's configured start/end dates. Fourteen days × three daily times stays below iOS' pending-notification limit while leaving room for appointment and safety notices. It never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
+The mobile implementation schedules rolling 14-day windows of one-shot medication and glucose-check notifications. Medication reminders are capped by configured start/end dates; glucose checks honor weekdays, plan validity, fixed times, and explicitly recorded meal-relative windows. Fourteen days × three daily times stays below iOS' pending-notification limit while leaving room for appointment and safety notices. It never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
 
 - App start/resume.
 - Schedule edit.
@@ -123,4 +123,4 @@ Record timestamps for request, provider response, callback, failure reason categ
 - Timezone change: exactly one future occurrence per intended local time.
 - Duplicate API request: idempotency prevents duplicate contact alerts.
 - App killed/rebooted: reminders are reconciled on the next supported lifecycle event.
-- Notification tap: medication reminders open the care routine and urgent glucose alerts open help; unknown payload routes are ignored.
+- Notification tap: medication reminders open the care routine, glucose-check reminders open the log form, and urgent glucose alerts open help; unknown payload routes are ignored.

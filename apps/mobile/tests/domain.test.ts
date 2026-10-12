@@ -11,6 +11,7 @@ import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseS
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
+import { measurementReminderDates } from '../src/domain/measurementReminder';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -107,6 +108,22 @@ describe('bounded medication reminder schedule', () => {
   it('returns no schedule for disabled or invalid medication dates', () => {
     expect(medicationReminderDates({ enabled: false, hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
     expect(medicationReminderDates({ enabled: true, startDate: '2026-02-30', hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
+  });
+});
+
+describe('measurement reminder schedule', () => {
+  it('schedules fixed windows only on active weekdays within the horizon', () => {
+    const dates = measurementReminderDates({ id: 'default', readingsPerDay: 1, times: ['08:00'], timings: ['fasting'], weekdays: [1], updatedAt: '2026-10-12T00:00:00.000Z' }, [], new Date('2026-10-12T06:00:00-05:00'), 3);
+    expect(dates).toHaveLength(1);
+    expect(dates[0].windowIndex).toBe(0);
+    expect(dates[0].scheduledAt.getDay()).toBe(1);
+  });
+
+  it('anchors meal-relative reminders to explicit meal events', () => {
+    const dates = measurementReminderDates({ id: 'default', readingsPerDay: 1, times: ['08:00'], windows: [{ kind: 'meal_relative', meal: 'lunch', offsetMinutes: 120, timing: 'after_meal' }], weekdays: [1, 2, 3, 4, 5, 6, 7], updatedAt: '2026-10-12T00:00:00.000Z' }, [{ id: 'meal-1', mealType: 'lunch', occurredAt: '2026-10-12T12:00:00-05:00', createdAt: '2026-10-12T12:00:00-05:00', syncState: 'local' }], new Date('2026-10-12T12:30:00-05:00'), 3);
+    expect(dates).toHaveLength(1);
+    expect(dates[0].mealEventId).toBe('meal-1');
+    expect(dates[0].scheduledAt.getHours()).toBe(14);
   });
 });
 

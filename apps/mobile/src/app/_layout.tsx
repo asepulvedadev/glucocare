@@ -52,7 +52,7 @@ function AppNavigator() {
       const url = notification.request.content.data?.url;
       // Only follow routes emitted by this app; notification payloads are not
       // a general-purpose navigation input.
-      if (url === '/care' || url === '/help') router.push(url);
+      if (url === '/care' || url === '/help' || url === '/log') router.push(url);
     };
     const lastResponse = Notifications.getLastNotificationResponse();
     if (lastResponse?.notification) redirectFromNotification(lastResponse.notification);

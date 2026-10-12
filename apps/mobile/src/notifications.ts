@@ -3,13 +3,19 @@ import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
 import type { GlucoseRiskClassification } from './types/carePlan';
+import type { MeasurementPlan } from './types/measurement';
+import type { MealEvent } from './types/meals';
 import { medicationReminderDates } from './domain/medicationReminder';
+import { measurementReminderDates } from './domain/measurementReminder';
 import { listMedications, updateMedicationReminder } from './db/careRepository';
 import { listAppointments, updateAppointmentReminder } from './db/appointmentsRepository';
+import { getMeasurementPlan } from './db/measurementRepository';
+import { listMealEvents } from './db/mealRepository';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 const MEDICATION_CHANNEL = 'medications';
 const APPOINTMENT_CHANNEL = 'appointments';
+const MEASUREMENT_CHANNEL = 'measurements';
 const GLUCOSE_RISK_CHANNEL = 'glucose-risk';
 let notificationPreferences = { sound: true, vibration: true };
 
@@ -56,6 +62,7 @@ export async function ensurePermission(): Promise<ReminderPermission> {
   if (Platform.OS === 'android') {
     await ensureAndroidChannel(MEDICATION_CHANNEL, 'Recordatorios de medicamentos', Notifications.AndroidImportance.HIGH, [0, 250, 250, 250], '#FFBE55');
     await ensureAndroidChannel(APPOINTMENT_CHANNEL, 'Recordatorios de citas', Notifications.AndroidImportance.DEFAULT, [0, 180, 120, 180], '#54D6C0');
+    await ensureAndroidChannel(MEASUREMENT_CHANNEL, 'Recordatorios de mediciones', Notifications.AndroidImportance.DEFAULT, [0, 180, 120, 180], '#75B7D8');
     await ensureAndroidChannel(GLUCOSE_RISK_CHANNEL, 'Alertas de glucosa', Notifications.AndroidImportance.HIGH, [0, 350, 200, 350], '#FF7A5C');
   }
   const current = await Notifications.getPermissionsAsync();
@@ -100,6 +107,41 @@ export async function scheduleMedicationSnooze(medication: Medication, minutes =
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + minutes * 60 * 1000), channelId: channelId(MEDICATION_CHANNEL) },
   });
   return permission;
+}
+
+async function cancelScheduledMeasurementReminders() {
+  if (Platform.OS === 'web') return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const ids = scheduled
+    .filter((request) => request.content.data && typeof request.content.data === 'object' && (request.content.data as Record<string, unknown>).kind === 'measurement')
+    .map((request) => request.identifier);
+  await cancelReminder(ids);
+}
+
+/** Rebuilds bounded fixed and meal-relative glucose-check reminders. */
+export async function refreshMeasurementPlanReminders(plan: MeasurementPlan | null, meals: MealEvent[]) {
+  if (Platform.OS === 'web') return { state: 'unavailable' as const, notificationIds: [] as string[] };
+  await cancelScheduledMeasurementReminders();
+  const dates = measurementReminderDates(plan, meals);
+  if (!dates.length) return { state: 'unavailable' as const, notificationIds: [] as string[] };
+  const permission = await ensurePermission();
+  if (permission !== 'granted') return { state: permission, notificationIds: [] as string[] };
+  const notificationIds: string[] = [];
+  for (const item of dates) {
+    const trigger: Notifications.SchedulableNotificationTriggerInput = Platform.OS === 'android'
+      ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: item.scheduledAt, channelId: channelId(MEASUREMENT_CHANNEL) }
+      : { type: Notifications.SchedulableTriggerInputTypes.DATE, date: item.scheduledAt };
+    notificationIds.push(await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Medición de glucosa',
+        body: 'Tienes una medición planificada. Registra el valor y sigue las instrucciones de tu equipo de salud.',
+        data: { kind: 'measurement', url: '/log', scheduledAt: item.scheduledAt.toISOString(), windowIndex: item.windowIndex, mealEventId: item.mealEventId },
+        sound: notificationPreferences.sound ? 'default' : undefined,
+      },
+      trigger,
+    }));
+  }
+  return { state: permission, notificationIds };
 }
 
 /** Sends a generic local notification so the user can verify current settings. */
@@ -208,7 +250,7 @@ export async function reconcileAppointmentReminder(appointment: Appointment) {
 /** Rebuilds already scheduled native reminders after a sound/vibration change. */
 export async function refreshNotificationSchedules(db: SQLiteDatabase) {
   if (Platform.OS === 'web') return;
-  const [medications, appointments] = await Promise.all([listMedications(db), listAppointments(db)]);
+  const [medications, appointments, measurementPlan, meals] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), listMealEvents(db)]);
   await Promise.all(medications.map(async (medication) => {
     await cancelReminder(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []));
     const scheduled = await scheduleMedicationReminder(medication);
@@ -219,4 +261,5 @@ export async function refreshNotificationSchedules(db: SQLiteDatabase) {
     const scheduled = await scheduleAppointmentReminder(appointment);
     await updateAppointmentReminder(db, appointment.id, scheduled.state === 'granted' ? 'scheduled' : scheduled.state === 'permission_denied' ? 'permission_denied' : 'unavailable', scheduled.notificationId);
   }));
+  await refreshMeasurementPlanReminders(measurementPlan, meals);
 }
