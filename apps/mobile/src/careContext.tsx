@@ -13,6 +13,8 @@ import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
 import type { MedicationOccurrence, MedicationOccurrenceStatus } from './types/medicationOccurrences';
 import type { MeasurementOccurrence, MeasurementOccurrenceStatus } from './types/measurementOccurrences';
 import type { CarePlan, NewCarePlan } from './types/carePlan';
+import { insertMealEvent, listMealEvents } from './db/mealRepository';
+import type { MealEvent, NewMealEvent } from './types/meals';
 import { newId } from './ids';
 
 type CareContextValue = {
@@ -22,11 +24,13 @@ type CareContextValue = {
   appointments: Appointment[];
   measurementPlan: MeasurementPlan | null;
   carePlan: CarePlan | null;
+  mealEvents: MealEvent[];
   isLoading: boolean;
   addMedication: (input: NewMedication) => Promise<ReminderPermission>;
   addAppointment: (input: NewAppointment) => Promise<ReminderPermission>;
   saveMeasurementPlan: (input: NewMeasurementPlan) => Promise<void>;
   saveCarePlan: (input: NewCarePlan) => Promise<void>;
+  addMealEvent: (input: NewMealEvent) => Promise<void>;
   markMedicationOccurrence: (occurrenceId: string, status: MedicationOccurrenceStatus) => Promise<void>;
   snoozeMedicationOccurrence: (occurrenceId: string) => Promise<ReminderPermission>;
   markMeasurementOccurrence: (occurrenceId: string, status: MeasurementOccurrenceStatus) => Promise<void>;
@@ -44,6 +48,7 @@ export function CareProvider({ children }: PropsWithChildren) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [measurementPlan, setMeasurementPlan] = useState<MeasurementPlan | null>(null);
   const [carePlan, setCarePlan] = useState<CarePlan | null>(null);
+  const [mealEvents, setMealEvents] = useState<MealEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const reconcileStoredReminders = useCallback(async (storedMedications: Medication[], storedAppointments: Appointment[]) => {
@@ -73,7 +78,7 @@ export function CareProvider({ children }: PropsWithChildren) {
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [storedMedications, storedAppointments, storedPlan, storedCarePlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]);
+      const [storedMedications, storedAppointments, storedPlan, storedCarePlan, storedMeals] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db), listMealEvents(db)]);
       const reconciled = await reconcileStoredReminders(storedMedications, storedAppointments);
       await ensureTodaysMedicationOccurrences(db, reconciled.medications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
@@ -85,12 +90,13 @@ export function CareProvider({ children }: PropsWithChildren) {
       setCarePlan(storedCarePlan);
       setAppointments(reconciled.appointments);
       setMeasurementPlan(storedPlan);
+      setMealEvents(storedMeals);
     } finally { setIsLoading(false); }
   }, [db, reconcileStoredReminders]);
 
   useEffect(() => {
     let active = true;
-    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db)]).then(async ([storedMedications, storedAppointments, storedPlan, storedCarePlan]) => {
+    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db), listMealEvents(db)]).then(async ([storedMedications, storedAppointments, storedPlan, storedCarePlan, storedMeals]) => {
       const reconciled = await reconcileStoredReminders(storedMedications, storedAppointments);
       await ensureTodaysMedicationOccurrences(db, reconciled.medications);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
@@ -103,6 +109,7 @@ export function CareProvider({ children }: PropsWithChildren) {
         setCarePlan(storedCarePlan);
         setAppointments(reconciled.appointments);
         setMeasurementPlan(storedPlan);
+        setMealEvents(storedMeals);
       }
     }).finally(() => {
       if (active) setIsLoading(false);
@@ -163,6 +170,15 @@ export function CareProvider({ children }: PropsWithChildren) {
     setCarePlan(plan);
   }, [db]);
 
+  const addMealEvent = useCallback(async (input: NewMealEvent) => {
+    const stored = await insertMealEvent(db, input);
+    setMealEvents((current) => [stored, ...current]);
+    const plan = await getMeasurementPlan(db);
+    const occurredAt = new Date(input.occurredAt);
+    await ensureTodaysMeasurementOccurrences(db, plan, occurredAt);
+    setMeasurementOccurrences(await listTodaysMeasurementOccurrences(db, occurredAt));
+  }, [db]);
+
   const markMedicationOccurrence = useCallback(async (occurrenceId: string, status: MedicationOccurrenceStatus) => {
     const updated = await recordMedicationOccurrence(db, occurrenceId, status);
     setMedicationOccurrences((current) => current.map((occurrence) => occurrence.id === updated.id ? updated : occurrence));
@@ -189,7 +205,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
   }, [db]);
 
-  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);
+  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, addAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 

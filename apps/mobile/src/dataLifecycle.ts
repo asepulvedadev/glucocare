@@ -91,6 +91,18 @@ function jsonArray(value: unknown, field: string): string {
   }
 }
 
+function jsonObjectArray(value: unknown, field: string): string {
+  if (value === undefined || value === null) return '[]';
+  if (typeof value !== 'string' || value.length > 32_000) throw new Error(`Invalid ${field}.`);
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed) || parsed.some((item) => !isObject(item))) throw new Error('not an object array');
+    return JSON.stringify(parsed);
+  } catch {
+    throw new Error(`Invalid ${field}.`);
+  }
+}
+
 function rowsFrom(bundle: JsonObject, field: string): JsonObject[] {
   const value = bundle[field];
   if (value === undefined) return [];
@@ -125,6 +137,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     helpEvents: await rows(db, 'help_events'),
     measurementPlan: await rows(db, 'measurement_plans'),
     measurementOccurrences: await rows(db, 'measurement_occurrences'),
+    mealEvents: await rows(db, 'meal_events'),
     syncOutbox: await rows(db, 'sync_outbox'),
     syncMetadata: await rows(db, 'sync_metadata'),
     accessibilityPreferences: await rows(db, 'accessibility_preferences'),
@@ -185,6 +198,7 @@ async function clearLocalTables(db: SQLiteDatabase) {
   await db.runAsync('DELETE FROM trusted_contacts');
   await db.runAsync('DELETE FROM help_events');
   await db.runAsync('DELETE FROM measurement_plans');
+  await db.runAsync('DELETE FROM meal_events');
   await db.runAsync('DELETE FROM sync_outbox');
   await db.runAsync('DELETE FROM sync_metadata');
   await db.runAsync('DELETE FROM sync_conflicts');
@@ -211,6 +225,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
   const helpEvents = rowsFrom(bundle, 'helpEvents');
   const measurementPlan = rowsFrom(bundle, 'measurementPlan');
   const measurementOccurrences = rowsFrom(bundle, 'measurementOccurrences');
+  const mealEvents = rowsFrom(bundle, 'mealEvents');
   const accessibilityPreferences = rowsFrom(bundle, 'accessibilityPreferences');
 
   await cancelStoredReminders(db);
@@ -285,8 +300,8 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
 
     for (const row of measurementPlan) {
       await db.runAsync(
-        `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, weekdays_json, effective_from, effective_to, instructions, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), integer(row, 'readings_per_day', 1, 3), jsonArray(row.times_json, 'times_json'), jsonArray(row.timings_json, 'timings_json'), jsonArray(row.weekdays_json, 'weekdays_json'), optionalString(row, 'effective_from'), optionalString(row, 'effective_to'), optionalString(row, 'instructions'), requiredString(row, 'updated_at'),
+        `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), integer(row, 'readings_per_day', 1, 3), jsonArray(row.times_json, 'times_json'), jsonArray(row.timings_json, 'timings_json'), jsonObjectArray(row.windows_json, 'windows_json'), jsonArray(row.weekdays_json, 'weekdays_json'), optionalString(row, 'effective_from'), optionalString(row, 'effective_to'), optionalString(row, 'instructions'), requiredString(row, 'updated_at'),
       );
     }
 
@@ -298,11 +313,19 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       );
     }
 
+    for (const row of mealEvents) {
+      const mealType = enumValue(row, 'meal_type', ['breakfast', 'lunch', 'dinner', 'snack'] as const);
+      await db.runAsync(
+        `INSERT INTO meal_events (id, meal_type, occurred_at, note, created_at, sync_state) VALUES (?, ?, ?, ?, ?, 'local')`,
+        requiredString(row, 'id'), mealType, requiredString(row, 'occurred_at'), optionalString(row, 'note'), requiredString(row, 'created_at'),
+      );
+    }
+
     for (const row of measurementOccurrences) {
       const status = enumValue(row, 'status', ['planned', 'due', 'completed', 'skipped', 'expired'] as const);
       await db.runAsync(
-        `INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, status, completed_reading_id, completed_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), requiredString(row, 'plan_id'), requiredString(row, 'scheduled_at'), status, optionalString(row, 'completed_reading_id'), optionalString(row, 'completed_at'), requiredString(row, 'created_at'),
+        `INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, window_index, meal_event_id, status, completed_reading_id, completed_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'plan_id'), requiredString(row, 'scheduled_at'), row.window_index === undefined || row.window_index === null ? null : integer(row, 'window_index', 0, 32), optionalString(row, 'meal_event_id'), status, optionalString(row, 'completed_reading_id'), optionalString(row, 'completed_at'), requiredString(row, 'created_at'),
       );
     }
 
@@ -313,7 +336,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       );
     }
   });
-  return { imported: glucose.length + carePlan.length + medications.length + appointments.length + emergencyCard.length + trustedContacts.length + helpEvents.length + measurementPlan.length + medicationOccurrences.length + measurementOccurrences.length, contactsRequireConsent: trustedContacts.length > 0 };
+  return { imported: glucose.length + carePlan.length + medications.length + appointments.length + emergencyCard.length + trustedContacts.length + helpEvents.length + measurementPlan.length + medicationOccurrences.length + measurementOccurrences.length + mealEvents.length, contactsRequireConsent: trustedContacts.length > 0 };
 }
 
 export async function deleteAllLocalData(db: SQLiteDatabase) {

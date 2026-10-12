@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 25;
+const DATABASE_VERSION = 26;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -336,6 +336,26 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!glucoseColumns.some((column) => column.name === 'source')) await db.execAsync("ALTER TABLE glucose_readings ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
     if (!glucoseColumns.some((column) => column.name === 'meal_offset_minutes')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN meal_offset_minutes INTEGER');
     currentVersion = 25;
+  }
+
+  if (currentVersion < 26) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS meal_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        meal_type TEXT NOT NULL CHECK (meal_type IN ('breakfast', 'lunch', 'dinner', 'snack')),
+        occurred_at TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        sync_state TEXT NOT NULL DEFAULT 'pending' CHECK (sync_state IN ('local', 'pending', 'synced', 'failed'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_meal_events_occurred_at ON meal_events(occurred_at DESC);
+    `);
+    const occurrenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(measurement_occurrences)');
+    const measurementColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(measurement_plans)');
+    if (!measurementColumns.some((column) => column.name === 'windows_json')) await db.execAsync("ALTER TABLE measurement_plans ADD COLUMN windows_json TEXT NOT NULL DEFAULT '[]'");
+    if (!occurrenceColumns.some((column) => column.name === 'window_index')) await db.execAsync('ALTER TABLE measurement_occurrences ADD COLUMN window_index INTEGER');
+    if (!occurrenceColumns.some((column) => column.name === 'meal_event_id')) await db.execAsync('ALTER TABLE measurement_occurrences ADD COLUMN meal_event_id TEXT REFERENCES meal_events(id) ON DELETE SET NULL');
+    currentVersion = 26;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

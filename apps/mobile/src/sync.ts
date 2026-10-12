@@ -107,8 +107,21 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const times = Array.isArray(payload.times) ? payload.times.map(String) : [];
       const { error } = await supabase.from('measurement_plan_revisions').upsert({
         patient_id: patientId, revision_number: 1, readings_per_day: Number(payload.readingsPerDay), times_json: times,
-        timings_json: Array.isArray(payload.timings) ? payload.timings.map(String) : [], weekdays_json: Array.isArray(payload.weekdays) ? payload.weekdays.map(Number) : [1, 2, 3, 4, 5, 6, 7], effective_from: payload.effectiveFrom ? String(payload.effectiveFrom) : undefined, effective_to: payload.effectiveTo ? String(payload.effectiveTo) : null, instructions: payload.instructions ? String(payload.instructions) : null, source: 'patient_entered',
+        timings_json: Array.isArray(payload.timings) ? payload.timings.map(String) : [], windows_json: Array.isArray(payload.windows) ? payload.windows as Json : [], weekdays_json: Array.isArray(payload.weekdays) ? payload.weekdays.map(Number) : [1, 2, 3, 4, 5, 6, 7], effective_from: payload.effectiveFrom ? String(payload.effectiveFrom) : undefined, effective_to: payload.effectiveTo ? String(payload.effectiveTo) : null, instructions: payload.instructions ? String(payload.instructions) : null, source: 'patient_entered',
       }, { onConflict: 'patient_id,revision_number' });
+      if (error) throw error;
+      return;
+    }
+    case 'meal_event': {
+      if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
+      const { error } = await supabase.from('meal_events').upsert({
+        id: event.entityId,
+        patient_id: patientId,
+        meal_type: stringValue(payload.mealType, 'snack') as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+        occurred_at: stringValue(payload.occurredAt, new Date().toISOString()),
+        note: payload.note ? String(payload.note) : null,
+        created_at: stringValue(payload.createdAt, new Date().toISOString()),
+      }, { onConflict: 'id' });
       if (error) throw error;
       return;
     }
@@ -120,6 +133,8 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const { error } = await supabase.from('measurement_occurrences').upsert({
         id: event.entityId, patient_id: patientId, plan_revision_id: plan.data.id,
         scheduled_at: stringValue(payload.scheduledAt, new Date().toISOString()),
+        window_index: typeof payload.windowIndex === 'number' ? payload.windowIndex : null,
+        meal_event_id: payload.mealEventId ? String(payload.mealEventId) : null,
         status: stringValue(payload.status, 'planned') as 'planned' | 'due' | 'completed' | 'skipped' | 'expired',
         completed_reading_id: payload.completedReadingId ? String(payload.completedReadingId) : null,
         completed_at: payload.completedAt ? String(payload.completedAt) : null,

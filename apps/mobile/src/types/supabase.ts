@@ -603,39 +603,86 @@ export type Database = {
           },
         ]
       }
+      meal_events: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          meal_type: string
+          note: string | null
+          occurred_at: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id: string
+          meal_type: string
+          note?: string | null
+          occurred_at: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          meal_type?: string
+          note?: string | null
+          occurred_at?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       measurement_occurrences: {
         Row: {
           completed_at: string | null
           completed_reading_id: string | null
           created_at: string
           id: string
+          meal_event_id: string | null
           patient_id: string
           plan_revision_id: string
           scheduled_at: string
           status: string
           updated_at: string
+          window_index: number | null
         }
         Insert: {
           completed_at?: string | null
           completed_reading_id?: string | null
           created_at?: string
           id: string
+          meal_event_id?: string | null
           patient_id: string
           plan_revision_id: string
           scheduled_at: string
           status?: string
           updated_at?: string
+          window_index?: number | null
         }
         Update: {
           completed_at?: string | null
           completed_reading_id?: string | null
           created_at?: string
           id?: string
+          meal_event_id?: string | null
           patient_id?: string
           plan_revision_id?: string
           scheduled_at?: string
           status?: string
           updated_at?: string
+          window_index?: number | null
         }
         Relationships: [
           {
@@ -643,6 +690,13 @@ export type Database = {
             columns: ["completed_reading_id"]
             isOneToOne: false
             referencedRelation: "glucose_readings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "measurement_occurrences_meal_event_id_fkey"
+            columns: ["meal_event_id"]
+            isOneToOne: false
+            referencedRelation: "meal_events"
             referencedColumns: ["id"]
           },
           {
@@ -676,6 +730,7 @@ export type Database = {
           times_json: Json
           timings_json: Json
           weekdays_json: Json
+          windows_json: Json
         }
         Insert: {
           clinician_verified?: boolean
@@ -691,6 +746,7 @@ export type Database = {
           times_json?: Json
           timings_json?: Json
           weekdays_json?: Json
+          windows_json?: Json
         }
         Update: {
           clinician_verified?: boolean
@@ -706,6 +762,7 @@ export type Database = {
           times_json?: Json
           timings_json?: Json
           weekdays_json?: Json
+          windows_json?: Json
         }
         Relationships: [
           {

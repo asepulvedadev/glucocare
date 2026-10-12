@@ -20,6 +20,10 @@ function jsonArray(value: unknown) {
   return JSON.stringify(Array.isArray(value) ? value.map(String) : []);
 }
 
+function jsonValueArray(value: unknown) {
+  return JSON.stringify(Array.isArray(value) ? value : []);
+}
+
 function jsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -92,18 +96,27 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
         const times = jsonArray(payload.times_json);
         const timings = jsonArray(payload.timings_json);
         const weekdays = jsonArray(payload.weekdays_json);
+        const windows = jsonValueArray(payload.windows_json);
         await db.runAsync(
-          `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
-           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-          Number(payload.readings_per_day), times, timings, weekdays, dateOnly(payload.effective_from), dateOnly(payload.effective_to), payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
+          `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
+           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, windows_json = excluded.windows_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+          Number(payload.readings_per_day), times, timings, windows, weekdays, dateOnly(payload.effective_from), dateOnly(payload.effective_to), payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
         );
         break;
       }
       case 'measurement_occurrence':
         await db.runAsync(
-          `UPDATE measurement_occurrences SET scheduled_at = ?, status = ?, completed_reading_id = ?, completed_at = ? WHERE id = ?`,
-          requiredString(payload.scheduled_at, 'scheduled_at'), stringValue(payload.status, 'planned'), payload.completed_reading_id ? String(payload.completed_reading_id) : null, payload.completed_at ? String(payload.completed_at) : null, conflict.entityId,
+          `UPDATE measurement_occurrences SET scheduled_at = ?, window_index = ?, meal_event_id = ?, status = ?, completed_reading_id = ?, completed_at = ? WHERE id = ?`,
+          requiredString(payload.scheduled_at, 'scheduled_at'), typeof payload.window_index === 'number' ? payload.window_index : null, payload.meal_event_id ? String(payload.meal_event_id) : null, stringValue(payload.status, 'planned'), payload.completed_reading_id ? String(payload.completed_reading_id) : null, payload.completed_at ? String(payload.completed_at) : null, conflict.entityId,
+        );
+        break;
+      case 'meal_event':
+        await db.runAsync(
+          `INSERT INTO meal_events (id, meal_type, occurred_at, note, created_at, sync_state)
+           VALUES (?, ?, ?, ?, ?, 'synced')
+           ON CONFLICT(id) DO UPDATE SET meal_type = excluded.meal_type, occurred_at = excluded.occurred_at, note = excluded.note, sync_state = 'synced'`,
+          conflict.entityId, ['breakfast', 'lunch', 'dinner', 'snack'].includes(String(payload.meal_type)) ? String(payload.meal_type) : 'snack', requiredString(payload.occurred_at, 'occurred_at'), payload.note ? String(payload.note) : null, requiredString(payload.created_at, 'created_at'),
         );
         break;
       case 'appointment':

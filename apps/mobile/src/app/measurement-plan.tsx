@@ -7,20 +7,27 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { colors, radii, spacing } from '../theme/tokens';
-import { isValidMeasurementTime, validateMeasurementPlan } from '../domain/measurementPlan';
-import { measurementTimingLabel, type MeasurementTiming } from '../types/measurement';
+import { isValidMeasurementTime, legacyMeasurementWindows, validateMeasurementPlan, validateMeasurementWindows } from '../domain/measurementPlan';
+import { measurementTimingLabel, type MeasurementTiming, type MeasurementWindow } from '../types/measurement';
+import { mealTypeLabel, type MealType } from '../types/meals';
 
 const defaultTimes = ['08:00', '14:00', '20:00'];
 const timingOptions: MeasurementTiming[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
 const weekdayOptions = [{ value: 1, label: 'L', name: 'lunes' }, { value: 2, label: 'M', name: 'martes' }, { value: 3, label: 'X', name: 'miércoles' }, { value: 4, label: 'J', name: 'jueves' }, { value: 5, label: 'V', name: 'viernes' }, { value: 6, label: 'S', name: 'sábado' }, { value: 7, label: 'D', name: 'domingo' }];
 const everyDay = weekdayOptions.map((day) => day.value);
+const mealOptions: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+const defaultWindow = (index: number): MeasurementWindow => ({ kind: 'fixed', time: defaultTimes[index] ?? '08:00', timing: 'other' });
 
 export default function MeasurementPlanScreen() {
   const { measurementPlan, saveMeasurementPlan } = useCare();
   const initialCount = measurementPlan?.readingsPerDay ?? 1;
   const [count, setCount] = useState<1 | 2 | 3>(initialCount);
-  const [times, setTimes] = useState<string[]>(measurementPlan?.times ?? [defaultTimes[0]]);
-  const [timings, setTimings] = useState<MeasurementTiming[]>(measurementPlan?.timings ?? Array.from({ length: initialCount }, () => 'other'));
+  const initialWindows = measurementPlan ? legacyMeasurementWindows(measurementPlan) : [defaultWindow(0)];
+  const [modes, setModes] = useState<('fixed' | 'meal_relative')[]>(initialWindows.map((window) => window.kind));
+  const [times, setTimes] = useState<string[]>(initialWindows.map((window) => window.kind === 'fixed' ? window.time : defaultTimes[0]));
+  const [timings, setTimings] = useState<MeasurementTiming[]>(initialWindows.map((window) => window.timing));
+  const [meals, setMeals] = useState<MealType[]>(initialWindows.map((window) => window.kind === 'meal_relative' ? window.meal : 'breakfast'));
+  const [offsets, setOffsets] = useState<string[]>(initialWindows.map((window) => window.kind === 'meal_relative' ? String(window.offsetMinutes) : '120'));
   const [weekdays, setWeekdays] = useState<number[]>(measurementPlan?.weekdays?.length ? measurementPlan.weekdays : everyDay);
   const [effectiveFrom, setEffectiveFrom] = useState(measurementPlan?.effectiveFrom ?? '');
   const [effectiveTo, setEffectiveTo] = useState(measurementPlan?.effectiveTo ?? '');
@@ -33,6 +40,9 @@ export default function MeasurementPlanScreen() {
     setCount(next);
     setTimes((current) => Array.from({ length: next }, (_, index) => current[index] ?? defaultTimes[index]));
     setTimings((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'other'));
+    setModes((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'fixed'));
+    setMeals((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'breakfast'));
+    setOffsets((current) => Array.from({ length: next }, (_, index) => current[index] ?? '120'));
   }
 
   function toggleWeekday(day: number) {
@@ -44,15 +54,20 @@ export default function MeasurementPlanScreen() {
 
   async function save() {
     const selectedTimings = timings.slice(0, count);
+    const selectedModes = modes.slice(0, count);
+    const windows: MeasurementWindow[] = selectedModes.map((mode, index) => mode === 'fixed'
+      ? { kind: 'fixed', time: selectedTimes[index], timing: selectedTimings[index] }
+      : { kind: 'meal_relative', meal: meals[index] ?? 'breakfast', offsetMinutes: Number(offsets[index]), timing: selectedTimings[index] });
+    const fixedTimes = windows.map((window) => window.kind === 'fixed' ? window.time : '00:00');
     const normalizedFrom = effectiveFrom.trim();
     const normalizedTo = effectiveTo.trim();
-    if (selectedTimes.some((time) => !isValidMeasurementTime(time)) || !validateMeasurementPlan(count, selectedTimes, selectedTimings, { weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined })) {
-      Alert.alert('Revisa el plan', 'Usa horas HH:MM, selecciona al menos un día y fechas AAAA-MM-DD válidas.');
+    if (windows.some((window) => window.kind === 'fixed' && !isValidMeasurementTime(window.time)) || !validateMeasurementWindows(count, windows) || !validateMeasurementPlan(count, fixedTimes, selectedTimings, { weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined })) {
+      Alert.alert('Revisa el plan', 'Usa horas HH:MM, tiempos relativos entre -240 y 1440 minutos, selecciona al menos un día y fechas AAAA-MM-DD válidas.');
       return;
     }
     setSaving(true);
     try {
-      await saveMeasurementPlan({ readingsPerDay: count, times: selectedTimes, timings: selectedTimings, weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined, instructions: instructions.trim() || undefined });
+      await saveMeasurementPlan({ readingsPerDay: count, times: fixedTimes, timings: selectedTimings, windows, weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined, instructions: instructions.trim() || undefined });
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva las instrucciones y vuelve a intentarlo.');
@@ -79,11 +94,18 @@ export default function MeasurementPlanScreen() {
       <Panel>
         <Caption>HORAS SUGERIDAS</Caption>
         {selectedTimes.map((time, index) => <View key={index} style={styles.slot}>
-          <TextInput accessibilityLabel={`Hora de lectura ${index + 1}`} value={time} onChangeText={(value) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />
+          <Caption>TIPO DE VENTANA</Caption>
+          <View style={styles.chips}>{(['fixed', 'meal_relative'] as const).map((mode) => <Pressable key={mode} accessibilityRole="radio" accessibilityState={{ selected: (modes[index] ?? 'fixed') === mode }} onPress={() => setModes((current) => current.map((item, itemIndex) => itemIndex === index ? mode : item))} style={[styles.chip, (modes[index] ?? 'fixed') === mode && styles.chipSelected]}><Text style={[styles.chipText, (modes[index] ?? 'fixed') === mode && styles.chipSelectedText]}>{mode === 'fixed' ? 'Hora fija' : 'Después de comida'}</Text></Pressable>)}</View>
+          {(modes[index] ?? 'fixed') === 'fixed' ? <TextInput accessibilityLabel={`Hora de lectura ${index + 1}`} value={time} onChangeText={(value) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} /> : <>
+            <Caption>COMIDA DE REFERENCIA</Caption>
+            <View style={styles.chips}>{mealOptions.map((meal) => <Pressable key={meal} accessibilityRole="radio" accessibilityState={{ selected: (meals[index] ?? 'breakfast') === meal }} onPress={() => setMeals((current) => current.map((item, itemIndex) => itemIndex === index ? meal : item))} style={[styles.chip, (meals[index] ?? 'breakfast') === meal && styles.chipSelected]}><Text style={[styles.chipText, (meals[index] ?? 'breakfast') === meal && styles.chipSelectedText]}>{mealTypeLabel[meal]}</Text></Pressable>)}</View>
+            <TextInput accessibilityLabel={`Minutos respecto a ${mealTypeLabel[meals[index] ?? 'breakfast']}`} value={offsets[index] ?? '120'} onChangeText={(value) => setOffsets((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} keyboardType="numbers-and-punctuation" placeholder="120" placeholderTextColor={colors.textDisabled} style={styles.input} />
+            <Body>Ejemplo: 120 después requiere registrar la comida para crear la medición.</Body>
+          </>}
           <Caption>CONTEXTO DE LA LECTURA</Caption>
           <View style={styles.chips}>{timingOptions.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: (timings[index] ?? 'other') === option }} onPress={() => setTimings((current) => current.map((item, itemIndex) => itemIndex === index ? option : item))} style={[styles.chip, (timings[index] ?? 'other') === option && styles.chipSelected]}><Text style={[styles.chipText, (timings[index] ?? 'other') === option && styles.chipSelectedText]}>{measurementTimingLabel[option]}</Text></Pressable>)}</View>
         </View>)}
-        <Body>El contexto ayuda a ordenar las lecturas, pero no interpreta resultados ni sustituye el plan de tu equipo de salud.</Body>
+        <Body>Las ventanas relativas solo se activan después de registrar explícitamente la comida. GlucoCare no infiere horarios ni interpreta resultados.</Body>
       </Panel>
       <Panel>
         <Caption>INSTRUCCIONES OPCIONALES</Caption>

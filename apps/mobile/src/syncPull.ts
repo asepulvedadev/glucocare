@@ -4,6 +4,7 @@ import type { GlucoseContext, GlucoseSource, GlucoseUnit } from './types/domain'
 import type { GlucoseRiskClassification, CarePlan } from './types/carePlan';
 import type { MedicationRoute } from './types/care';
 import type { AppointmentStatus } from './types/appointments';
+import type { MealType } from './types/meals';
 import { setLastPulledAt } from './db/syncMetadataRepository';
 import { listPendingSyncEntities } from './db/outboxRepository';
 import { recordSyncConflict } from './db/syncConflictRepository';
@@ -32,8 +33,16 @@ function localAppointmentStatus(status: string): AppointmentStatus {
   return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'cancelled'].includes(status) ? status as AppointmentStatus : 'requested';
 }
 
+function localMealType(value: string): MealType {
+  return ['breakfast', 'lunch', 'dinner', 'snack'].includes(value) ? value as MealType : 'snack';
+}
+
 function jsonArray(value: unknown) {
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+function jsonValueArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
 }
 
 function jsonObject(value: unknown): Record<string, unknown> {
@@ -49,19 +58,20 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   // Freeze the pull window before querying so records committed while this pull
   // is in flight are picked up by the next run instead of being skipped.
   const until = new Date().toISOString();
-  const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
+  const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, mealEventsResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
     supabase.from('glucose_readings').select('id,value_original,unit_original,measured_at,context,source,meal_offset_minutes,symptoms,note,classification,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medications').select('id,name,dose_text,route,prescriber_name,instructions,start_date,end_date,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
     supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('appointments').select('id,title,provider,specialty,insurer,authorization_number,facility,scheduled_at,requested_at,status,location,virtual_url,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,timings_json,weekdays_json,effective_from,effective_to,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,window_index,meal_event_id,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('meal_events').select('id,meal_type,occurred_at,note,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,timings_json,windows_json,weekdays_json,effective_from,effective_to,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,diagnosis_year,insulin_use,allergies,critical_conditions,care_provider,care_facility,insurer,policy_number,emergency_number,emergency_region,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
     supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
   ]);
-  const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
+  const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, mealEventsResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
   if (errors.length) throw errors[0].error;
 
   const pending = await listPendingSyncEntities(db);
@@ -115,10 +125,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       if (await preserveLocalChange('measurement_plan', 'default', plan as unknown as Record<string, unknown>)) {
         // Keep the user's local plan until its pending event is acknowledged.
       } else {
-      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
-        VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), JSON.stringify(jsonArray(plan.timings_json)), JSON.stringify(jsonArray(plan.weekdays_json)), localDateOnly(plan.effective_from) ?? null, localDateOnly(plan.effective_to) ?? null, plan.instructions, plan.created_at);
+      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
+        VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, windows_json = excluded.windows_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), JSON.stringify(jsonArray(plan.timings_json)), JSON.stringify(jsonValueArray(plan.windows_json)), JSON.stringify(jsonArray(plan.weekdays_json)), localDateOnly(plan.effective_from) ?? null, localDateOnly(plan.effective_to) ?? null, plan.instructions, plan.created_at);
       downloaded += 1;
       }
     }
@@ -138,12 +148,20 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         appointment.id, appointment.title, appointment.provider, appointment.specialty, appointment.insurer, appointment.authorization_number, appointment.facility, appointment.scheduled_at ?? new Date().toISOString(), appointment.requested_at ?? appointment.created_at, localAppointmentStatus(appointment.status), appointment.location, appointment.virtual_url, appointment.preparation_notes, appointment.created_at);
       downloaded += 1;
     }
+    for (const meal of mealEventsResult.data ?? []) {
+      if (await preserveLocalChange('meal_event', meal.id, meal as unknown as Record<string, unknown>)) continue;
+      await db.runAsync(`INSERT INTO meal_events (id, meal_type, occurred_at, note, created_at, sync_state)
+        VALUES (?, ?, ?, ?, ?, 'synced')
+        ON CONFLICT(id) DO UPDATE SET meal_type = excluded.meal_type, occurred_at = excluded.occurred_at, note = excluded.note, sync_state = 'synced'`,
+        meal.id, localMealType(meal.meal_type), meal.occurred_at, meal.note, meal.created_at);
+      downloaded += 1;
+    }
     for (const occurrence of measurementOccurrencesResult.data ?? []) {
       if (await preserveLocalChange('measurement_occurrence', occurrence.id, occurrence as unknown as Record<string, unknown>)) continue;
-      await db.runAsync(`INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, status, completed_reading_id, completed_at, created_at)
-        VALUES (?, 'default', ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, status = excluded.status, completed_reading_id = excluded.completed_reading_id, completed_at = excluded.completed_at`,
-        occurrence.id, occurrence.scheduled_at, occurrence.status, occurrence.completed_reading_id, occurrence.completed_at, occurrence.created_at);
+      await db.runAsync(`INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, window_index, meal_event_id, status, completed_reading_id, completed_at, created_at)
+        VALUES (?, 'default', ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, window_index = excluded.window_index, meal_event_id = excluded.meal_event_id, status = excluded.status, completed_reading_id = excluded.completed_reading_id, completed_at = excluded.completed_at`,
+        occurrence.id, occurrence.scheduled_at, occurrence.window_index, occurrence.meal_event_id, occurrence.status, occurrence.completed_reading_id, occurrence.completed_at, occurrence.created_at);
       downloaded += 1;
     }
     const carePlan = carePlanResult.data;

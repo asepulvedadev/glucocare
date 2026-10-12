@@ -13,7 +13,8 @@ import { measurementTimingLabel } from '../../types/measurement';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { availableAppointmentTransitions } from '../../domain/appointmentState';
 import { isCarePlanExpired } from '../../domain/glucoseRisk';
-import { isMeasurementPlanActive } from '../../domain/measurementPlan';
+import { isMeasurementPlanActive, legacyMeasurementWindows } from '../../domain/measurementPlan';
+import { mealTypeLabel } from '../../types/meals';
 import { isMedicationActive } from '../../domain/medication';
 import { colors, spacing } from '../../theme/tokens';
 
@@ -155,7 +156,7 @@ export default function CareScreen() {
         </View>
         {measurementPlan ? <>
           <Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text>
-          <Body>{measurementPlan.times.map((time, index) => `${time} · ${measurementTimingLabel[measurementPlan.timings?.[index] ?? 'other']}`).join(' | ')}</Body>
+          <Body>{legacyMeasurementWindows(measurementPlan).map((window) => window.kind === 'fixed' ? `${window.time} · ${measurementTimingLabel[window.timing]}` : `${window.offsetMinutes >= 0 ? '+' : ''}${window.offsetMinutes} min después de ${mealTypeLabel[window.meal]} · ${measurementTimingLabel[window.timing]}`).join(' | ')}</Body>
           <Caption>{measurementPlanActive ? 'Activo hoy' : 'No genera mediciones hoy según los días o la vigencia configurada'}</Caption>
           {measurementPlan.effectiveFrom || measurementPlan.effectiveTo ? <Caption>Vigencia: {measurementPlan.effectiveFrom ?? 'sin inicio'} → {measurementPlan.effectiveTo ?? 'sin final'}</Caption> : null}
           {measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}
@@ -165,7 +166,7 @@ export default function CareScreen() {
               const actionable = status === 'planned' || status === 'due';
               return <View key={occurrence.id} style={styles.measurementRow}>
                 <View style={styles.measurementCopy}>
-                  <View><Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text><Caption>{measurementTimingLabel[measurementPlan.timings?.[occurrenceIndex] ?? 'other']}</Caption></View>
+                  <View><Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text><Caption>{(() => { const window = legacyMeasurementWindows(measurementPlan)[occurrence.windowIndex ?? occurrenceIndex]; return window?.kind === 'meal_relative' ? `${window.offsetMinutes >= 0 ? '+' : ''}${window.offsetMinutes} min después de ${mealTypeLabel[window.meal]}` : measurementTimingLabel[window?.timing ?? 'other']; })()}</Caption></View>
                   <Text style={styles.status} accessibilityLabel={`Estado de la medición: ${measurementOccurrenceStatusLabel[status]}`}>{measurementOccurrenceStatusLabel[status]}</Text>
                 </View>
                 {actionable ? <View style={styles.occurrenceActions}>

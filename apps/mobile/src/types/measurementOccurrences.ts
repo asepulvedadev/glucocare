@@ -4,6 +4,8 @@ export type MeasurementOccurrence = {
   id: string;
   planId: 'default';
   scheduledAt: string;
+  windowIndex?: number;
+  mealEventId?: string;
   status: MeasurementOccurrenceStatus;
   completedReadingId?: string;
   completedAt?: string;

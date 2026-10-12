@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { availableAppointmentTransitions, canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
-import { isMeasurementPlanActive, isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
+import { isMeasurementPlanActive, isValidMeasurementTime, validateMeasurementPlan, validateMeasurementWindows } from '../src/domain/measurementPlan';
 import { isMedicationActive, isValidMedicationDate } from '../src/domain/medication';
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
@@ -43,6 +43,19 @@ describe('measurement plan validation', () => {
     expect(validateMeasurementPlan(1, ['08:00'], ['fasting'], { weekdays: [1, 1] })).toBe(false);
     expect(isMeasurementPlanActive({ weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' }, new Date('2026-10-05T12:00:00-05:00'))).toBe(true);
     expect(isMeasurementPlanActive({ weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' }, new Date('2026-10-06T12:00:00-05:00'))).toBe(false);
+  });
+
+  it('validates explicit meal-relative windows without inferring a meal', () => {
+    expect(validateMeasurementWindows(2, [
+      { kind: 'fixed', time: '07:30', timing: 'fasting' },
+      { kind: 'meal_relative', meal: 'lunch', offsetMinutes: 120, timing: 'after_meal' },
+    ])).toBe(true);
+    expect(validateMeasurementWindows(1, [
+      { kind: 'meal_relative', meal: 'dinner', offsetMinutes: 1441, timing: 'after_meal' },
+    ])).toBe(false);
+    expect(validateMeasurementWindows(1, [
+      { kind: 'meal_relative', meal: 'breakfast', offsetMinutes: 60.5, timing: 'after_meal' },
+    ])).toBe(false);
   });
 });
 

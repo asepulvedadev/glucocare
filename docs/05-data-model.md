@@ -22,6 +22,8 @@ erDiagram
   MEDICATION_SCHEDULE_REVISION ||--o{ MEDICATION_OCCURRENCE : generates
   PATIENT ||--o{ MEASUREMENT_PLAN_REVISION : follows
   MEASUREMENT_PLAN_REVISION ||--o{ MEASUREMENT_OCCURRENCE : generates
+  PATIENT ||--o{ MEAL_EVENT : records
+  MEAL_EVENT ||--o{ MEASUREMENT_OCCURRENCE : anchors
   PATIENT ||--o{ TRUSTED_CONTACT : authorizes
   PATIENT ||--o{ EMERGENCY_INCIDENT : creates
   EMERGENCY_INCIDENT ||--o{ ALERT_DELIVERY : dispatches
@@ -94,11 +96,15 @@ Occurrence statuses:
 
 ### Measurement plan and occurrence
 
-The current mobile slice supports fixed local times, weekday exceptions, temporary validity dates, and a clinician/user-provided context per reading (for example, fasting or after a meal). Meal-relative windows remain a planned extension; the app does not infer meal times or guess a missing context.
+The current mobile slice supports fixed local times, explicit meal-relative windows, weekday exceptions, temporary validity dates, and a clinician/user-provided context per reading. A relative window is resolved only from an explicitly recorded `meal_event`; the app never infers meal times or guesses a missing context.
 
 Occurrence statuses:
 
 `planned | due | completed | skipped | expired`
+
+### Meal event
+
+An explicit patient-entered meal timestamp (`breakfast`, `lunch`, `dinner`, or `snack`) with an optional note. Meal events are only anchors for relative measurement windows; they never imply nutrition, dosing, or a clinical interpretation.
 
 ### Trusted contact
 

@@ -1,4 +1,5 @@
-import type { MeasurementPlan, MeasurementTiming } from '../types/measurement';
+import type { MeasurementPlan, MeasurementTiming, MeasurementWindow } from '../types/measurement';
+import type { MealType } from '../types/meals';
 
 export function isValidMeasurementTime(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -9,6 +10,7 @@ export function isValidMeasurementTime(value: string) {
 }
 
 const validWeekdays = [1, 2, 3, 4, 5, 6, 7];
+const validMeals: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 function isValidDateOnly(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -26,6 +28,24 @@ export function validateMeasurementPlan(readingsPerDay: 1 | 2 | 3, times: string
     && (!options?.effectiveFrom || isValidDateOnly(options.effectiveFrom))
     && (!options?.effectiveTo || isValidDateOnly(options.effectiveTo))
     && (!options?.effectiveFrom || !options?.effectiveTo || options.effectiveFrom <= options.effectiveTo);
+}
+
+export function isValidMeasurementWindow(window: MeasurementWindow) {
+  if (window.kind === 'fixed') return isValidMeasurementTime(window.time) && ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'].includes(window.timing);
+  return validMeals.includes(window.meal)
+    && Number.isInteger(window.offsetMinutes)
+    && window.offsetMinutes >= -240
+    && window.offsetMinutes <= 1440
+    && ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'].includes(window.timing);
+}
+
+export function validateMeasurementWindows(readingsPerDay: 1 | 2 | 3, windows: MeasurementWindow[]) {
+  return windows.length === readingsPerDay && windows.every(isValidMeasurementWindow);
+}
+
+export function legacyMeasurementWindows(plan: Pick<MeasurementPlan, 'times' | 'timings' | 'windows'>): MeasurementWindow[] {
+  if (plan.windows?.length) return plan.windows;
+  return plan.times.map((time, index) => ({ kind: 'fixed' as const, time, timing: plan.timings?.[index] ?? 'other' }));
 }
 
 export function localIsoDate(now: Date) {

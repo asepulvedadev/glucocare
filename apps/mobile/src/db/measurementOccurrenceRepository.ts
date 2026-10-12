@@ -1,8 +1,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { newId } from '../ids';
 import { transitionMeasurementOccurrence } from '../domain/measurementOccurrenceState';
-import { isMeasurementPlanActive } from '../domain/measurementPlan';
+import { isMeasurementPlanActive, legacyMeasurementWindows } from '../domain/measurementPlan';
 import type { MeasurementPlan } from '../types/measurement';
+import type { MealEvent } from '../types/meals';
+import { listMealEventsForDay } from './mealRepository';
 import type { MeasurementOccurrence, MeasurementOccurrenceStatus } from '../types/measurementOccurrences';
 import { enqueueOutbox } from './outboxRepository';
 
@@ -10,6 +12,8 @@ type MeasurementOccurrenceRow = {
   id: string;
   plan_id: 'default';
   scheduled_at: string;
+  window_index: number | null;
+  meal_event_id: string | null;
   status: MeasurementOccurrenceStatus;
   completed_reading_id: string | null;
   completed_at: string | null;
@@ -21,6 +25,8 @@ function mapRow(row: MeasurementOccurrenceRow): MeasurementOccurrence {
     id: row.id,
     planId: row.plan_id,
     scheduledAt: row.scheduled_at,
+    windowIndex: row.window_index ?? undefined,
+    mealEventId: row.meal_event_id ?? undefined,
     status: row.status,
     completedReadingId: row.completed_reading_id ?? undefined,
     completedAt: row.completed_at ?? undefined,
@@ -37,6 +43,35 @@ function scheduledAtForTime(time: string, now: Date) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute).toISOString();
 }
 
+function localIsoDate(now: Date) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+type ResolvedMeasurementScheduleItem = {
+  scheduledAt: string;
+  windowIndex: number;
+  mealEventId?: string;
+};
+
+function resolvedSchedule(plan: MeasurementPlan, meals: MealEvent[], now: Date): ResolvedMeasurementScheduleItem[] {
+  const date = localIsoDate(now);
+  const result: ResolvedMeasurementScheduleItem[] = [];
+  legacyMeasurementWindows(plan).forEach((window, windowIndex) => {
+    if (window.kind === 'fixed') {
+      result.push({ scheduledAt: scheduledAtForTime(window.time, now), windowIndex });
+      return;
+    }
+    const matchingMeals = meals.filter((item) => item.mealType === window.meal);
+    const meal = matchingMeals[matchingMeals.length - 1];
+    if (!meal) return;
+    const scheduled = new Date(new Date(meal.occurredAt).getTime() + window.offsetMinutes * 60 * 1000);
+    if (Number.isFinite(scheduled.getTime()) && localIsoDate(scheduled) === date) {
+      result.push({ scheduledAt: scheduled.toISOString(), windowIndex, mealEventId: meal.id });
+    }
+  });
+  return result;
+}
+
 export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, plan: MeasurementPlan | null, now = new Date()) {
   if (!plan) return;
   const createdAt = new Date().toISOString();
@@ -46,21 +81,24 @@ export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, pla
     await db.runAsync("DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
     return;
   }
-  const schedule = plan.times.map((time) => scheduledAtForTime(time, now));
+  const meals = await listMealEventsForDay(db, start, end);
+  const schedule = resolvedSchedule(plan, meals, now);
   await db.withTransactionAsync(async () => {
     if (schedule.length > 0) {
       const placeholders = schedule.map(() => '?').join(', ');
       await db.runAsync(
         `DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ?
          AND status IN ('planned', 'due') AND scheduled_at NOT IN (${placeholders})`,
-        plan.id, start, end, ...schedule,
+        plan.id, start, end, ...schedule.map((item) => item.scheduledAt),
       );
+    } else {
+      await db.runAsync("DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
     }
-    for (const scheduledAt of schedule) {
+    for (const item of schedule) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO measurement_occurrences (id, plan_id, scheduled_at, status, created_at)
-         VALUES (?, ?, ?, 'planned', ?)`,
-        newId(), plan.id, scheduledAt, createdAt,
+        `INSERT OR IGNORE INTO measurement_occurrences (id, plan_id, scheduled_at, window_index, meal_event_id, status, created_at)
+         VALUES (?, ?, ?, ?, ?, 'planned', ?)`,
+        newId(), plan.id, item.scheduledAt, item.windowIndex, item.mealEventId ?? null, createdAt,
       );
     }
   });
