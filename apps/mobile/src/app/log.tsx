@@ -32,6 +32,11 @@ export default function LogScreen() {
         if (Platform.OS === 'web') router.back();
         return;
       }
+      if (saved.riskClassification === 'low' || saved.riskClassification === 'high') {
+        Alert.alert('Lectura fuera de tu rango', `${glucoseRiskLabel[saved.riskClassification]}. Revisa las instrucciones de tu equipo de salud y observa cómo te sientes.`, [{ text: 'Entendido', onPress: () => router.back() }]);
+        if (Platform.OS === 'web') router.back();
+        return;
+      }
       router.back();
     } catch { Alert.alert('No se pudo guardar', 'Conserva la lectura y vuelve a intentarlo.'); } finally { setSaving(false); }
   }
