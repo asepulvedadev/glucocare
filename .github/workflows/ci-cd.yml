@@ -138,7 +138,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar --exclude-vcs --exclude='./.github' --create --gzip --file=- . \
+          tar --exclude-vcs \
+                --exclude='./.github' \
+                --exclude='./apps/mobile/node_modules' \
+                --exclude='./apps/mobile/.expo' \
+                --create --gzip --file=- . \
             | ssh -i "$HOME/.ssh/id_ed25519" \
                 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
                 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST"
