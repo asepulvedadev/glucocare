@@ -12,7 +12,7 @@ import { useSafety } from '../../safetyContext';
 import { useGlucose } from '../../context';
 import { useCare } from '../../careContext';
 import { useAuth } from '../../authContext';
-import { deleteAllLocalData, restoreFromExportContent, shareExport } from '../../dataLifecycle';
+import { deleteAllLocalData, printClinicianReport, restoreFromExportContent, shareExport } from '../../dataLifecycle';
 import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
 import { useAccessibility } from '../../accessibilityContext';
@@ -29,6 +29,7 @@ export default function ProfileScreen() {
   const { preferences, setPreference, refresh: refreshAccessibility } = useAccessibility();
   const { consent, refresh: refreshPrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
 
   const refreshSyncConflicts = useCallback(async () => {
@@ -69,6 +70,15 @@ export default function ProfileScreen() {
       const result = await shareExport(db, format);
       Alert.alert(result.shared ? 'Exportación lista' : 'Exportación preparada', result.shared ? `Se creó ${result.filename}.` : `No se pudo abrir el menú de compartir. Archivo: ${result.filename}`);
     } catch { Alert.alert('No se pudo exportar', 'Vuelve a intentarlo.'); }
+  }
+
+  async function exportClinicianReport() {
+    setReporting(true);
+    try {
+      const result = await printClinicianReport(db);
+      Alert.alert(result.shared ? 'Reporte listo' : 'Reporte preparado', result.shared ? 'Puedes imprimirlo o compartirlo con tu equipo de salud.' : 'El reporte se abrió en la vista de impresión.');
+    } catch { Alert.alert('No se pudo preparar el reporte', 'Vuelve a intentarlo.'); }
+    finally { setReporting(false); }
   }
 
   async function readPickedJson(asset: DocumentPicker.DocumentPickerAsset) {
@@ -172,6 +182,7 @@ export default function ProfileScreen() {
         <Body>Exporta una copia legible, restaura un respaldo o elimina la información guardada en este dispositivo.</Body>
         <PrimaryButton label="Exportar JSON" tone="quiet" onPress={() => void exportData('json')} />
         <PrimaryButton label="Exportar lecturas CSV" tone="quiet" onPress={() => void exportData('csv')} />
+        <PrimaryButton label={reporting ? 'Preparando reporte…' : 'Imprimir reporte para mi médico'} tone="quiet" disabled={reporting} onPress={() => void exportClinicianReport()} />
         <PrimaryButton label="Restaurar respaldo JSON" tone="quiet" onPress={() => void importData()} />
         <PrimaryButton label="Borrar datos locales" tone="urgent" onPress={requestDelete} />
       </Panel>

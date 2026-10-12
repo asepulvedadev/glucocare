@@ -1,8 +1,10 @@
 import { Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
+import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { cancelMedicationReminder } from './notifications';
+import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportMedication, type ClinicianReportReading } from './report';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -11,6 +13,27 @@ type JsonObject = Record<string, unknown>;
 
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_ROWS_PER_TABLE = 25_000;
+
+export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared: boolean }> {
+  const [card, readings, medications, appointments] = await Promise.all([
+    db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
+    db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
+    db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, times_json, enabled FROM medications ORDER BY name ASC'),
+    db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, scheduled_at, status, location FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
+  ]);
+  const html = buildClinicianReportHtml({ card, readings, medications, appointments });
+  if (Platform.OS === 'web') {
+    await Print.printAsync({ html });
+    return { shared: true };
+  }
+  const { uri } = await Print.printToFileAsync({ html });
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: 'Compartir reporte de GlucoCare' });
+    return { shared: true };
+  }
+  await Print.printAsync({ html });
+  return { shared: false };
+}
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
