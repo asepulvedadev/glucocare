@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Restore a PostgreSQL dump into a disposable database and run a schema smoke
+# query. This never replaces the live database; an operator must perform a
+# separately reviewed restore for an actual disaster recovery event.
+base="${GLUCOCARE_BASE:-/srv/glucocare}"
+env_file="$base/.env"
+compose_file="$base/release/deploy/compose.yml"
+backup_dir="$base/backups"
+backup="${1:-}"
+
+test -r "$env_file"
+test "$(stat -c '%a' "$env_file")" = 600
+test -f "$compose_file"
+
+if [ -z "$backup" ]; then
+  backup=$(find "$backup_dir" -maxdepth 1 -type f -name 'glucocare-*.dump' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
+fi
+test -n "${backup:-}"
+case "$backup" in
+  "$backup_dir"/*) ;;
+  *) printf 'restore-check: backup must be under %s\n' "$backup_dir" >&2; exit 1 ;;
+esac
+test -f "$backup"
+test "$(stat -c '%a' "$backup")" = 600
+
+set -a
+. "$env_file"
+set +a
+: "${POSTGRES_DB:?POSTGRES_DB is required in $env_file}"
+: "${POSTGRES_USER:?POSTGRES_USER is required in $env_file}"
+
+stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
+restore_db="${POSTGRES_DB}_restore_${stamp}"
+cleanup() {
+  /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+    -f "$compose_file" exec -T glucocare-db \
+    dropdb --if-exists --username="$POSTGRES_USER" "$restore_db" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+  -f "$compose_file" exec -T glucocare-db \
+  createdb --username="$POSTGRES_USER" "$restore_db"
+
+/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+  -f "$compose_file" exec -T glucocare-db \
+  pg_restore --exit-on-error --no-owner --username="$POSTGRES_USER" --dbname="$restore_db" < "$backup"
+
+/usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
+  -f "$compose_file" exec -T glucocare-db \
+  psql --username="$POSTGRES_USER" --dbname="$restore_db" --tuples-only --no-align \
+  --command='SELECT version FROM schema_migrations ORDER BY version LIMIT 1' | grep -q '^001$'
+
+printf 'glucocare-db-restore-check: passed %s\n' "$backup"

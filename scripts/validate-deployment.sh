@@ -7,6 +7,7 @@ for script in \
   "$root/deploy/vps/glucocare-deploy" \
   "$root/deploy/vps/glucocare-healthcheck" \
   "$root/deploy/vps/glucocare-db-backup" \
+  "$root/deploy/vps/glucocare-db-restore-check" \
   "$root/deploy/vps/glucocare-rollback" \
   "$root/scripts/deploy-vps-direct.sh"; do
   bash -n "$script"

@@ -118,6 +118,11 @@ timer keeps 30 days locally; operations must also copy the dumps to encrypted
 off-host storage and exercise a restore before beta. The backup command never
 logs database credentials or clinical payloads.
 
+`deploy/vps/glucocare-db-restore-check` exercises the newest dump in a
+disposable database, verifies the migration table, and drops the temporary
+database. It is safe for scheduled restore drills but does not replace a
+reviewed disaster-recovery runbook.
+
 ## Release strategy
 
 - Internal dogfood with synthetic data.

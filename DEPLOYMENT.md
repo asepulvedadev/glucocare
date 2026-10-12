@@ -79,6 +79,7 @@ Instala el backup diario después del primer deploy:
 
 ```bash
 install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-backup /usr/local/sbin/glucocare-db-backup
+install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-restore-check /usr/local/sbin/glucocare-db-restore-check
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.service /etc/systemd/system/glucocare-db-backup.service
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.timer /etc/systemd/system/glucocare-db-backup.timer
 install -o root -g root -m 0700 -d /srv/glucocare/backups
@@ -92,6 +93,19 @@ ls -lh /srv/glucocare/backups
 El script crea dumps custom con permisos 600 y conserva 30 días localmente.
 Configura además una copia cifrada fuera del VPS; la retención local no es
 suficiente frente a pérdida total del servidor.
+
+Para verificar periódicamente que el último dump puede restaurarse, sin tocar
+la base de datos viva:
+
+```bash
+/usr/local/sbin/glucocare-db-restore-check
+# o indicar un dump concreto:
+/usr/local/sbin/glucocare-db-restore-check /srv/glucocare/backups/glucocare-YYYYMMDDTHHMMSSZ.dump
+```
+
+El comando restaura en una base temporal, valida `schema_migrations` y la
+elimina automáticamente. No sustituye un procedimiento de recuperación ante
+desastre aprobado por operaciones.
 
 ## Manual verification on the VPS
 

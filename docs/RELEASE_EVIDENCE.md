@@ -24,6 +24,7 @@ beta authorization.
 | Appointment lifecycle | Requested/authorization/scheduled/completed/missed/denied/cancelled states are synchronized across local storage, cloud pulls, conflict restore, and reminder reconciliation; reopening a denied/missed appointment reschedules its reminder | Automated typecheck/domain coverage; native timing evidence pending |
 | Web staging | Docker Compose, health checks, COOP/COEP headers | VPS verified healthy on `127.0.0.1:18080/18082` |
 | Release recovery | Three-release cache, automatic deploy rollback, `glucocare-rollback` | VPS installed and manually verified |
+| Backup restore check | Disposable-database restore command validates PostgreSQL custom dumps without touching live data | Script and CI syntax validated; restore drill pending |
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |
 | Accessibility | Semantic labels, large text, high contrast, simple mode, reduced motion, persistent help | Code coverage; TalkBack/VoiceOver evidence pending |
 | Range export | CSV and printable clinician report expose a selected 7-day, 30-day, or all-history period; JSON remains a complete backup | Automated range-boundary test; native share/print evidence pending |
