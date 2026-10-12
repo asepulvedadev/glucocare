@@ -147,7 +147,7 @@ async function cancelStoredReminders(db: SQLiteDatabase) {
       const parsed: unknown = row.notification_ids_json ? JSON.parse(row.notification_ids_json) : [];
       if (Array.isArray(parsed)) ids = parsed.filter((item): item is string => typeof item === 'string');
     } catch { /* Keep the legacy single identifier. */ }
-    await cancelMedicationReminder(ids);
+    try { await cancelMedicationReminder(ids); } catch { /* Data deletion/restore must continue if the OS already removed a reminder. */ }
   }
 }
 
