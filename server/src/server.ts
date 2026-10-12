@@ -186,6 +186,17 @@ const glucoseContexts = new Set(['fasting', 'before_meal', 'after_meal', 'bedtim
 const glucoseSources = new Set(['manual', 'import', 'cgm', 'glucometer']);
 const ketoneResults = new Set(['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown']);
 const riskClassifications = new Set(['unclassified', 'in_range', 'low', 'urgent_low', 'high', 'urgent_high']);
+const appointmentStatuses = new Set(['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'missed', 'denied', 'cancelled']);
+const appointmentTransitions: Record<string, string[]> = {
+  requested: ['pending_authorization', 'authorized', 'cancelled'],
+  pending_authorization: ['authorized', 'denied', 'cancelled'],
+  authorized: ['scheduled', 'cancelled'],
+  scheduled: ['completed', 'missed', 'cancelled'],
+  completed: [],
+  missed: ['requested'],
+  denied: ['requested'],
+  cancelled: [],
+};
 
 function isFiniteNumber(value: unknown, minimum: number, maximum: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > minimum && value <= maximum;
@@ -232,11 +243,19 @@ function validateMedicationInventory(payload: JsonObject) {
   return null;
 }
 
+function validateAppointmentPayload(payload: JsonObject) {
+  if ('status' in payload && (typeof payload.status !== 'string' || !appointmentStatuses.has(payload.status))) return 'INVALID_APPOINTMENT_STATUS';
+  for (const field of ['title', 'provider', 'specialty', 'insurer', 'authorizationNumber', 'facility', 'location', 'virtualUrl', 'preparationNotes', 'notes'] as const) {
+    if (field in payload && payload[field] !== null && !isBoundedString(payload[field], 4096)) return 'INVALID_APPOINTMENT_FIELD';
+  }
+  return null;
+}
+
 function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
   if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
   if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card' || entityType === 'privacy_consent'))) return 'INVALID_ENTITY_ID';
   if (typeof payload.id === 'string' && payload.id !== entityId) return 'ENTITY_ID_MISMATCH';
-  for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt']) {
+  for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt', 'requestedAt']) {
     if (field in payload && (typeof payload[field] !== 'string' || Number.isNaN(Date.parse(String(payload[field]))))) return 'INVALID_EVENT_DATE';
   }
   if (entityType === 'glucose_reading') {
@@ -268,6 +287,10 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
     const measurementError = validateMeasurementPlanPayload(payload);
     if (measurementError) return measurementError;
   }
+  if (entityType === 'appointment') {
+    const appointmentError = validateAppointmentPayload(payload);
+    if (appointmentError) return appointmentError;
+  }
   if (entityType === 'privacy_consent') {
     if (entityId !== 'default') return 'INVALID_ENTITY_ID';
     if (typeof payload.localDataConsent !== 'boolean' || typeof payload.cloudSyncConsent !== 'boolean' || typeof payload.emergencySharingConsent !== 'boolean') return 'INVALID_PRIVACY_CONSENT';
@@ -283,7 +306,7 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
 }
 
 function eventDate(payload: JsonObject) {
-  const candidate = [payload.updatedAt, payload.createdAt, payload.recordedAt, payload.occurredAt, payload.scheduledAt]
+  const candidate = [payload.updatedAt, payload.createdAt, payload.recordedAt, payload.occurredAt, payload.scheduledAt, payload.requestedAt]
     .find((value): value is string => typeof value === 'string' && !Number.isNaN(Date.parse(value)));
   return candidate ?? new Date().toISOString();
 }
@@ -400,6 +423,22 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (entityType === 'appointment' && typeof payload.status === 'string') {
+      const current = await client.query<{ payload: JsonObject; updated_at: string }>(
+        `SELECT payload, updated_at FROM health_records WHERE patient_id = $1 AND entity_type = 'appointment' AND entity_id = $2`,
+        [user.id, entityId],
+      );
+      const currentPayload = current.rows[0]?.payload;
+      const currentStatus = typeof currentPayload?.status === 'string' ? currentPayload.status : null;
+      const currentUpdatedAt = current.rows[0]?.updated_at ? Date.parse(current.rows[0].updated_at) : Number.NaN;
+      const incomingUpdatedAt = Date.parse(occurredAt);
+      const isCurrentProjection = !Number.isFinite(currentUpdatedAt) || incomingUpdatedAt >= currentUpdatedAt;
+      if (currentStatus && isCurrentProjection && currentStatus !== payload.status && !(appointmentTransitions[currentStatus] ?? []).includes(payload.status)) {
+        await client.query('ROLLBACK');
+        fail(response, 400, 'INVALID_APPOINTMENT_TRANSITION', 'El cambio de estado de la cita no está permitido.');
+        return;
+      }
+    }
     const inserted = await client.query(
       `INSERT INTO sync_events (id, patient_id, event_type, entity_type, entity_id, payload, occurred_at)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
