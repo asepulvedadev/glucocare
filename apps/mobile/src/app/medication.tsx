@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -7,7 +7,7 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { openNotificationSettings } from '../notifications';
-import { medicationRouteLabel, type MedicationRoute } from '../types/care';
+import { medicationRouteLabel, type Medication, type MedicationRoute } from '../types/care';
 import { colors, radii, spacing } from '../theme/tokens';
 import { isValidMedicationDate } from '../domain/medication';
 
@@ -23,16 +23,27 @@ function parseTime(raw: string) {
 }
 
 export default function MedicationScreen() {
-  const { addMedication } = useCare();
-  const [name, setName] = useState('');
-  const [doseText, setDoseText] = useState('');
-  const [prescriberName, setPrescriberName] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [route, setRoute] = useState<MedicationRoute>('oral');
-  const [times, setTimes] = useState(['08:00', '', '']);
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { medications, isLoading } = useCare();
+  const existing = typeof id === 'string' ? medications.find((item) => item.id === id) : undefined;
+  if (id && !existing && isLoading) return <Screen><Body>Cargando medicamento…</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos ese medicamento en este dispositivo.</Body></Screen>;
+  return <MedicationForm existing={existing} />;
+}
+
+function MedicationForm({ existing }: { existing?: Medication }) {
+  const { addMedication, updateMedication } = useCare();
+  const [name, setName] = useState(existing?.name ?? '');
+  const [doseText, setDoseText] = useState(existing?.doseText ?? '');
+  const [prescriberName, setPrescriberName] = useState(existing?.prescriberName ?? '');
+  const [instructions, setInstructions] = useState(existing?.instructions ?? '');
+  const [startDate, setStartDate] = useState(existing?.startDate ?? '');
+  const [endDate, setEndDate] = useState(existing?.endDate ?? '');
+  const [route, setRoute] = useState<MedicationRoute>(existing?.route ?? 'oral');
+  const [times, setTimes] = useState(existing ? [...(existing.times ?? [`${String(existing.hour).padStart(2, '0')}:${String(existing.minute).padStart(2, '0')}`]), '', ''].slice(0, 3) : ['08:00', '', '']);
+  const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [saving, setSaving] = useState(false);
+
 
   async function save() {
     const parsedTimes = times.filter((value) => value.trim()).map(parseTime);
@@ -48,7 +59,8 @@ export default function MedicationScreen() {
     const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
     setSaving(true);
     try {
-      const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled: true });
+      const input = { name: name.trim(), doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled };
+      const state = existing ? await updateMedication(existing.id, input) : await addMedication(input);
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
           { text: 'Ahora no', style: 'cancel' },
@@ -66,8 +78,8 @@ export default function MedicationScreen() {
   return (
     <Screen>
       <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
-      <Eyebrow>Nuevo medicamento</Eyebrow>
-      <Heading>Configura un recordatorio</Heading>
+      <Eyebrow>{existing ? 'Editar medicamento' : 'Nuevo medicamento'}</Eyebrow>
+      <Heading>{existing ? 'Actualiza la indicación guardada' : 'Configura un recordatorio'}</Heading>
       <Body>Escribe exactamente lo indicado por tu equipo de salud. La app no calcula ni cambia dosis.</Body>
       <Panel>
         <Caption>NOMBRE</Caption>
@@ -77,6 +89,12 @@ export default function MedicationScreen() {
         <Caption>QUIÉN LO INDICÓ (OPCIONAL)</Caption>
         <TextInput accessibilityLabel="Profesional que indicó el medicamento" value={prescriberName} onChangeText={setPrescriberName} placeholder="Ej. Dra. Pérez" placeholderTextColor={colors.textDisabled} style={styles.input} />
       </Panel>
+      {existing ? <Panel>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: enabled }} onPress={() => setEnabled((value) => !value)} style={styles.enableRow}>
+          <View style={[styles.checkbox, enabled && styles.checkboxSelected]}><Text style={styles.checkmark}>{enabled ? '✓' : ''}</Text></View>
+          <Body>{enabled ? 'Medicamento activo y con recordatorios' : 'Medicamento pausado; no generar recordatorios'}</Body>
+        </Pressable>
+      </Panel> : null}
       <Panel>
         <Caption>MEDIO DE SUMINISTRO</Caption>
         <View style={styles.chips}>{routes.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: route === option }} onPress={() => setRoute(option)} style={[styles.chip, route === option && styles.chipSelected]}><Text style={[styles.chipText, route === option && styles.chipSelectedText]}>{medicationRouteLabel[option]}</Text></Pressable>)}</View>
@@ -93,7 +111,7 @@ export default function MedicationScreen() {
         <TextInput accessibilityLabel="Instrucciones del medicamento" value={instructions} onChangeText={setInstructions} placeholder="Ej. tomar con alimentos" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
         <Body>La vigencia documenta la indicación recibida; no cambia las dosis. Fuera de esas fechas no se generan tomas ni recordatorios.</Body>
       </Panel>
-      <PrimaryButton label={saving ? 'Guardando…' : 'Guardar medicamento'} onPress={() => void save()} disabled={saving} />
+      <PrimaryButton label={saving ? 'Guardando…' : existing ? 'Actualizar medicamento' : 'Guardar medicamento'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Los recordatorios son una ayuda y no garantizan la entrega. Si pierdes una toma, sigue tu plan de atención.</Text>
     </Screen>
   );
@@ -109,4 +127,8 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textSecondary, fontSize: 14 },
   chipSelectedText: { color: colors.textPrimary },
   disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg },
+  enableRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  checkbox: { width: 28, height: 28, borderRadius: 6, borderWidth: 2, borderColor: colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
+  checkboxSelected: { borderColor: colors.amber, backgroundColor: colors.amber },
+  checkmark: { color: colors.canvas, fontSize: 20, fontWeight: '800' },
 });

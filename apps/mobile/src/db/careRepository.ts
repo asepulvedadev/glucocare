@@ -87,6 +87,17 @@ export async function insertMedication(db: SQLiteDatabase, medication: Medicatio
   });
 }
 
+export async function updateMedication(db: SQLiteDatabase, medication: Medication) {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE medications SET name = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, notification_id = ?, notification_ids_json = ?, reminder_state = ? WHERE id = ?`,
+      medication.name, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
+      JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]), medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.id,
+    );
+    await enqueueOutbox(db, { id: newId(), entityType: 'medication', entityId: medication.id, eventType: 'medication.updated.v1', payload: medication });
+  });
+}
+
 export async function updateMedicationReminder(db: SQLiteDatabase, medicationId: string, reminderState: ReminderState, notificationId?: string, notificationIds?: string[]) {
   await db.runAsync('UPDATE medications SET reminder_state = ?, notification_id = ?, notification_ids_json = ? WHERE id = ?', reminderState, notificationId ?? null, JSON.stringify(notificationIds ?? (notificationId ? [notificationId] : [])), medicationId);
 }
