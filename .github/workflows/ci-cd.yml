@@ -83,6 +83,10 @@ jobs:
       - name: Domain tests
         run: npm test
 
+      - name: Smoke-test mobile SQLite migration
+        working-directory: .
+        run: python3 scripts/smoke-mobile-outbox-migration.py
+
       - name: Export web bundle
         run: npx expo export --platform web
 
