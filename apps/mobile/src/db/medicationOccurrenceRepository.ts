@@ -15,6 +15,16 @@ type MedicationOccurrenceRow = {
   created_at: string;
 };
 
+export type MedicationHistoryItem = MedicationOccurrence & {
+  medicationName: string;
+  doseText: string;
+};
+
+type MedicationHistoryRow = MedicationOccurrenceRow & {
+  medication_name: string;
+  dose_text: string;
+};
+
 function mapRow(row: MedicationOccurrenceRow): MedicationOccurrence {
   return {
     id: row.id,
@@ -77,6 +87,17 @@ export async function listTodaysMedicationOccurrences(db: SQLiteDatabase, now = 
     start, end,
   );
   return rows.map(mapRow);
+}
+
+export async function listMedicationHistory(db: SQLiteDatabase, limit = 30): Promise<MedicationHistoryItem[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100));
+  const rows = await db.getAllAsync<MedicationHistoryRow>(
+    `SELECT mo.*, m.name AS medication_name, m.dose_text
+     FROM medication_occurrences mo
+     INNER JOIN medications m ON m.id = mo.medication_id
+     ORDER BY mo.scheduled_at DESC LIMIT ${safeLimit}`,
+  );
+  return rows.map((row) => ({ ...mapRow(row), medicationName: row.medication_name, doseText: row.dose_text }));
 }
 
 export async function recordMedicationOccurrence(db: SQLiteDatabase, occurrenceId: string, status: MedicationOccurrenceStatus) {

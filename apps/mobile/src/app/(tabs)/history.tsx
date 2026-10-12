@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
@@ -13,6 +14,9 @@ import { mealTypeLabel } from '../../types/meals';
 import { colors, radii, spacing } from '../../theme/tokens';
 import type { GlucoseContext } from '../../types/domain';
 import { summarizeGlucose } from '../../domain/glucoseSummary';
+import { listMedicationHistory, type MedicationHistoryItem } from '../../db/medicationOccurrenceRepository';
+import { listHelpEvents, type HelpEvent } from '../../db/helpRepository';
+import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
 
 const filters: { value: 'all' | GlucoseContext; label: string }[] = [
   { value: 'all', label: 'Todas' },
@@ -26,8 +30,18 @@ const filters: { value: 'all' | GlucoseContext; label: string }[] = [
 const trendLabel = { higher: 'Más alto que al inicio', lower: 'Más bajo que al inicio', stable: 'Estable', none: 'Sin datos suficientes' } as const;
 
 export default function HistoryScreen() {
+  const db = useSQLiteContext();
   const { readings, isLoading } = useGlucose();
   const { mealEvents } = useCare();
+  const [medicationHistory, setMedicationHistory] = useState<MedicationHistoryItem[]>([]);
+  const [helpHistory, setHelpHistory] = useState<HelpEvent[]>([]);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([listMedicationHistory(db), listHelpEvents(db)]).then(([medications, helpEvents]) => {
+      if (active) { setMedicationHistory(medications); setHelpHistory(helpEvents); }
+    });
+    return () => { active = false; };
+  }, [db]);
   const [filter, setFilter] = useState<'all' | GlucoseContext>('all');
   const filteredReadings = filter === 'all' ? readings : readings.filter((reading) => reading.context === filter);
   const summary = summarizeGlucose(filteredReadings);
@@ -81,6 +95,14 @@ export default function HistoryScreen() {
         </View>
         {mealEvents.length === 0 ? <Body>Aún no hay comidas registradas. Las ventanas de medición relativas solo se activan cuando marcas una comida.</Body> : mealEvents.slice(0, 10).map((meal) => <View key={meal.id} style={styles.mealRow} accessible accessibilityLabel={`${mealTypeLabel[meal.mealType]}, ${new Date(meal.occurredAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{mealTypeLabel[meal.mealType]}</Text>{meal.note ? <Caption>{meal.note}</Caption> : null}</View><Caption>{new Date(meal.occurredAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
+      <Panel>
+        <Caption>HISTORIAL DE MEDICAMENTOS</Caption>
+        {medicationHistory.length === 0 ? <Body>Aún no hay tomas registradas.</Body> : medicationHistory.slice(0, 12).map((occurrence) => <View key={occurrence.id} style={styles.historyRow} accessible accessibilityLabel={`${occurrence.medicationName}, ${medicationOccurrenceStatusLabel[occurrence.status]}, ${new Date(occurrence.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{occurrence.medicationName}</Text><Caption>{occurrence.doseText} · {medicationOccurrenceStatusLabel[occurrence.status]}</Caption></View><Caption>{new Date(occurrence.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+      </Panel>
+      <Panel>
+        <Caption>HISTORIAL DE AYUDA</Caption>
+        {helpHistory.length === 0 ? <Body>No hay eventos de ayuda registrados.</Body> : helpHistory.slice(0, 10).map((event) => <View key={event.id} style={styles.historyRow} accessible accessibilityLabel={`Evento de ayuda, ${event.contactState}, ${new Date(event.createdAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>Solicitud de ayuda</Text><Caption>{event.reason} · {event.contactState}</Caption></View><Caption>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+      </Panel>
     </Screen>
   );
 }
@@ -105,4 +127,5 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   mealRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
   mealTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
 });
