@@ -80,6 +80,15 @@ async function sendDelivery(row: DeliveryRow) {
   return { status: "unknown" as const, failureCode: `${row.channel.toUpperCase()}_PROVIDER_NOT_CONFIGURED` };
 }
 
+async function loadCurrentContact(admin: ReturnType<typeof createClient>, contactId: string) {
+  const { data, error } = await admin.from("trusted_contacts")
+    .select("name,email,phone,consent_status,allowed_event_types")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as DeliveryRow["trusted_contacts"];
+}
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: { code: "METHOD_NOT_ALLOWED", message: "Use POST." } }, 405);
   const workerSecret = Deno.env.get("ALERT_WORKER_SECRET");
@@ -111,7 +120,10 @@ Deno.serve(async (request) => {
     const { data: claimed, error: claimError } = await admin.from("alert_deliveries").update({ claimed_at: now, claim_token: claimToken, attempt_count: row.attempt_count + 1 }).eq("id", row.id).eq("status", "queued").is("claimed_at", null).select("id").maybeSingle();
     if (claimError || !claimed) continue;
     try {
-      const outcome = await sendDelivery(row);
+      // Refresh the contact after claiming the row. The queue projection may
+      // have been loaded before a consent revocation, so the nested contact
+      // data from the initial queue query is not authoritative for dispatch.
+      const outcome = await sendDelivery({ ...row, trusted_contacts: await loadCurrentContact(admin, row.contact_id) });
       if (outcome.status === "retry" && row.attempt_count < 3) {
         const nextAttemptAt = new Date(Date.now() + (2 ** Math.min(row.attempt_count + 1, 3)) * 60_000).toISOString();
         await admin.from("alert_deliveries").update({ status: "queued", claimed_at: null, claim_token: null, next_attempt_at: nextAttemptAt, failure_code: outcome.failureCode }).eq("id", row.id).eq("claim_token", claimToken);
