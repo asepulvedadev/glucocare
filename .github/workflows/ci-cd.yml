@@ -59,6 +59,16 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
+      - name: Generate dependency SBOM
+        run: npm sbom --sbom-format=cyclonedx --omit=dev > glucocare-sbom.json
+
+      - name: Upload dependency SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: glucocare-mobile-sbom-${{ github.sha }}
+          path: apps/mobile/glucocare-sbom.json
+          if-no-files-found: error
+
       - name: Expo doctor
         run: npx expo-doctor
 
