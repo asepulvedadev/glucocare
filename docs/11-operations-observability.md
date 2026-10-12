@@ -32,6 +32,16 @@ Prohibited examples:
 - Full request/response bodies, auth tokens, location coordinates.
 - Free-text notes.
 
+## Secret and dependency hygiene
+
+- CI runs `scripts/scan-secrets.py` against every tracked text file and blocks
+  high-confidence private-key, provider-token, and hard-coded credential
+  patterns.
+- Environment-variable references are allowed; their values must exist only in
+  GitHub Environments, Supabase Function secrets, or VPS secret storage.
+- This scan is a guardrail, not proof of safety: rotate credentials after any
+  suspected exposure and review dependency advisories before a release.
+
 ## Service-level indicators
 
 | SLI | Initial objective |

@@ -23,6 +23,9 @@ jobs:
       - name: Validate Markdown links and required files
         run: python3 scripts/validate-docs.py
 
+      - name: Scan tracked files for high-confidence secrets
+        run: python3 scripts/scan-secrets.py
+
       - name: Build deployment image
         run: docker build --pull --tag glucocare-docs:test .
 
