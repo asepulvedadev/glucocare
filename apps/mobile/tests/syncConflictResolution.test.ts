@@ -45,4 +45,21 @@ describe('reviewed sync conflict resolution', () => {
     expect(update?.[0]).toContain('times_json');
     expect(JSON.stringify(update)).toContain('07:00');
   });
+
+  it('applies a remote emergency incident projection without delivery details', async () => {
+    const db = databaseMock();
+    const remote = conflict('emergency_incident', {
+      id: 'incident-1',
+      createdAt: '2026-10-12T08:00:00.000Z',
+      reason: 'user_requested_help',
+      contactState: 'remote_queued',
+      providerMessageId: 'must-not-be-stored',
+    });
+    remote.entityId = 'incident-1';
+    await applyRemoteSyncConflict(db as never, remote);
+    const insert = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO help_events'));
+    expect(insert?.[0]).toContain('ON CONFLICT(id) DO UPDATE');
+    expect(JSON.stringify(insert)).toContain('remote_queued');
+    expect(JSON.stringify(insert)).not.toContain('must-not-be-stored');
+  });
 });

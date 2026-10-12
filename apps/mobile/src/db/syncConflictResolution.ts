@@ -54,6 +54,11 @@ function localAppointmentStatus(value: unknown) {
   return ['requested', 'pending_authorization', 'authorized', 'scheduled', 'completed', 'missed', 'denied', 'cancelled'].includes(String(value)) ? String(value) : 'requested';
 }
 
+function localHelpEventState(value: unknown) {
+  const state = String(value);
+  return ['queued_local', 'remote_queued', 'call_opened', 'call_unavailable'].includes(state) ? state : 'queued_local';
+}
+
 /**
  * Applies the remote side of a user-reviewed conflict and discards only the
  * pending local events for that entity. The caller must obtain explicit user
@@ -167,6 +172,20 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
             conflict.entityId, requiredString(payload.name, 'name'), payload.relationship ? String(payload.relationship) : null, payload.phone ? String(payload.phone) : null, payload.email ? String(payload.email) : null, payload.consent_status === 'accepted' ? 1 : 0, requiredString(payload.created_at, 'created_at'),
           );
         }
+        break;
+      case 'emergency_incident':
+        // Incident history is user-visible safety data. Apply a reviewed
+        // remote projection instead of dropping the conflict or exposing
+        // provider delivery details in the local history.
+        await db.runAsync(
+          `INSERT INTO help_events (id, created_at, reason, contact_state)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET created_at = excluded.created_at, reason = excluded.reason, contact_state = excluded.contact_state`,
+          conflict.entityId,
+          requiredString(payload.createdAt ?? payload.created_at, 'createdAt'),
+          requiredString(payload.reason, 'reason'),
+          localHelpEventState(payload.contactState ?? payload.contact_state),
+        );
         break;
       default:
         throw new Error(`Remote conflict resolution is not supported for ${conflict.entityType}.`);
