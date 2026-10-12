@@ -7,7 +7,7 @@ import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } fro
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 import { assessGlucose, classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 import { conversionVersionForUnit, summarizeGlucose, toCanonicalMgDl, toMgDl } from '../src/domain/glucoseSummary';
-import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
+import { hasUrgentSymptoms, isImplausibleGlucoseValue, isValidGlucoseEntry, MAX_GLUCOSE_ENTRY_VALUE, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
@@ -288,6 +288,14 @@ describe('clinician-provided glucose risk plan', () => {
 });
 
 describe('symptom safety escalation', () => {
+  it('keeps local and imported glucose bounds aligned with the API', () => {
+    expect(isValidGlucoseEntry(0.1, 'mg/dL')).toBe(true);
+    expect(isValidGlucoseEntry(MAX_GLUCOSE_ENTRY_VALUE, 'mmol/L')).toBe(true);
+    expect(isValidGlucoseEntry(0, 'mg/dL')).toBe(false);
+    expect(isValidGlucoseEntry(MAX_GLUCOSE_ENTRY_VALUE + 0.1, 'mg/dL')).toBe(false);
+    expect(isValidGlucoseEntry(Number.NaN, 'mg/dL')).toBe(false);
+  });
+
   it('preserves an explicit severe-symptom signal independently of glucose value', () => {
     expect(hasUrgentSymptoms(URGENT_SYMPTOM_NOTICE)).toBe(true);
     expect(hasUrgentSymptoms(`${URGENT_SYMPTOM_NOTICE}. Me siento confundido`)).toBe(true);

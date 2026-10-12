@@ -8,6 +8,7 @@ import { buildClinicianReportHtml, type ClinicianReportAppointment, type Clinici
 import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 import { exportRangeLabel, exportRangeSince, type ExportRange } from './domain/exportRange';
 import { insertChangeAuditEvent } from './db/changeAuditRepository';
+import { isValidGlucoseEntry } from './domain/glucoseSafety';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -286,7 +287,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       const ketoneResult = enumValue(row, 'ketone_result', ['not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'] as const, 'not_checked');
       const source = enumValue(row, 'source', ['manual', 'import', 'cgm', 'glucometer'] as const, 'manual');
       const value = nullableNumber(row, 'value');
-      if (value === null || value <= 0) throw new Error('Invalid value.');
+      if (value === null || !isValidGlucoseEntry(value, unit)) throw new Error('Invalid value.');
       const mealOffsetMinutes = row.meal_offset_minutes === undefined || row.meal_offset_minutes === null || row.meal_offset_minutes === '' ? null : integer(row, 'meal_offset_minutes', 0, 1440);
       await db.runAsync(
         `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, ketone_result, sync_state, risk_classification, risk_rule_id, risk_plan_updated_at)

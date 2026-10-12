@@ -10,7 +10,7 @@ import { useGlucose } from '../context';
 import { glucoseContextLabel, ketoneResultLabel, type GlucoseContext, type GlucoseReading, type GlucoseSource, type GlucoseUnit, type KetoneResult } from '../types/domain';
 import { glucoseRiskLabel } from '../types/carePlan';
 import { colors, radii, spacing } from '../theme/tokens';
-import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
+import { hasUrgentSymptoms, isImplausibleGlucoseValue, isValidGlucoseEntry, URGENT_SYMPTOM_NOTICE } from '../domain/glucoseSafety';
 import { useAccessibility } from '../accessibilityContext';
 
 const contexts: GlucoseContext[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'exercise', 'illness', 'symptoms', 'other'];
@@ -57,7 +57,7 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
 
   async function save() {
     const numericValue = Number(value.replace(',', '.'));
-    if (!Number.isFinite(numericValue) || numericValue <= 0 || numericValue > 1000) {
+    if (!isValidGlucoseEntry(numericValue, unit)) {
       Alert.alert('Revisa el valor', 'Escribe un número mayor que 0. Si crees que tu lectura es anormal, busca ayuda según tu plan de emergencia.'); return;
     }
     if (isImplausibleGlucoseValue(numericValue, unit)) {
