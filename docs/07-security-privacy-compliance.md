@@ -60,6 +60,7 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 
 - Patient owns their record.
 - Trusted contact has alert-recipient permission only, unless separately granted caregiver access in a later release.
+- A client may create or revoke a contact, but cannot write remote `accepted` consent; acceptance is established only by the private invitation function.
 - Support staff cannot view clinical data by default.
 - Administrator roles are never derived from user-editable metadata.
 - Export/share actions require recent user confirmation.

@@ -7,7 +7,7 @@ import { getLastPulledAt } from './db/syncMetadataRepository';
 import { pullCloudData } from './syncPull';
 import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
 import { getPrivacyConsent } from './db/privacyRepository';
-import { canUploadEventForConsent } from './syncConsent';
+import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from './syncConsent';
 
 type SyncResult = {
   state: 'synced' | 'disabled' | 'signed_out' | 'consent_required' | 'failed';
@@ -188,11 +188,13 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
     }
     case 'trusted_contact': {
       if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
-      const revoked = payload.revoked === true;
       const { error } = await supabase.from('trusted_contacts').upsert({
         id: event.entityId, patient_id: patientId, name: stringValue(payload.name), relationship: payload.relationship ? String(payload.relationship) : null,
         phone: payload.phone ? String(payload.phone) : null, email: payload.email ? String(payload.email) : null,
-        consent_status: revoked ? 'revoked' : payload.consentGranted ? 'accepted' : 'pending',
+        // The client can request or revoke consent, but cannot self-assert an
+        // accepted invitation. Only the private invitation function may
+        // transition a remote contact to `accepted`.
+        consent_status: cloudTrustedContactConsentStatus(payload),
       }, { onConflict: 'id' });
       if (error) throw error;
       return;

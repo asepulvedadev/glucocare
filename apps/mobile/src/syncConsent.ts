@@ -14,3 +14,7 @@ export function canUploadEventForConsent(event: SyncEvent, consent: PrivacyConse
   if (event.entityType !== 'trusted_contact' || consent.emergencySharingConsent) return true;
   return event.payload.revoked === true;
 }
+
+export function cloudTrustedContactConsentStatus(payload: Record<string, unknown>) {
+  return payload.revoked === true ? 'revoked' as const : 'pending' as const;
+}

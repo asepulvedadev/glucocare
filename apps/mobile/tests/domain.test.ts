@@ -9,7 +9,7 @@ import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '
 import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
-import { canUploadEventForConsent } from '../src/syncConsent';
+import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -151,6 +151,11 @@ describe('consent-aware cloud sync', () => {
 
   it('allows a contact revocation to reach the cloud even after consent is withdrawn', () => {
     expect(canUploadEventForConsent({ entityType: 'trusted_contact', payload: { revoked: true } }, consent)).toBe(true);
+  });
+
+  it('never lets a client self-assert accepted remote consent', () => {
+    expect(cloudTrustedContactConsentStatus({ consentGranted: true })).toBe('pending');
+    expect(cloudTrustedContactConsentStatus({ revoked: true })).toBe('revoked');
   });
 });
 
