@@ -2,7 +2,7 @@
 
 ## Current state
 
-This repository contains GlucoCare product/design documentation, the Expo mobile application source, and two localhost-only staging images. The VPS workflow deploys the documentation image and the Expo web companion; native Android/iOS binaries still require EAS and store release steps.
+This repository contains GlucoCare product/design documentation, the Expo mobile application source, and two localhost-only staging images. The operator deploys the documentation image and Expo web companion directly to the VPS; native Android/iOS binaries still require EAS and store release steps.
 
 ## VPS target
 
@@ -18,17 +18,30 @@ This repository contains GlucoCare product/design documentation, the Expo mobile
 
 The localhost-only binding is intentional because no public domain was supplied and the server is shared. Add a domain and TLS reverse-proxy route only as a separate reviewed change.
 
-## GitHub Actions secrets
+## Direct deployment order (mandatory)
 
-Configure these repository secrets in the `production` environment:
+GitHub Actions does not deploy to this VPS. The single supported deployment
+command is the local operator script:
 
-| Secret | Value |
-|---|---|
-| `DEPLOY_HOST` | `2.24.115.58` |
-| `DEPLOY_PORT` | `22` |
-| `DEPLOY_USER` | `glucocare-deploy` |
-| `DEPLOY_SSH_KEY` | Dedicated Ed25519 private key, never the VPS root password. |
-| `DEPLOY_KNOWN_HOSTS` | Pinned `ssh-keyscan` entry for the VPS. |
+```bash
+./scripts/deploy-vps-direct.sh
+```
+
+The script always performs this order and aborts on the first failure:
+
+1. require a clean `main` branch whose `HEAD` exactly matches `origin/main`;
+2. validate Markdown, secrets, deployment scripts, and Compose configuration;
+3. install dependencies and run mobile typecheck, lint, and tests;
+4. export the Expo web bundle;
+5. stream the release to `glucocare-deploy` on `2.24.115.58`;
+6. run the VPS health check and verify both staging containers and endpoints.
+
+It reads the root SSH password only from `~/.autoking-vps-password` (or the
+path in `AUTOKING_VPS_PASSWORD_FILE`). It never stores that password in the
+repository and has no validation-bypass flag. Native Android/iOS binaries are
+not deployed by this script.
+
+## Hosted Supabase workflows
 
 The separate Supabase workflows use these `production` environment secrets:
 
@@ -39,24 +52,6 @@ The separate Supabase workflows use these `production` environment secrets:
 | `SUPABASE_DB_PASSWORD` | Hosted migration workflow only |
 
 Run **Supabase Edge Functions** manually after reviewing the local function smoke test. The `process-alert-deliveries` function is intentionally deployed without Supabase JWT verification because it authenticates with its private worker header; all user-facing functions retain JWT verification.
-
-The deploy key is restricted on the VPS and cannot forward agents, ports, X11, or allocate a TTY.
-
-## Self-hosted VPS deploy workflow
-
-The repository also contains [`deploy-vps-self-hosted.yml`](.github/workflows/deploy-vps-self-hosted.yml).
-It runs only for `main` pushes or an authorized manual dispatch on a dedicated
-GitHub Actions runner installed as the non-root `glucocare-deploy` user on the
-staging VPS. The runner is labeled `glucocare-vps` and has no production
-provider secrets. It validates the mobile app, creates the web export, streams
-the release through `/usr/local/sbin/glucocare-deploy`, and verifies both
-localhost health endpoints.
-
-The workflow intentionally does not run on pull requests from the public
-repository. Do not attach this runner to workflows that execute untrusted PR
-code, and do not install it as root. If the runner is offline, the hosted
-`CI/CD` deploy job remains available as a fallback once GitHub Actions billing
-and its SSH environment secrets are enabled.
 
 ## Manual verification on the VPS
 
