@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -50,7 +50,7 @@ export default function EmergencyCardScreen() {
         emergencyRegion: emergencyRegion.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
       });
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
     } finally {
@@ -60,7 +60,7 @@ export default function EmergencyCardScreen() {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Tarjeta de emergencia</Eyebrow>
       <Heading>Información para ayudar</Heading>
       <Body>Se guarda localmente. Incluye solo datos que quieras compartir si alguien te ayuda.</Body>

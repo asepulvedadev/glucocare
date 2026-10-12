@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -47,14 +47,14 @@ export default function PrivacyConsentScreen() {
         ? ' Guardamos la revocación local, pero algunos contactos cloud requieren volver a sincronizar.'
         : '';
       Alert.alert('Preferencias guardadas', `${revokedContacts > 0 ? `${revokedContacts} contacto(s) quedaron sin consentimiento. ` : ''}Puedes cambiarlas desde Perfil cuando quieras.${remoteMessage}`);
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
     } finally { setSaving(false); }
   }
 
   return <Screen>
-    <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+    <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
     <Eyebrow>Privacidad y consentimiento</Eyebrow>
     <Heading>Tú decides qué se comparte</Heading>
     <Body>GlucoCare funciona localmente. Estas preferencias controlan los servicios opcionales y pueden cambiarse en cualquier momento.</Body>

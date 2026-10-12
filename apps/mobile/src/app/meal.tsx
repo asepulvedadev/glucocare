@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -21,7 +21,7 @@ export default function MealScreen() {
     setSaving(true);
     try {
       await addMealEvent({ mealType, occurredAt: new Date().toISOString(), note: note.trim() || undefined });
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva la hora de la comida y vuelve a intentarlo.');
     } finally {
@@ -31,7 +31,7 @@ export default function MealScreen() {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Registro de comida</Eyebrow>
       <Heading>Marca cuándo comiste</Heading>
       <Body>Esta hora solo organiza mediciones relativas a la comida. No interpreta alimentos ni cambia tu tratamiento.</Body>

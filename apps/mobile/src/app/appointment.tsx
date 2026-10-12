@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -29,7 +30,7 @@ export default function AppointmentScreen() {
   const { appointments, isLoading } = useCare();
   const existing = typeof id === 'string' ? appointments.find((item) => item.id === id) : undefined;
   if (id && !existing && isLoading) return <Screen><Body>Cargando cita…</Body></Screen>;
-  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos esa cita en este dispositivo.</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} /><Body>No encontramos esa cita en este dispositivo.</Body></Screen>;
   return <AppointmentForm existing={existing} />;
 }
 
@@ -78,13 +79,13 @@ function AppointmentForm({ existing }: { existing?: Appointment }) {
       ]);
       else if (reminderState === 'unavailable') Alert.alert('Cita guardada', 'La cita quedó guardada. El recordatorio se habilita cuando la fecha esté a más de 24 horas y haya permisos.');
       else if (reminderState === 'scheduled_limited') Alert.alert('Cita guardada', 'La cita quedó guardada. El sistema priorizó los recordatorios más próximos por el límite del dispositivo; volverá a revisar la agenda al abrir la app.');
-      router.back();
+      safeBack();
     } catch { Alert.alert('No se pudo guardar', 'Revisa los datos e inténtalo de nuevo.'); } finally { setSaving(false); }
   }
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>{existing ? 'Editar cita' : 'Nueva cita'}</Eyebrow>
       <Heading>{existing ? 'Actualiza los detalles' : 'Guarda los detalles'}</Heading>
       <Body>El estado ayuda a organizar el proceso administrativo. No confirma una atención médica.</Body>

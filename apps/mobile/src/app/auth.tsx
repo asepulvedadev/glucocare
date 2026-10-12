@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -24,11 +24,11 @@ export default function AuthScreen() {
     try {
       if (mode === 'signIn') {
         await signIn(email.trim(), password);
-        router.back();
+        safeBack();
       } else {
         const result = await signUp(email.trim(), password);
         Alert.alert('Cuenta creada', result.needsEmailConfirmation ? 'Revisa tu correo para confirmar la cuenta antes de iniciar sesión.' : 'Tu cuenta está lista.');
-        if (!result.needsEmailConfirmation) router.back();
+        if (!result.needsEmailConfirmation) safeBack();
       }
     } catch {
       // The context keeps the provider message; this copy avoids exposing secrets or internals.
@@ -38,19 +38,19 @@ export default function AuthScreen() {
 
   async function logout() {
     setSaving(true);
-    try { await signOut(); router.back(); } catch { Alert.alert('No se pudo cerrar sesión', 'Vuelve a intentarlo.'); } finally { setSaving(false); }
+    try { await signOut(); safeBack(); } catch { Alert.alert('No se pudo cerrar sesión', 'Vuelve a intentarlo.'); } finally { setSaving(false); }
   }
 
   function requestDeleteAccount() {
     Alert.alert('Borrar cuenta cloud', 'Esta acción elimina la cuenta y los registros sincronizados. Los datos locales de este dispositivo no se borran automáticamente; expórtalos o bórralos desde Perfil.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Borrar cuenta', style: 'destructive', onPress: () => void (async () => { setSaving(true); try { await deleteAccount(); Alert.alert('Cuenta eliminada', 'La cuenta cloud y sus registros sincronizados fueron eliminados.'); router.back(); } catch { Alert.alert('No se pudo borrar', 'La información no se modificó. Vuelve a intentarlo.'); } finally { setSaving(false); } })() },
+      { text: 'Borrar cuenta', style: 'destructive', onPress: () => void (async () => { setSaving(true); try { await deleteAccount(); Alert.alert('Cuenta eliminada', 'La cuenta cloud y sus registros sincronizados fueron eliminados.'); safeBack(); } catch { Alert.alert('No se pudo borrar', 'La información no se modificó. Vuelve a intentarlo.'); } finally { setSaving(false); } })() },
     ]);
   }
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Sincronización opcional</Eyebrow>
       <Heading>Protege tu continuidad</Heading>
       <Body>El registro local funciona sin cuenta. La sincronización solo se activa cuando tú la eliges.</Body>

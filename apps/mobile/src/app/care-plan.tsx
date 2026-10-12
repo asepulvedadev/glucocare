@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -68,7 +68,7 @@ export default function CarePlanScreen() {
     setSaving(true);
     try {
       await saveCarePlan({ ...thresholds, instructions: instructions.trim() || undefined, source: source.trim() || undefined, effectiveTo: parsedEffectiveTo, effectiveFrom: carePlan?.effectiveFrom ?? new Date().toISOString(), clinicianVerified });
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
     } finally { setSaving(false); }
@@ -76,7 +76,7 @@ export default function CarePlanScreen() {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Plan clínico</Eyebrow>
       <Heading>Umbrales de tu equipo</Heading>
       <Body>Solo escribe valores que te haya entregado tu equipo de salud. GlucoCare no inventa objetivos, diagnostica ni calcula dosis.</Body>

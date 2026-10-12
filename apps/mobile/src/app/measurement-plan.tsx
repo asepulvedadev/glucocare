@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -68,7 +68,7 @@ export default function MeasurementPlanScreen() {
     setSaving(true);
     try {
       await saveMeasurementPlan({ readingsPerDay: count, times: fixedTimes, timings: selectedTimings, windows, weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined, instructions: instructions.trim() || undefined });
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva las instrucciones y vuelve a intentarlo.');
     } finally {
@@ -78,7 +78,7 @@ export default function MeasurementPlanScreen() {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Plan de medición</Eyebrow>
       <Heading>Organiza tus lecturas</Heading>
       <Body>Configura la frecuencia indicada por tu equipo de salud. GlucoCare no diagnostica ni cambia objetivos clínicos.</Body>

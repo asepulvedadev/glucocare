@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -27,7 +28,7 @@ export default function MedicationScreen() {
   const { medications, isLoading } = useCare();
   const existing = typeof id === 'string' ? medications.find((item) => item.id === id) : undefined;
   if (id && !existing && isLoading) return <Screen><Body>Cargando medicamento…</Body></Screen>;
-  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos ese medicamento en este dispositivo.</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} /><Body>No encontramos ese medicamento en este dispositivo.</Body></Screen>;
   return <MedicationForm existing={existing} />;
 }
 
@@ -71,7 +72,7 @@ function MedicationForm({ existing }: { existing?: Medication }) {
       } else if (state === 'scheduled_limited') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado. El sistema programó parte de los próximos recordatorios; al abrir la app volverá a completar la ventana disponible.');
       }
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva las instrucciones y vuelve a intentarlo.');
     } finally { setSaving(false); }
@@ -79,7 +80,7 @@ function MedicationForm({ existing }: { existing?: Medication }) {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>{existing ? 'Editar medicamento' : 'Nuevo medicamento'}</Eyebrow>
       <Heading>{existing ? 'Actualiza la indicación guardada' : 'Configura un recordatorio'}</Heading>
       <Body>Escribe exactamente lo indicado por tu equipo de salud. La app no calcula ni cambia dosis.</Body>

@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { safeBack } from '../navigation';
 import { Alert, Linking, Platform, StyleSheet, Text } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -136,7 +137,7 @@ export default function HelpScreen() {
   }
   return (
     <Screen showHelp={false}>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>Ayuda inmediata</Eyebrow>
       <Heading>Si te sientes muy mal</Heading>
       <Body>Busca ayuda humana ahora. GlucoCare no puede diagnosticarte ni garantizar que una alerta llegue.</Body>

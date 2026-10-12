@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -34,7 +35,7 @@ export default function LogScreen() {
   const { readings, isLoading } = useGlucose();
   const existing = typeof id === 'string' ? readings.find((item) => item.id === id) : undefined;
   if (id && !existing && isLoading) return <Screen><Body>Cargando lectura…</Body></Screen>;
-  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos esa lectura en este dispositivo.</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} /><Body>No encontramos esa lectura en este dispositivo.</Body></Screen>;
   return <LogForm existing={existing} />;
 }
 
@@ -98,27 +99,27 @@ function LogForm({ existing }: { existing?: GlucoseReading }) {
       };
       const saved = existing ? await updateReading(existing.id, input) : await addReading(input);
       if (hasUrgentSymptoms(saved.symptoms)) {
-        Alert.alert('Busca ayuda ahora', 'Los síntomas graves requieren ayuda humana aunque la lectura parezca normal. Llama a emergencias o usa la pantalla de ayuda.', [{ text: 'Abrir ayuda', onPress: () => router.replace('/help') }, { text: 'Cerrar', style: 'cancel', onPress: () => router.back() }]);
+        Alert.alert('Busca ayuda ahora', 'Los síntomas graves requieren ayuda humana aunque la lectura parezca normal. Llama a emergencias o usa la pantalla de ayuda.', [{ text: 'Abrir ayuda', onPress: () => router.replace('/help') }, { text: 'Cerrar', style: 'cancel', onPress: () => safeBack() }]);
         if (Platform.OS === 'web') router.replace('/help');
         return;
       }
       if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') {
-        Alert.alert('Revisa tu plan de ayuda', `${glucoseRiskLabel[saved.riskClassification]}. Sigue las instrucciones de tu equipo de salud o llama a emergencias si te sientes muy mal.`, [{ text: 'Entendido', onPress: () => router.back() }]);
-        if (Platform.OS === 'web') router.back();
+        Alert.alert('Revisa tu plan de ayuda', `${glucoseRiskLabel[saved.riskClassification]}. Sigue las instrucciones de tu equipo de salud o llama a emergencias si te sientes muy mal.`, [{ text: 'Entendido', onPress: () => safeBack() }]);
+        if (Platform.OS === 'web') safeBack();
         return;
       }
       if (saved.riskClassification === 'low' || saved.riskClassification === 'high') {
-        Alert.alert('Lectura fuera de tu rango', `${glucoseRiskLabel[saved.riskClassification]}. Revisa las instrucciones de tu equipo de salud y observa cómo te sientes.`, [{ text: 'Entendido', onPress: () => router.back() }]);
-        if (Platform.OS === 'web') router.back();
+        Alert.alert('Lectura fuera de tu rango', `${glucoseRiskLabel[saved.riskClassification]}. Revisa las instrucciones de tu equipo de salud y observa cómo te sientes.`, [{ text: 'Entendido', onPress: () => safeBack() }]);
+        if (Platform.OS === 'web') safeBack();
         return;
       }
-      router.back();
+      safeBack();
     } catch { Alert.alert('No se pudo guardar', 'Conserva la lectura y vuelve a intentarlo.'); } finally { setSaving(false); }
   }
 
   return (
     <Screen>
-      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar registro" onPress={() => router.back()} style={styles.close}><Text style={styles.closeText}>Cerrar</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar registro" onPress={() => safeBack()} style={styles.close}><Text style={styles.closeText}>Cerrar</Text></Pressable>
       <Eyebrow>{existing ? 'Editar lectura' : 'Registro rápido'}</Eyebrow>
       <Heading>{existing ? 'Corrige el registro' : '¿Cuál es tu lectura?'}</Heading>
       <Body>{existing ? 'La corrección conserva una bitácora local de los valores anteriores y nuevos.' : 'La fecha y hora actual se guardarán automáticamente en este dispositivo.'}</Body>

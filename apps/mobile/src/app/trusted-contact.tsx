@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { safeBack } from '../navigation';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -14,7 +15,7 @@ export default function TrustedContactScreen() {
   const { trustedContacts, isLoading } = useSafety();
   const existing = typeof id === 'string' ? trustedContacts.find((item) => item.id === id) : undefined;
   if (id && !existing && isLoading) return <Screen><Body>Cargando contacto…</Body></Screen>;
-  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos ese contacto en este dispositivo.</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} /><Body>No encontramos ese contacto en este dispositivo.</Body></Screen>;
   return <TrustedContactForm existing={existing} />;
 }
 
@@ -41,7 +42,7 @@ function TrustedContactForm({ existing }: { existing?: TrustedContact }) {
       } else {
         await addTrustedContact(input);
       }
-      router.back();
+      safeBack();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
     } finally {
@@ -51,7 +52,7 @@ function TrustedContactForm({ existing }: { existing?: TrustedContact }) {
 
   return (
     <Screen>
-      <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+      <PrimaryButton label="Volver" tone="quiet" onPress={() => safeBack()} />
       <Eyebrow>{existing ? 'Editar persona de apoyo' : 'Persona de apoyo'}</Eyebrow>
       <Heading>{existing ? 'Actualiza sus datos' : 'Elige a quién avisar'}</Heading>
       <Body>Solo se usará cuando tú lo pidas. La app no promete que un aviso llegue ni reemplaza emergencias.</Body>
