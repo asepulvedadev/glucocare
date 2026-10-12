@@ -43,7 +43,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   const until = new Date().toISOString();
   const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
     supabase.from('glucose_readings').select('id,value_original,unit_original,measured_at,context,symptoms,note,classification,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
-    supabase.from('medications').select('id,name,dose_text,route,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('medications').select('id,name,dose_text,route,prescriber_name,instructions,start_date,end_date,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
     supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('appointments').select('id,title,provider,scheduled_at,status,location,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
@@ -96,10 +96,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     for (const medication of medicationsResult.data ?? []) {
       const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'] };
       if (await preserveLocalChange('medication', medication.id, { ...(medication as unknown as Record<string, unknown>), times: time.times })) continue;
-      await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, hour, minute, times_json, enabled, reminder_state, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
-        ON CONFLICT(id) DO UPDATE SET name = excluded.name, dose_text = excluded.dose_text, route = excluded.route, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, enabled = excluded.enabled`,
-        medication.id, medication.name, medication.dose_text, localRoute(medication.route), time.hour, time.minute, JSON.stringify(time.times), medication.enabled ? 1 : 0, medication.created_at);
+      await db.runAsync(`INSERT INTO medications (id, name, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, reminder_state, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
+        ON CONFLICT(id) DO UPDATE SET name = excluded.name, dose_text = excluded.dose_text, route = excluded.route, prescriber_name = excluded.prescriber_name, instructions = excluded.instructions, start_date = excluded.start_date, end_date = excluded.end_date, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, enabled = excluded.enabled`,
+        medication.id, medication.name, medication.dose_text, localRoute(medication.route), medication.prescriber_name, medication.instructions, medication.start_date, medication.end_date, time.hour, time.minute, JSON.stringify(time.times), medication.enabled ? 1 : 0, medication.created_at);
       downloaded += 1;
     }
     const plan = planResult.data;

@@ -6,6 +6,10 @@ export type Medication = {
   name: string;
   doseText: string;
   route: MedicationRoute;
+  prescriberName?: string;
+  instructions?: string;
+  startDate?: string;
+  endDate?: string;
   hour: number;
   minute: number;
   times?: string[];

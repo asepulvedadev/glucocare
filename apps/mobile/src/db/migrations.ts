@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 20;
+const DATABASE_VERSION = 21;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -294,6 +294,15 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!emergencyColumns.some((column) => column.name === 'insurer')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN insurer TEXT');
     if (!emergencyColumns.some((column) => column.name === 'policy_number')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN policy_number TEXT');
     currentVersion = 20;
+  }
+
+  if (currentVersion < 21) {
+    const medicationColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(medications)');
+    if (!medicationColumns.some((column) => column.name === 'prescriber_name')) await db.execAsync('ALTER TABLE medications ADD COLUMN prescriber_name TEXT');
+    if (!medicationColumns.some((column) => column.name === 'instructions')) await db.execAsync('ALTER TABLE medications ADD COLUMN instructions TEXT');
+    if (!medicationColumns.some((column) => column.name === 'start_date')) await db.execAsync('ALTER TABLE medications ADD COLUMN start_date TEXT');
+    if (!medicationColumns.some((column) => column.name === 'end_date')) await db.execAsync('ALTER TABLE medications ADD COLUMN end_date TEXT');
+    currentVersion = 21;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

@@ -51,7 +51,9 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
       const { error } = await supabase.from('medications').upsert({
         id: event.entityId, patient_id: patientId, name: stringValue(payload.name), dose_text: stringValue(payload.doseText),
-        route: stringValue(payload.route, 'other'), enabled: payload.enabled !== false, created_at: stringValue(payload.createdAt, new Date().toISOString()),
+        route: stringValue(payload.route, 'other'), prescriber_name: payload.prescriberName ? String(payload.prescriberName) : null,
+        instructions: payload.instructions ? String(payload.instructions) : null, start_date: payload.startDate ? String(payload.startDate) : null,
+        end_date: payload.endDate ? String(payload.endDate) : null, enabled: payload.enabled !== false, created_at: stringValue(payload.createdAt, new Date().toISOString()),
       });
       if (error) throw error;
       const timesJson = Array.isArray(payload.times) && payload.times.length

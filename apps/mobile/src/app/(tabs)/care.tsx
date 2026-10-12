@@ -102,6 +102,9 @@ export default function CareScreen() {
             <View style={styles.medicationCopy}>
               <Text style={styles.medicationName}>{medication.name}</Text>
               <Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>
+              {medication.prescriberName ? <Caption>Indicado por {medication.prescriberName}</Caption> : null}
+              {medication.startDate || medication.endDate ? <Caption>Vigencia: {medication.startDate ?? 'sin fecha inicial'} → {medication.endDate ?? 'sin fecha final'}</Caption> : null}
+              {medication.instructions ? <Caption>{medication.instructions}</Caption> : null}
               <Text style={[styles.reminder, medication.reminderState !== 'scheduled' && styles.reminderMuted]}>{medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text>
               {medicationOccurrences.filter((occurrence) => occurrence.medicationId === medication.id).map((occurrence) => {
                 const actionable = occurrence.status === 'due' || occurrence.status === 'snoozed';

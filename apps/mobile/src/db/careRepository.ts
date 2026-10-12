@@ -10,6 +10,10 @@ type MedicationRow = {
   name: string;
   dose_text: string;
   route: MedicationRoute;
+  prescriber_name: string | null;
+  instructions: string | null;
+  start_date: string | null;
+  end_date: string | null;
   hour: number;
   minute: number;
   times_json: string | null;
@@ -50,6 +54,10 @@ function mapRow(row: MedicationRow): Medication {
     name: row.name,
     doseText: row.dose_text,
     route: row.route,
+    prescriberName: row.prescriber_name ?? undefined,
+    instructions: row.instructions ?? undefined,
+    startDate: row.start_date ?? undefined,
+    endDate: row.end_date ?? undefined,
     hour: row.hour,
     minute: row.minute,
     times: parseTimes(row.times_json, row.hour, row.minute),
@@ -69,9 +77,9 @@ export async function listMedications(db: SQLiteDatabase): Promise<Medication[]>
 export async function insertMedication(db: SQLiteDatabase, medication: Medication) {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO medications (id, name, dose_text, route, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      medication.id, medication.name, medication.doseText, medication.route, medication.hour, medication.minute,
+      `INSERT INTO medications (id, name, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      medication.id, medication.name, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
       JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]),
       medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.createdAt,
     );

@@ -82,7 +82,7 @@ Only one revision is active for a patient at a given instant. Historical reading
 
 ### Medication and schedule
 
-`medication` stores prescribed information. `medication_schedule_revision` stores versioned timing rules. Generated `medication_occurrence` records one expected action with a deterministic key:
+`medication` stores prescribed information (dose text, route, prescriber, instructions, and optional validity dates). `medication_schedule_revision` stores versioned timing rules. Generated `medication_occurrence` records one expected action with a deterministic key:
 
 `schedule_revision_id + scheduled_instant`
 

@@ -25,12 +25,21 @@ export default function MedicationScreen() {
   const { addMedication } = useCare();
   const [name, setName] = useState('');
   const [doseText, setDoseText] = useState('');
+  const [prescriberName, setPrescriberName] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [route, setRoute] = useState<MedicationRoute>('oral');
   const [times, setTimes] = useState(['08:00', '', '']);
   const [saving, setSaving] = useState(false);
 
   async function save() {
     const parsedTimes = times.filter((value) => value.trim()).map(parseTime);
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if ((startDate.trim() && !datePattern.test(startDate.trim())) || (endDate.trim() && !datePattern.test(endDate.trim())) || (startDate.trim() && endDate.trim() && startDate.trim() > endDate.trim())) {
+      Alert.alert('Revisa la vigencia', 'Usa AAAA-MM-DD y asegúrate de que la fecha inicial no sea posterior a la final.');
+      return;
+    }
     if (!name.trim() || !doseText.trim() || parsedTimes.some((value) => !value) || parsedTimes.length < 1) {
       Alert.alert('Completa los datos', 'Escribe el nombre, la dosis indicada por tu equipo y al menos una hora válida en formato HH:MM.');
       return;
@@ -39,7 +48,7 @@ export default function MedicationScreen() {
     const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
     setSaving(true);
     try {
-      const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled: true });
+      const state = await addMedication({ name: name.trim(), doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled: true });
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
           { text: 'Ahora no', style: 'cancel' },
@@ -65,6 +74,8 @@ export default function MedicationScreen() {
         <TextInput accessibilityLabel="Nombre del medicamento" value={name} onChangeText={setName} placeholder="Ej. Metformina" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>DOSIS INDICADA</Caption>
         <TextInput accessibilityLabel="Dosis indicada" value={doseText} onChangeText={setDoseText} placeholder="Ej. 500 mg" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Caption>QUIÉN LO INDICÓ (OPCIONAL)</Caption>
+        <TextInput accessibilityLabel="Profesional que indicó el medicamento" value={prescriberName} onChangeText={setPrescriberName} placeholder="Ej. Dra. Pérez" placeholderTextColor={colors.textDisabled} style={styles.input} />
       </Panel>
       <Panel>
         <Caption>MEDIO DE SUMINISTRO</Caption>
@@ -75,6 +86,13 @@ export default function MedicationScreen() {
         {times.map((value, index) => <TextInput key={index} accessibilityLabel={`Hora del recordatorio ${index + 1}`} value={value} onChangeText={(next) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} keyboardType="numbers-and-punctuation" placeholder={index === 0 ? '08:00' : 'Opcional · HH:MM'} placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
         <Body>Se repetirá cada día en las horas indicadas. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
       </Panel>
+      <Panel>
+        <Caption>VIGENCIA E INSTRUCCIONES (OPCIONAL)</Caption>
+        <TextInput accessibilityLabel="Fecha de inicio del medicamento" value={startDate} onChangeText={setStartDate} placeholder="Inicio · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Fecha de finalización del medicamento" value={endDate} onChangeText={setEndDate} placeholder="Fin · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Instrucciones del medicamento" value={instructions} onChangeText={setInstructions} placeholder="Ej. tomar con alimentos" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
+        <Body>La vigencia documenta la indicación recibida; no cambia las dosis ni detiene recordatorios automáticamente.</Body>
+      </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar medicamento'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Los recordatorios son una ayuda y no garantizan la entrega. Si pierdes una toma, sigue tu plan de atención.</Text>
     </Screen>
@@ -84,6 +102,7 @@ export default function MedicationScreen() {
 const styles = StyleSheet.create({
   input: { color: colors.textPrimary, backgroundColor: colors.surfaceRaised, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, minHeight: 52, fontSize: 16 },
   timeInput: { fontSize: 28, fontWeight: '700' },
+  multiline: { minHeight: 84, textAlignVertical: 'top', paddingTop: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber },

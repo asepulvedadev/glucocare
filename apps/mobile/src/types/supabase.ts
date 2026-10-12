@@ -826,10 +826,14 @@ export type Database = {
           deleted_at: string | null
           dose_text: string
           enabled: boolean
+          end_date: string | null
           id: string
+          instructions: string | null
           name: string
           patient_id: string
+          prescriber_name: string | null
           route: string
+          start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -837,10 +841,14 @@ export type Database = {
           deleted_at?: string | null
           dose_text: string
           enabled?: boolean
+          end_date?: string | null
           id: string
+          instructions?: string | null
           name: string
           patient_id: string
+          prescriber_name?: string | null
           route: string
+          start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -848,10 +856,14 @@ export type Database = {
           deleted_at?: string | null
           dose_text?: string
           enabled?: boolean
+          end_date?: string | null
           id?: string
+          instructions?: string | null
           name?: string
           patient_id?: string
+          prescriber_name?: string | null
           route?: string
+          start_date?: string | null
           updated_at?: string
         }
         Relationships: [

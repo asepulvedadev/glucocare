@@ -18,7 +18,7 @@ export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared
   const [card, readings, medications, appointments] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
-    db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, times_json, enabled FROM medications ORDER BY name ASC'),
+    db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, scheduled_at, status, location FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
   ]);
   const html = buildClinicianReportHtml({ card, readings, medications, appointments });
@@ -242,9 +242,9 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       const route = enumValue(row, 'route', ['oral', 'injection', 'inhaled', 'topical', 'other'] as const);
       const reminderState = enumValue(row, 'reminder_state', ['scheduled', 'permission_denied', 'unavailable'] as const, 'unavailable');
       await db.runAsync(
-        `INSERT INTO medications (id, name, dose_text, route, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, '[]', ?, ?)`,
-        requiredString(row, 'id'), requiredString(row, 'name'), requiredString(row, 'dose_text'), route, hour, minute,
+        `INSERT INTO medications (id, name, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '[]', ?, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'name'), requiredString(row, 'dose_text'), route, optionalString(row, 'prescriber_name'), optionalString(row, 'instructions'), optionalString(row, 'start_date'), optionalString(row, 'end_date'), hour, minute,
         jsonArray(row.times_json, 'times_json'), booleanFlag(row, 'enabled', true), reminderState === 'scheduled' ? 'unavailable' : reminderState, requiredString(row, 'created_at'),
       );
     }
