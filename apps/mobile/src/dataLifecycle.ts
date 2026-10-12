@@ -147,7 +147,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
   const glucose = bundle.glucoseReadings;
-  const header = ['recorded_at', 'value', 'unit', 'context', 'symptoms', 'note'];
+  const header = ['recorded_at', 'timezone', 'utc_offset_minutes', 'time_edited', 'value', 'unit', 'context', 'symptoms', 'note'];
   const csvValue = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const body = glucose.map((reading) => header.map((field) => csvValue(reading[field])).join(',')).join('\n');
   return { content: `${header.join(',')}\n${body}\n`, filename: `glucocare-glucose-${Date.now()}.csv`, mimeType: 'text/csv' };
@@ -238,10 +238,10 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       const source = enumValue(row, 'source', ['manual', 'import', 'cgm', 'glucometer'] as const, 'manual');
       const mealOffsetMinutes = row.meal_offset_minutes === undefined || row.meal_offset_minutes === null || row.meal_offset_minutes === '' ? null : integer(row, 'meal_offset_minutes', 0, 1440);
       await db.runAsync(
-        `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
+        `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
         requiredString(row, 'id'), nullableNumber(row, 'value') ?? (() => { throw new Error('Invalid value.'); })(), context, source, mealOffsetMinutes,
-        requiredString(row, 'recorded_at'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
+        requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), optionalString(row, 'risk_classification'),
       );
     }
 

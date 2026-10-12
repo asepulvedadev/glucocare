@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 26;
+const DATABASE_VERSION = 27;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -356,6 +356,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!occurrenceColumns.some((column) => column.name === 'window_index')) await db.execAsync('ALTER TABLE measurement_occurrences ADD COLUMN window_index INTEGER');
     if (!occurrenceColumns.some((column) => column.name === 'meal_event_id')) await db.execAsync('ALTER TABLE measurement_occurrences ADD COLUMN meal_event_id TEXT REFERENCES meal_events(id) ON DELETE SET NULL');
     currentVersion = 26;
+  }
+
+  if (currentVersion < 27) {
+    const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
+    if (!glucoseColumns.some((column) => column.name === 'timezone')) await db.execAsync("ALTER TABLE glucose_readings ADD COLUMN timezone TEXT");
+    if (!glucoseColumns.some((column) => column.name === 'utc_offset_minutes')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN utc_offset_minutes INTEGER');
+    if (!glucoseColumns.some((column) => column.name === 'time_edited')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN time_edited INTEGER NOT NULL DEFAULT 0');
+    currentVersion = 27;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

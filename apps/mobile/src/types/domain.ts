@@ -12,6 +12,9 @@ export type GlucoseReading = {
   source?: GlucoseSource;
   mealOffsetMinutes?: number;
   recordedAt: string;
+  timezone?: string;
+  utcOffsetMinutes?: number;
+  timeEdited?: boolean;
   symptoms?: string;
   note?: string;
   riskClassification?: GlucoseRiskClassification;

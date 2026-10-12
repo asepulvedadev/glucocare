@@ -38,7 +38,8 @@ export default function LogScreen() {
     setSaving(true);
     try {
       const symptomsValue = [urgentSymptoms ? URGENT_SYMPTOM_NOTICE : '', symptoms.trim()].filter(Boolean).join('. ');
-      const saved = await addReading({ value: numericValue, unit, context, source, mealOffsetMinutes: context === 'after_meal' ? parsedMealOffset : undefined, recordedAt: new Date().toISOString(), symptoms: symptomsValue || undefined, note: note.trim() || undefined });
+      const now = new Date();
+      const saved = await addReading({ value: numericValue, unit, context, source, mealOffsetMinutes: context === 'after_meal' ? parsedMealOffset : undefined, recordedAt: now.toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', utcOffsetMinutes: -now.getTimezoneOffset(), timeEdited: false, symptoms: symptomsValue || undefined, note: note.trim() || undefined });
       if (hasUrgentSymptoms(saved.symptoms)) {
         Alert.alert('Busca ayuda ahora', 'Los síntomas graves requieren ayuda humana aunque la lectura parezca normal. Llama a emergencias o usa la pantalla de ayuda.', [{ text: 'Abrir ayuda', onPress: () => router.replace('/help') }, { text: 'Cerrar', style: 'cancel', onPress: () => router.back() }]);
         if (Platform.OS === 'web') router.replace('/help');

@@ -15,6 +15,9 @@ type GlucoseRow = {
   source: GlucoseSource | null;
   meal_offset_minutes: number | null;
   recorded_at: string;
+  timezone: string | null;
+  utc_offset_minutes: number | null;
+  time_edited: number;
   symptoms: string | null;
   note: string | null;
   sync_state: 'local' | 'pending' | 'synced' | 'failed';
@@ -30,6 +33,9 @@ function mapRow(row: GlucoseRow): GlucoseReading {
     source: row.source ?? 'manual',
     mealOffsetMinutes: row.meal_offset_minutes ?? undefined,
     recordedAt: row.recorded_at,
+    timezone: row.timezone ?? undefined,
+    utcOffsetMinutes: row.utc_offset_minutes ?? undefined,
+    timeEdited: row.time_edited === 1,
     symptoms: row.symptoms ?? undefined,
     note: row.note ?? undefined,
     riskClassification: row.risk_classification ?? undefined,
@@ -55,9 +61,9 @@ export async function insertGlucoseReading(
   };
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, sync_state, risk_classification)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      stored.id, stored.value, stored.unit, stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
+      `INSERT INTO glucose_readings (id, value, unit, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, sync_state, risk_classification)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, stored.context, stored.source ?? 'manual', stored.mealOffsetMinutes ?? null, stored.recordedAt, stored.timezone ?? null, stored.utcOffsetMinutes ?? null, stored.timeEdited ? 1 : 0, stored.symptoms ?? null, stored.note ?? null, stored.syncState, stored.riskClassification ?? null,
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });
