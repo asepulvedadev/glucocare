@@ -13,7 +13,38 @@ const client = new Client(process.env.DATABASE_URL ? { connectionString: process
 });
 
 await client.connect();
+const fixtureUserId = randomUUID();
+const fixtureContactId = randomUUID();
+const fixtureInvitationId = randomUUID();
+const fixtureAlertId = randomUUID();
+const fixtureDeliveryId = randomUUID();
 try {
+  // Seed a delivery owned by this smoke test instead of depending on another
+  // test leaving rows behind.
+  await client.query(
+    `INSERT INTO app_users (id, email, password_hash) VALUES ($1, $2, $3)`,
+    [fixtureUserId, `worker-fixture-${fixtureUserId}@example.invalid`, 'synthetic-test-hash'],
+  );
+  await client.query(
+    `INSERT INTO health_records (patient_id, entity_type, entity_id, payload)
+     VALUES ($1, 'trusted_contact', $2, $3::jsonb)`,
+    [fixtureUserId, fixtureContactId, JSON.stringify({ id: fixtureContactId, name: 'Worker fixture', email: 'worker-fixture@example.invalid' })],
+  );
+  await client.query(
+    `INSERT INTO contact_invitations (id, patient_id, contact_id, channel, token_hash, status, expires_at)
+     VALUES ($1, $2, $3, 'email', $4, 'accepted', now() + interval '1 hour')`,
+    [fixtureInvitationId, fixtureUserId, fixtureContactId, `worker-fixture-token-${fixtureInvitationId}`],
+  );
+  await client.query(
+    `INSERT INTO emergency_alerts (id, patient_id, incident_id, status)
+     VALUES ($1, $2, $3, 'not_configured')`,
+    [fixtureAlertId, fixtureUserId, `worker-fixture-incident-${fixtureAlertId}`],
+  );
+  await client.query(
+    `INSERT INTO alert_deliveries (id, alert_id, contact_id, channel, status, failure_code, attempt_count)
+     VALUES ($1, $2, $3, 'email', 'not_configured', 'PROVIDER_NOT_CONFIGURED', 1)`,
+    [fixtureDeliveryId, fixtureAlertId, fixtureContactId],
+  );
   const result = await client.query(`
     SELECT d.id, d.status, d.failure_code, d.attempt_count
     FROM alert_deliveries d
@@ -85,10 +116,12 @@ try {
       throw new Error(`worker maintenance failed: ${JSON.stringify(maintenanceRow)}`);
     }
     await verificationClient.query('DELETE FROM app_users WHERE id = $1', [syntheticUserId]);
+    await verificationClient.query('DELETE FROM app_users WHERE id = $1', [fixtureUserId]);
   } finally {
     await verificationClient.end();
   }
   console.log('worker-smoke=passed lease-recovery=passed');
 } finally {
+  await client.query('DELETE FROM app_users WHERE id = $1', [fixtureUserId]).catch(() => undefined);
   if (!clientClosed) await client.end();
 }
