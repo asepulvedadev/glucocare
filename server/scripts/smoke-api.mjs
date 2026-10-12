@@ -1,4 +1,7 @@
 import { createHmac } from 'node:crypto';
+import pg from 'pg';
+
+const { Client } = pg;
 
 const baseUrl = process.env.API_URL ?? 'http://127.0.0.1:18084';
 const expectedSmsInvitationStatus = process.env.EXPECTED_SMS_INVITATION_STATUS ?? 'not_configured';
@@ -248,6 +251,20 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
 }) });
 const privacyBlockedInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'sms' }) });
 if (privacyBlockedInvitation.status !== 403) throw new Error('privacy withdrawal did not block a new remote invitation');
+if (process.env.AUDIT_DB_URL) {
+  const auditClient = new Client({ connectionString: process.env.AUDIT_DB_URL });
+  try {
+    await auditClient.connect();
+    const auditResult = await auditClient.query(
+      `SELECT count(*)::text AS count FROM audit_events
+       WHERE patient_id = $1 AND entity_type = 'privacy_consent'`,
+      [first.session.user.id],
+    );
+    if (Number(auditResult.rows[0]?.count ?? 0) < 2) throw new Error('privacy consent changes were not written to audit_events');
+  } finally {
+    await auditClient.end().catch(() => undefined);
+  }
+}
 const deletion = await fetch(`${baseUrl}/v1/account`, { method: 'DELETE', headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (deletion.status !== 204) throw new Error(`account deletion returned ${deletion.status}`);
 const deletedSession = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`, { headers: { authorization: `Bearer ${second.session.accessToken}` } });

@@ -182,7 +182,9 @@ jobs:
           curl --fail --silent http://127.0.0.1:18084/healthz | grep -q '"database":"ok"'
           EXPECTED_SMS_INVITATION_STATUS=not_configured \
           EXPECTED_EMAIL_INVITATION_STATUS=provider_accepted \
-          PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node scripts/smoke-api.mjs
+          PROVIDER_CALLBACK_SECRET=synthetic-callback-secret \
+          AUDIT_DB_URL=postgresql://glucocare_app:glucocare_ci_password@127.0.0.1:5432/glucocare \
+          node scripts/smoke-api.mjs
           PROVIDER_CALLBACK_SECRET=synthetic-callback-secret node scripts/smoke-provider-callback.mjs
           ALERT_WORKER_ONCE=true node dist/alertWorker.js >/tmp/glucocare-alert-worker.log 2>&1
           npm run test:worker
