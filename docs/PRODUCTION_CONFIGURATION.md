@@ -62,6 +62,17 @@ unreviewed staging origin.
 
 ## 3. Verification gate
 
+Before changing the VPS environment, validate the reviewed values without
+printing secrets:
+
+```bash
+/srv/glucocare/release/scripts/validate-production-config.sh /srv/glucocare/.env
+```
+
+The validator rejects localhost/place-holder origins, weak database or callback
+secrets, and partial Resend/Twilio credentials. It does not contact providers
+or replace the DNS/TLS and clinical release reviews.
+
 ```bash
 curl --fail https://api.example.com/healthz
 curl --fail --head https://app.example.com/

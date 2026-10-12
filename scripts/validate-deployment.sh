@@ -9,10 +9,32 @@ for script in \
   "$root/deploy/vps/glucocare-db-backup" \
   "$root/deploy/vps/glucocare-db-restore-check" \
   "$root/deploy/vps/glucocare-rollback" \
+  "$root/scripts/validate-production-config.sh" \
   "$root/scripts/deploy-vps-direct.sh"; do
   bash -n "$script"
   test -x "$script"
 done
+
+# Exercise the production handoff validator with synthetic values. The real
+# VPS environment is intentionally never copied into CI or this repository.
+valid_config=$(mktemp)
+invalid_config=$(mktemp)
+trap 'rm -f "$valid_config" "$invalid_config"' EXIT
+cat >"$valid_config" <<'EOF'
+POSTGRES_PASSWORD=synthetic-password-with-at-least-32-characters
+GLUCOCARE_PUBLIC_API_URL=https://api.synthetic.example
+GLUCOCARE_CORS_ORIGIN=https://app.synthetic.example
+EOF
+cat >"$invalid_config" <<'EOF'
+POSTGRES_PASSWORD=short
+GLUCOCARE_PUBLIC_API_URL=http://127.0.0.1:18084
+GLUCOCARE_CORS_ORIGIN=http://127.0.0.1:18082
+EOF
+bash "$root/scripts/validate-production-config.sh" "$valid_config" >/dev/null
+if bash "$root/scripts/validate-production-config.sh" "$invalid_config" >/dev/null 2>&1; then
+  echo 'production configuration validator accepted an invalid local configuration' >&2
+  exit 1
+fi
 
 test -f "$root/server/Dockerfile"
 test -f "$root/server/migrations/001_initial.sql"
