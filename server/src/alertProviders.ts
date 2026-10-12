@@ -10,7 +10,12 @@ const twilioToken = process.env.TWILIO_AUTH_TOKEN?.trim();
 const twilioFrom = process.env.TWILIO_FROM?.trim();
 const resendApiUrl = process.env.RESEND_API_URL?.trim() || 'https://api.resend.com/emails';
 const twilioApiBaseUrl = process.env.TWILIO_API_BASE_URL?.trim() || 'https://api.twilio.com';
-const providerRequestTimeoutMs = Math.min(Math.max(Number(process.env.PROVIDER_REQUEST_TIMEOUT_MS ?? 10_000), 1_000), 60_000);
+const configuredProviderRequestTimeoutMs = Number(process.env.PROVIDER_REQUEST_TIMEOUT_MS ?? 10_000);
+// An invalid operator value must fail closed to the documented default rather
+// than turning setTimeout(NaN) into an immediate abort for every provider call.
+const providerRequestTimeoutMs = Number.isFinite(configuredProviderRequestTimeoutMs)
+  ? Math.min(Math.max(configuredProviderRequestTimeoutMs, 1_000), 60_000)
+  : 10_000;
 
 async function fetchProvider(input: string, init: RequestInit) {
   const controller = new AbortController();
