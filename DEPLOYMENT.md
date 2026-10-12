@@ -42,6 +42,22 @@ Run **Supabase Edge Functions** manually after reviewing the local function smok
 
 The deploy key is restricted on the VPS and cannot forward agents, ports, X11, or allocate a TTY.
 
+## Self-hosted VPS deploy workflow
+
+The repository also contains [`deploy-vps-self-hosted.yml`](.github/workflows/deploy-vps-self-hosted.yml).
+It runs only for `main` pushes or an authorized manual dispatch on a dedicated
+GitHub Actions runner installed as the non-root `glucocare-deploy` user on the
+staging VPS. The runner is labeled `glucocare-vps` and has no production
+provider secrets. It validates the mobile app, creates the web export, streams
+the release through `/usr/local/sbin/glucocare-deploy`, and verifies both
+localhost health endpoints.
+
+The workflow intentionally does not run on pull requests from the public
+repository. Do not attach this runner to workflows that execute untrusted PR
+code, and do not install it as root. If the runner is offline, the hosted
+`CI/CD` deploy job remains available as a fallback once GitHub Actions billing
+and its SSH environment secrets are enabled.
+
 ## Manual verification on the VPS
 
 ```bash
