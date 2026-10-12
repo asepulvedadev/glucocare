@@ -140,7 +140,9 @@ risk provenance, timestamps, and canonical `valueMgDl`. When both original and
 canonical values are supplied, the server recomputes the deterministic
 `18.0182` mmol/L conversion (rounded to two decimals) and rejects mismatches.
 Correction events that contain `before`/`after` audit projections are validated
-recursively so a malformed nested reading cannot bypass the same boundary.
+recursively so a malformed nested reading cannot bypass the same boundary. When
+a payload includes an `id`, it must match `entityId`; this prevents a valid
+event from being stored under a different record key.
 
 ## Domain event catalog
 

@@ -166,6 +166,7 @@ function validateGlucosePayload(payload: JsonObject) {
 function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
   if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
   if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card'))) return 'INVALID_ENTITY_ID';
+  if (typeof payload.id === 'string' && payload.id !== entityId) return 'ENTITY_ID_MISMATCH';
   for (const field of ['updatedAt', 'createdAt', 'recordedAt', 'occurredAt', 'scheduledAt']) {
     if (field in payload && (typeof payload[field] !== 'string' || Number.isNaN(Date.parse(String(payload[field]))))) return 'INVALID_EVENT_DATE';
   }
@@ -180,6 +181,10 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
       if (field in payload) {
         const nested = objectValue(payload[field]);
         if (!nested) return 'INVALID_GLUCOSE_CORRECTION';
+        if (typeof nested.id === 'string' && nested.id !== entityId) return 'ENTITY_ID_MISMATCH';
+        for (const dateField of ['updatedAt', 'createdAt', 'recordedAt']) {
+          if (dateField in nested && (typeof nested[dateField] !== 'string' || Number.isNaN(Date.parse(String(nested[dateField]))))) return 'INVALID_EVENT_DATE';
+        }
         const nestedError = validateGlucosePayload(nested);
         if (nestedError) return nestedError;
       }

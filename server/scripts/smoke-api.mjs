@@ -30,6 +30,11 @@ const invalidEventType = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POS
   eventId: crypto.randomUUID(), eventType: 'not valid', entityType: 'glucose_reading', entityId: crypto.randomUUID(), payload: { value: 120, unit: 'mg/dL' },
 }) });
 if (invalidEventType.status !== 400) throw new Error(`invalid event type returned ${invalidEventType.status}`);
+const mismatchedEntity = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
+  payload: { id: crypto.randomUUID(), value: 120, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting' },
+}) });
+if (mismatchedEntity.status !== 400) throw new Error(`mismatched entity identity returned ${mismatchedEntity.status}`);
 const invalidGlucoseValue = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'glucose.reading.recorded.v1', entityType: 'glucose_reading', entityId: crypto.randomUUID(),
   payload: { value: 1001, unit: 'mg/dL', recordedAt: new Date().toISOString(), context: 'fasting' },
