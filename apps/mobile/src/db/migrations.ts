@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 15;
+const DATABASE_VERSION = 16;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -247,6 +247,21 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       await db.execAsync("ALTER TABLE medications ADD COLUMN notification_ids_json TEXT NOT NULL DEFAULT '[]'");
     }
     currentVersion = 15;
+  }
+
+  if (currentVersion < 16) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS privacy_consents (
+        id TEXT PRIMARY KEY NOT NULL,
+        policy_version TEXT NOT NULL,
+        local_data_consent INTEGER NOT NULL DEFAULT 0,
+        cloud_sync_consent INTEGER NOT NULL DEFAULT 0,
+        emergency_sharing_consent INTEGER NOT NULL DEFAULT 0,
+        accepted_at TEXT,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    currentVersion = 16;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

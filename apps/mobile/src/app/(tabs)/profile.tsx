@@ -15,6 +15,7 @@ import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
 import { useAccessibility } from '../../accessibilityContext';
 import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictRepository';
+import { usePrivacy } from '../../privacyContext';
 
 export default function ProfileScreen() {
   const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, revokeTrustedContact } = useSafety();
@@ -23,6 +24,7 @@ export default function ProfileScreen() {
   const { refresh: refreshCare } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const { preferences, setPreference } = useAccessibility();
+  const { consent } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
 
@@ -37,6 +39,7 @@ export default function ProfileScreen() {
       const result = await syncPendingData(db, session);
       await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts()]);
       if (result.state === 'disabled') Alert.alert('Sincronización no disponible', 'Este build no tiene configurada la conexión cloud.');
+      else if (result.state === 'consent_required') Alert.alert('Consentimiento necesario', 'Activa la sincronización cloud desde Privacidad y consentimiento antes de enviar registros.');
       else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
       else Alert.alert('Sincronización lista', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}.`);
     } catch { Alert.alert('Sincronización no disponible', 'No se pudo conectar. Tu información local permanece intacta.'); }
@@ -88,6 +91,11 @@ export default function ProfileScreen() {
         <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
         <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
         <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
+      </Panel>
+      <Panel>
+        <Caption>PRIVACIDAD Y CONSENTIMIENTO</Caption>
+        <Body>{consent?.localDataConsent ? 'Registro local autorizado.' : 'Falta confirmar el almacenamiento local.'} {consent?.cloudSyncConsent ? 'Sincronización cloud autorizada.' : 'Sincronización cloud desactivada.'} {consent?.emergencySharingConsent ? 'Avisos de ayuda autorizados.' : 'Avisos de ayuda desactivados.'}</Body>
+        <PrimaryButton label="Revisar preferencias" tone="quiet" onPress={() => router.push('/privacy-consent')} />
       </Panel>
       <Panel>
         <Caption>SINCRONIZACIÓN OPCIONAL</Caption>

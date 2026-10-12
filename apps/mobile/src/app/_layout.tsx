@@ -8,15 +8,17 @@ import { AuthProvider } from '../authContext';
 import { AccessibilityProvider } from '../accessibilityContext';
 import { migrateDbIfNeeded } from '../db/migrations';
 import { colors } from '../theme/tokens';
+import { PrivacyProvider } from '../privacyContext';
 
 export default function RootLayout() {
   return (
     <SQLiteProvider databaseName="glucocare.db" onInit={migrateDbIfNeeded}>
       <GlucoseProvider>
-        <AccessibilityProvider>
-          <AuthProvider>
-            <CareProvider>
-              <SafetyProvider>
+        <PrivacyProvider>
+          <AccessibilityProvider>
+            <AuthProvider>
+              <CareProvider>
+                <SafetyProvider>
                 <StatusBar style="light" />
                 <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}>
                   <Stack.Screen name="(tabs)" />
@@ -29,11 +31,13 @@ export default function RootLayout() {
                   <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="emergency-card" options={{ presentation: 'modal' }} />
                   <Stack.Screen name="trusted-contact" options={{ presentation: 'modal' }} />
+                  <Stack.Screen name="privacy-consent" options={{ presentation: 'modal' }} />
                 </Stack>
-              </SafetyProvider>
-            </CareProvider>
-          </AuthProvider>
-        </AccessibilityProvider>
+                </SafetyProvider>
+              </CareProvider>
+            </AuthProvider>
+          </AccessibilityProvider>
+        </PrivacyProvider>
       </GlucoseProvider>
     </SQLiteProvider>
   );

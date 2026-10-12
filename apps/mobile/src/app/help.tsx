@@ -13,11 +13,13 @@ import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
 import { queueEmergencyAlert } from '../alerts';
 import { emergencyConfig } from '../config';
+import { usePrivacy } from '../privacyContext';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
   const { trustedContacts, emergencyCard } = useSafety();
   const { session, isConfigured: isCloudConfigured } = useAuth();
+  const { consent } = usePrivacy();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   const [processing, setProcessing] = useState(false);
   async function callEmergency() {
@@ -32,7 +34,7 @@ export default function HelpScreen() {
     try {
       const incidentId = await recordHelpEvent(db, 'user_requested_help');
       let remoteQueued = false;
-      if (session && isCloudConfigured && primaryContact) {
+      if (session && isCloudConfigured && consent?.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
         try {
           await syncPendingData(db, session);
           const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
@@ -55,6 +57,10 @@ export default function HelpScreen() {
   }
 
   function confirmContact() {
+    if (!consent?.localDataConsent || !consent.emergencySharingConsent) {
+      Alert.alert('Revisa el consentimiento', 'Activa el consentimiento de avisos de ayuda desde Perfil antes de contactar a una persona de apoyo.');
+      return;
+    }
     const confirm = () => void registerAndContact();
     if (Platform.OS === 'web') {
       if (globalThis.confirm?.('¿Necesitas ayuda ahora? Esto registra un evento local y puede abrir una llamada al contacto consentido.')) confirm();

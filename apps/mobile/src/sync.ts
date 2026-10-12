@@ -6,9 +6,10 @@ import type { Json } from './types/supabase';
 import { getLastPulledAt } from './db/syncMetadataRepository';
 import { pullCloudData } from './syncPull';
 import { resolveSyncConflictsForEntity } from './db/syncConflictRepository';
+import { getPrivacyConsent } from './db/privacyRepository';
 
 type SyncResult = {
-  state: 'synced' | 'disabled' | 'signed_out' | 'failed';
+  state: 'synced' | 'disabled' | 'signed_out' | 'consent_required' | 'failed';
   uploaded: number;
   failed: number;
   downloaded: number;
@@ -166,6 +167,8 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
 export async function syncPendingData(db: SQLiteDatabase, session: Session | null): Promise<SyncResult> {
   if (!supabase) return { state: 'disabled', uploaded: 0, failed: 0, downloaded: 0 };
   if (!session?.user.id) return { state: 'signed_out', uploaded: 0, failed: 0, downloaded: 0 };
+  const consent = await getPrivacyConsent(db);
+  if (!consent?.localDataConsent || !consent.cloudSyncConsent) return { state: 'consent_required', uploaded: 0, failed: 0, downloaded: 0 };
 
   const { error: patientError } = await supabase.from('patients').upsert({ id: session.user.id, display_name: session.user.email ?? '' }, { onConflict: 'id', ignoreDuplicates: true });
   if (patientError) throw patientError;

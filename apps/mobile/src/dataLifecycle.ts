@@ -30,6 +30,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     syncOutbox: await rows(db, 'sync_outbox'),
     syncMetadata: await rows(db, 'sync_metadata'),
     accessibilityPreferences: await rows(db, 'accessibility_preferences'),
+    privacyConsent: await rows(db, 'privacy_consents'),
   };
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
@@ -60,8 +61,15 @@ export async function shareExport(db: SQLiteDatabase, format: ExportFormat): Pro
 }
 
 export async function deleteAllLocalData(db: SQLiteDatabase) {
-  const scheduled = await db.getAllAsync<{ notification_id: string | null }>('SELECT notification_id FROM medications WHERE notification_id IS NOT NULL UNION ALL SELECT notification_id FROM appointments WHERE notification_id IS NOT NULL');
-  for (const row of scheduled) await cancelMedicationReminder(row.notification_id ?? undefined);
+  const scheduled = await db.getAllAsync<{ notification_id: string | null; notification_ids_json: string | null }>('SELECT notification_id, notification_ids_json FROM medications WHERE notification_id IS NOT NULL OR notification_ids_json != \'[]\' UNION ALL SELECT notification_id, NULL AS notification_ids_json FROM appointments WHERE notification_id IS NOT NULL');
+  for (const row of scheduled) {
+    let ids: string[] = row.notification_id ? [row.notification_id] : [];
+    try {
+      const parsed: unknown = row.notification_ids_json ? JSON.parse(row.notification_ids_json) : [];
+      if (Array.isArray(parsed)) ids = parsed.filter((item): item is string => typeof item === 'string');
+    } catch { /* Keep the legacy single identifier. */ }
+    await cancelMedicationReminder(ids);
+  }
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM glucose_readings');
     await db.runAsync('DELETE FROM care_plan');
@@ -76,5 +84,6 @@ export async function deleteAllLocalData(db: SQLiteDatabase) {
     await db.runAsync('DELETE FROM sync_outbox');
     await db.runAsync('DELETE FROM sync_metadata');
     await db.runAsync('DELETE FROM accessibility_preferences');
+    await db.runAsync('DELETE FROM privacy_consents');
   });
 }

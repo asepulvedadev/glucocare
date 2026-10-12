@@ -1,0 +1,65 @@
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Screen } from '../components/Screen';
+import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
+import { Panel } from '../components/Panel';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { usePrivacy } from '../privacyContext';
+import { colors, spacing } from '../theme/tokens';
+
+function ConsentRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={onPress} style={styles.row}>
+    <View style={[styles.checkbox, checked && styles.checked]}><Text style={styles.mark}>{checked ? '✓' : ''}</Text></View>
+    <Body>{label}</Body>
+  </Pressable>;
+}
+
+export default function PrivacyConsentScreen() {
+  const { consent, saveConsent } = usePrivacy();
+  const [localDataConsent, setLocalDataConsent] = useState(consent?.localDataConsent ?? false);
+  const [cloudSyncConsent, setCloudSyncConsent] = useState(consent?.cloudSyncConsent ?? false);
+  const [emergencySharingConsent, setEmergencySharingConsent] = useState(consent?.emergencySharingConsent ?? false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!localDataConsent) {
+      Alert.alert('Falta una confirmación', 'Necesitamos tu autorización para guardar registros en este dispositivo.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveConsent({ localDataConsent, cloudSyncConsent, emergencySharingConsent });
+      Alert.alert('Preferencias guardadas', 'Puedes cambiarlas desde Perfil cuando quieras.');
+      router.back();
+    } catch {
+      Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
+    } finally { setSaving(false); }
+  }
+
+  return <Screen>
+    <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
+    <Eyebrow>Privacidad y consentimiento</Eyebrow>
+    <Heading>Tú decides qué se comparte</Heading>
+    <Body>GlucoCare funciona localmente. Estas preferencias controlan los servicios opcionales y pueden cambiarse en cualquier momento.</Body>
+    <Panel>
+      <Caption>NECESARIO PARA USAR EL REGISTRO</Caption>
+      <ConsentRow label="Autorizo guardar mis registros de salud en este dispositivo." checked={localDataConsent} onPress={() => setLocalDataConsent((value) => !value)} />
+    </Panel>
+    <Panel>
+      <Caption>OPCIONAL</Caption>
+      <ConsentRow label="Autorizo sincronizar mis registros cifrados con mi cuenta cloud cuando inicie sesión." checked={cloudSyncConsent} onPress={() => setCloudSyncConsent((value) => !value)} />
+      <ConsentRow label="Autorizo enviar un aviso a mis contactos consentidos cuando active ayuda." checked={emergencySharingConsent} onPress={() => setEmergencySharingConsent((value) => !value)} />
+    </Panel>
+    <PrimaryButton label={saving ? 'Guardando…' : 'Guardar preferencias'} onPress={() => void save()} disabled={saving} />
+    <Text style={styles.note}>No compartimos valores de glucosa en avisos de emergencia por defecto. La app no garantiza entrega ni sustituye servicios de emergencia.</Text>
+  </Screen>;
+}
+
+const styles = StyleSheet.create({
+  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  checkbox: { width: 28, height: 28, borderRadius: 6, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  checked: { backgroundColor: colors.amber, borderColor: colors.amber },
+  mark: { color: colors.canvas, fontSize: 20, fontWeight: '800' },
+  note: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingBottom: spacing.lg },
+});
