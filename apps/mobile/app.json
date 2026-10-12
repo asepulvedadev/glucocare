@@ -13,7 +13,9 @@
     },
     "android": {
       "package": "com.glucocare.app",
-      "permissions": ["SCHEDULE_EXACT_ALARM"],
+      "permissions": [
+        "SCHEDULE_EXACT_ALARM"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0B0D0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -41,7 +43,8 @@
           "color": "#FFBE55"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-sharing"
     ]
   }
 }
