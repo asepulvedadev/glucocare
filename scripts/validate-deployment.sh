@@ -29,5 +29,9 @@ printf '%s\n' "$compose_config" >/dev/null
 # origin. If the worker loses this guard, provider credentials appear valid but
 # every delivery is silently classified as not_configured.
 test "$(printf '%s\n' "$compose_config" | grep -c 'PUBLIC_API_URL:')" -eq 2
+# expo-sqlite on web creates a blob-backed WASM worker; without an explicit
+# worker-src the CSP falls back to script-src and the local database never
+# initializes in deployed browsers.
+grep -Eq "worker-src 'self' blob:" "$root/deploy/nginx/mobile-site.conf"
 
 printf 'Deployment scripts and Compose configuration are valid.\n'
