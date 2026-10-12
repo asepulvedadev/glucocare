@@ -1,6 +1,6 @@
-# ADR-0003: Use Expo with optional Supabase sync
+# ADR-0003: Use Expo with optional managed cloud sync
 
-- Status: accepted for MVP planning
+- Status: superseded by ADR-0004
 - Date: 2026-10-11
 - Owners: engineering and security
 
@@ -13,7 +13,7 @@ The product needs Android/iOS delivery, a lighter web companion, local reminders
 - Expo/React Native + strict TypeScript and Expo Router for the shared client.
 - `expo-sqlite` for device persistence, with native database encryption and repository abstractions.
 - `expo-secure-store` for tokens/key material only.
-- Supabase Auth/Postgres/Edge Functions for optional cloud sync and alert orchestration.
+- A managed Postgres/Auth provider was evaluated for the first MVP draft.
 - Provider adapters for push/email/SMS so alert transport is replaceable.
 
 ## Consequences
@@ -38,9 +38,12 @@ Costs/risks:
 - **Custom Go backend:** greater control and portability, but more delivery and operational cost for the MVP.
 - **Firebase:** strong mobile ecosystem, but the relational clinical/audit model and authorization are clearer in Postgres for this team.
 
-## Verification
+## Verification at the time
 
 - Native encryption/key lifecycle proof of concept.
 - Supabase RLS negative tests and data-region/legal review.
 - Push/local notification tests on physical devices.
 - Demonstrate provider replacement through an alert-port contract test.
+
+The product owner later rejected the managed provider. The active architecture
+is documented in [ADR-0004](0004-vps-postgresql-backend.md).

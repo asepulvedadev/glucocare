@@ -50,9 +50,9 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 ### In transit and cloud
 
 - TLS for all connections; certificate validation remains enabled.
-- Supabase RLS on every exposed table; deny-by-default policies.
+- PostgreSQL is private to the VPS Docker network; the API enforces deny-by-default patient scoping on every record query.
 - Client contains only publishable credentials. Secret/service-role keys stay server-side.
-- Privileged functions validate JWT, patient relationship, schema, rate limits, consent, and idempotency.
+- Privileged API routes validate the revocable session, patient relationship, schema, rate limits, consent, and idempotency.
 - Encryption at rest and managed backups are verified contractually with the provider.
 - Production access uses least privilege, MFA, audit logs, and time-bounded elevation.
 

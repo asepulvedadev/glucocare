@@ -6,7 +6,7 @@ Detect failures that threaten data integrity, reminders, alert delivery, privacy
 
 ## Environments
 
-- **Local:** emulator/device and local Supabase; synthetic data only.
+- **Local:** emulator/device and local PostgreSQL/API containers; synthetic data only.
 - **Preview:** isolated backend per change where practical; synthetic fixtures.
 - **Staging:** production-like policies/providers in sandbox mode; no real patient data.
 - **Production:** least privilege, audited access, protected branches, reviewed migrations.
@@ -38,7 +38,7 @@ Prohibited examples:
   high-confidence private-key, provider-token, and hard-coded credential
   patterns.
 - Environment-variable references are allowed; their values must exist only in
-  GitHub Environments, Supabase Function secrets, or VPS secret storage.
+  VPS secret storage (`/srv/glucocare/.env`).
 - This scan is a guardrail, not proof of safety: rotate credentials after any
   suspected exposure and review dependency advisories before a release.
 
@@ -75,7 +75,7 @@ Ticket/non-page:
 ## Runbooks required before beta
 
 1. Notification provider outage.
-2. Supabase outage or degraded auth/database.
+2. VPS API or PostgreSQL outage/degraded authentication.
 3. Failed database migration/app rollback.
 4. Suspected data breach or cross-patient access.
 5. Lost signing key or leaked credential.
@@ -99,19 +99,24 @@ the three most recent bundles in `/srv/glucocare/releases`. The checked-in
 `deploy/vps/glucocare-rollback` command rehydrates one of those bundles, rebuilds
 the Compose project, and restores the previous bundle if the synthetic health
 check fails. This is a deployment rollback cache, not a backup of local mobile
-records or hosted Supabase data; provider backups and user-controlled exports
-remain the recovery sources for those datasets.
+records or PostgreSQL data; encrypted PostgreSQL backups and user-controlled
+exports remain the recovery sources for those datasets.
 
 The checked-in `deploy/vps/glucocare-healthcheck` script is payload-free. It
 checks container health, both localhost health endpoints, and the COOP/COEP
 headers needed by the web SQLite worker. Install its systemd timer before beta;
 the timer is a detection mechanism, not a substitute for on-call alerting.
 
-The private alert queue has a checked-in five-minute GitHub Actions scheduler
-(`.github/workflows/alert-worker.yml`). It requires `ALERT_WORKER_URL` and
-`ALERT_WORKER_SECRET` in the protected `production` environment; until those
-secrets and a provider are configured, no delivery is attempted and the mobile
-app continues to show the queued/unavailable state.
+The API records alert requests and delivery states on the VPS. Provider adapters
+remain disabled until credentials and an operator-owned worker are configured;
+until then no delivery is claimed and the mobile app shows the queued/unavailable
+state.
+
+The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
+PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd
+timer keeps 30 days locally; operations must also copy the dumps to encrypted
+off-host storage and exercise a restore before beta. The backup command never
+logs database credentials or clinical payloads.
 
 ## Release strategy
 

@@ -10,7 +10,7 @@
 ## Change rules
 
 - Use English for code, identifiers, comments, and repository documentation unless a localized artifact is explicitly required.
-- Keep domain rules independent from Expo, React, Supabase, and SQL.
+- Keep domain rules independent from Expo, React, the VPS API, and SQL.
 - Never add a health value, medication, symptom, contact detail, token, or location to logs.
 - Every database change uses a migration and upgrade test.
 - Every exposed database table requires deliberate grants plus tested RLS.

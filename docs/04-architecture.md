@@ -2,7 +2,7 @@
 
 ## Decision summary
 
-Build one Expo/React Native TypeScript application with a feature-first modular structure, local SQLite persistence, and optional Supabase synchronization. Keep clinical rules and repositories behind explicit ports so the cloud provider and UI can change without rewriting the safety-critical domain.
+Build one Expo/React Native TypeScript application with a feature-first modular structure, local SQLite persistence, and optional synchronization with the self-hosted PostgreSQL API on the AutoKing VPS. Keep clinical rules and repositories behind explicit ports so the API and UI can change without rewriting the safety-critical domain.
 
 ## Platform support
 
@@ -23,7 +23,7 @@ Expo Router provides file-based routing across Android, iOS, and web, typed rout
 | Navigation | Expo Router | Universal deep links and route-level organization. |
 | Local database | `expo-sqlite` with migrations; SQLCipher on native builds | Durable relational data and offline transactions; web support is treated separately because Expo SQLite web support may be unstable. |
 | Secret storage | `expo-secure-store` | Store tokens and database-key material, never the full clinical record. |
-| Server | Supabase Auth + Postgres + Edge Functions | Fast MVP with SQL/RLS and server functions; creates vendor and regional/compliance dependencies, isolated behind ports. |
+| Server | Node.js/TypeScript API + PostgreSQL 16 on the AutoKing VPS | Keeps health data and operations under project control; requires the team to own patching, backups, TLS, sessions, and authorization. |
 | Notifications | `expo-notifications` + server provider adapters | Local reminders and remote alerts; OS delivery is not guaranteed. |
 | Validation | Zod at I/O boundaries | Runtime validation for persisted/synced payloads. |
 | State | React Query for server state; focused local stores for transient UI | Avoid one global mutable store. SQLite remains the local source of truth. |
@@ -42,10 +42,10 @@ domain entities + deterministic safety rules
        │
 ports (repositories, clock, notifications, emergency dialer, sync)
        │
-adapters (SQLite, Supabase, Expo APIs, export files)
+adapters (SQLite, VPS API, Expo APIs, export files)
 ```
 
-Dependency direction points inward. Domain code has no Expo, Supabase, React, or SQL imports.
+Dependency direction points inward. Domain code has no Expo, React, API transport, or SQL imports.
 
 ## Feature structure
 
@@ -71,9 +71,9 @@ src/
     security/
     sync/
     ui/
-supabase/
+server/
+  src/
   migrations/
-  functions/
 ```
 
 Routes compose features; they do not contain business rules or SQL.
@@ -108,13 +108,14 @@ Never block a local glucose or incident record on network success.
 
 Expo notes that push notifications require a development build and that background execution/delivery is not guaranteed by the operating system. See [Expo notification guidance](https://docs.expo.dev/push-notifications/what-you-need-to-know/).
 
-## Supabase boundaries
+## VPS API and PostgreSQL boundaries
 
-- Mobile/web clients use only the publishable key; never ship a secret/service-role key.
-- RLS is enabled on every exposed table with patient-scoped and explicit delegated-access policies.
-- Privileged notification dispatch runs in an Edge Function/private database schema.
-- Authorization roles come from server-controlled app metadata or database relationships, never user-editable metadata.
-- Explicitly configure Data API exposure and grants. Supabase announced that new public tables are no longer automatically exposed by default, with enforcement scheduled for October 30, 2026; do not assume table creation equals API exposure. See the [Supabase changelog](https://supabase.com/changelog).
+- The mobile client receives only `EXPO_PUBLIC_API_URL`; database credentials never enter a build.
+- PostgreSQL is attached only to the internal Docker network and never publishes port 5432.
+- The API authenticates every sync, invitation, alert, and deletion request with a revocable opaque session.
+- Every health record query is scoped to the authenticated `patient_id`; trusted contacts do not gain clinical-record access.
+- The API validates event type, entity ID, payload size, idempotency, and server timestamps before writing.
+- Backups, retention, secret rotation, and TLS are operator responsibilities documented in `DEPLOYMENT.md`.
 
 ## Performance rules
 
@@ -130,7 +131,7 @@ Expo notes that push notifications require a development build and that backgrou
 | Failure | Expected behavior |
 |---|---|
 | No internet | Local capture/reminders/card continue; remote alerts show queued/failed. |
-| Cloud outage | No data loss locally; retry with backoff; never claim delivery. |
+| API or PostgreSQL outage | No data loss locally; retry with backoff; never claim delivery. |
 | Notification permission denied | In-app schedule remains; persistent explanation and test action. |
 | Device clock wrong | Mark time source as device; reconcile with server time when connected. |
 | Session expired | Local write continues; sync pauses and requests reauthentication. |
@@ -140,7 +141,7 @@ Expo notes that push notifications require a development build and that backgrou
 
 - [ ] Domain rules run without React Native.
 - [ ] Critical write + outbox is atomic.
-- [ ] RLS tests cover patient, contact, anonymous, and privileged service roles.
+- [ ] API authorization tests cover patient, contact, anonymous, and privileged service roles.
 - [ ] Local database encryption/key lifecycle is threat-modeled.
 - [ ] Web limitations are visible in product copy.
 - [ ] Push/local notifications are tested in development builds, not only Expo Go.

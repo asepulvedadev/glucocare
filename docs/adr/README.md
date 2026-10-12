@@ -12,7 +12,8 @@ ADRs capture durable decisions and their tradeoffs. Accepted ADRs are not immuta
 |---|---|---|
 | [0001](0001-local-first.md) | Use a local-first architecture | Accepted |
 | [0002](0002-clinical-boundary.md) | Keep diagnosis and dosing outside MVP | Accepted |
-| [0003](0003-expo-supabase-stack.md) | Use Expo with optional Supabase sync | Accepted for MVP planning |
+| [0003](0003-expo-supabase-stack.md) | Use Expo with optional Supabase sync | Replaced by ADR-0004 |
+| [0004](0004-vps-postgresql-backend.md) | Run PostgreSQL and API on the AutoKing VPS | Accepted |
 
 ## Template
 

@@ -13,7 +13,7 @@
 ## Authentication model
 
 - Core local mode: no cloud API required.
-- Sync mode: Supabase Auth session stored in SecureStore.
+- Sync mode: revocable VPS API session stored in SecureStore.
 - Privileged dispatch: Edge Function verifies JWT, consent, relationship, and request schema.
 - Trusted-contact acknowledgement: short-lived, single-purpose signed token; it grants no record access.
 
@@ -29,7 +29,7 @@
 | `POST` | `/v1/exports` | Request encrypted report generation if server-side export is enabled. |
 | `DELETE` | `/v1/account` | Start verified account deletion workflow. |
 
-CRUD for health records should prefer Supabase Data API with strict RLS where appropriate; sensitive multi-step actions use server functions.
+CRUD for health records passes through the versioned VPS API; sensitive multi-step actions remain server-side and the API scopes every query by the authenticated patient.
 
 ## Emergency alert request
 

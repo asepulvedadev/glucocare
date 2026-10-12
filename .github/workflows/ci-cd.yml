@@ -97,54 +97,56 @@ jobs:
           echo "Web bundle size: ${bytes} bytes (budget: 5242880)"
 
   database:
-    name: Validate Supabase schema and RLS foundation
+    name: Validate PostgreSQL API and migrations
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: glucocare
+          POSTGRES_USER: glucocare_app
+          POSTGRES_PASSWORD: glucocare_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U glucocare_app -d glucocare"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - name: Setup Node 22
+        uses: actions/setup-node@v5
         with:
-          # Pin the CLI so CI does not depend on GitHub's latest-release API
-          # (which is rate-limited and has caused otherwise-valid runs to fail).
-          version: 2.89.1
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: server/package-lock.json
 
-      - name: Start local database
-        run: supabase db start
+      - name: Install API dependencies
+        working-directory: server
+        run: npm ci
 
-      - name: Lint migrations
-        run: supabase db lint --local --level warning --fail-on error
+      - name: Build API
+        working-directory: server
+        run: npm run build
 
-      - name: Verify migration history
-        run: supabase migration list --local
-
-      - name: Smoke-test cursor timestamp triggers
-        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-sync-timestamps.sql
-
-      - name: Smoke-test owner-only RLS writes
-        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-rls-owner-writes.sql
-
-      - name: Smoke-test contact invitation RLS
-        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-contact-invitation.sql
-
-      - name: Smoke-test alert patient binding
-        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-alert-patient-binding.sql
-
-      - name: Smoke-test private alert delivery worker
+      - name: Smoke-test API and PostgreSQL persistence
+        working-directory: server
+        env:
+          DATABASE_URL: postgresql://glucocare_app:glucocare_ci_password@127.0.0.1:5432/glucocare
+          PORT: 18084
         run: |
           set -euo pipefail
-          supabase functions serve --no-verify-jwt >/tmp/glucocare-functions.log 2>&1 &
-          worker_pid=$!
-          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 90); do
-            if grep -q 'Serving functions on' /tmp/glucocare-functions.log; then
-              grep -q 'process-alert-deliveries' /tmp/glucocare-functions.log
-              grep -q 'contact-invitation' /tmp/glucocare-functions.log
-              grep -q 'record-glucose-audit' /tmp/glucocare-functions.log
-              exit 0
+          node dist/server.js >/tmp/glucocare-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18084/healthz | grep -q '"database":"ok"'; then
+              break
             fi
             sleep 1
           done
-          cat /tmp/glucocare-functions.log
-          exit 1
+          curl --fail --silent http://127.0.0.1:18084/healthz | grep -q '"database":"ok"'
+          node scripts/smoke-api.mjs

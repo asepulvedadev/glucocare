@@ -2,7 +2,7 @@
 
 GlucoCare is an accessible, local-first Expo application that helps people living with diabetes record glucose, follow clinician-defined routines, remember medicines and appointments, and reach a trusted person in an urgent situation. This plan turns the current product and safety blueprint into an executable 18-week delivery sequence.
 
-> **Current baseline (2026-10-12):** the Expo mobile application contains a working offline-first vertical slice with glucose logging (including editable timestamp audit metadata, correction history, original-unit preservation, canonical `mg/dL` storage, persisted `mg/dL`/`mmol/L` preference, exercise/illness/symptom context, and structured ketone-strip capture), clinician-provided risk classification, date/context history filters, meal events and explicit meal-relative measurement windows, measurement and medication occurrence ledgers with future medication doses held as `planned` until due, validity-window enforcement, editable appointments and reminder rescheduling, emergency card/help, editable trusted contacts with consent reset, local privacy consent, complete JSON backup plus selectable 7-day/30-day/all-history CSV and printable clinician report exports, accessibility preferences, configurable notification sound/vibration, native SQLCipher key initialization, optional biometric/device-passcode app lock with an emergency-help bypass, optional Auth, replayable outbox uploads, and a cursor-bounded cloud pull projection with explicit local-wins conflict records and reviewed remote projections. The Supabase schema/RLS foundation, account deletion flow, private alert-delivery worker scaffold, CI, EAS profiles, AutoKing-hosted web staging, three-release VPS rollback cache, and payload-free systemd health check are versioned and validated. Native physical-device evidence, production provider credentials, clinician portal/configuration, and clinical/legal sign-off remain release gates.
+> **Current baseline (2026-10-12):** the Expo mobile application contains a working offline-first vertical slice with glucose logging (including editable timestamp audit metadata, correction history, original-unit preservation, canonical `mg/dL` storage, persisted `mg/dL`/`mmol/L` preference, exercise/illness/symptom context, and structured ketone-strip capture), clinician-provided risk classification, date/context history filters, meal events and explicit meal-relative measurement windows, measurement and medication occurrence ledgers with future medication doses held as `planned` until due, validity-window enforcement, editable appointments and reminder rescheduling, emergency card/help, editable trusted contacts with consent reset, local privacy consent, complete JSON backup plus selectable 7-day/30-day/all-history CSV and printable clinician report exports, accessibility preferences, configurable notification sound/vibration, native SQLCipher key initialization, optional biometric/device-passcode app lock with an emergency-help bypass, optional Auth, replayable outbox uploads, and a cursor-bounded cloud pull projection with explicit local-wins conflict records and reviewed remote projections. The PostgreSQL schema/API foundation, account deletion flow, private alert-delivery worker scaffold, CI, EAS profiles, AutoKing-hosted web staging, three-release VPS rollback cache, and payload-free systemd health check are versioned and validated. Native physical-device evidence, production provider credentials, clinician portal/configuration, and clinical/legal sign-off remain release gates.
 
 ## 1. Outcome and boundaries
 
@@ -146,7 +146,7 @@ A small team can combine roles, but accountability cannot be ambiguous.
 
 **Objective:** add optional cloud continuity without weakening local capture.
 
-**Deliverables:** Supabase Auth/Postgres/Edge Functions (or approved equivalent); row-level security; outbox/inbox sync; conflict policy; remote notification adapter; rate limits and audit events.
+**Deliverables:** VPS API sessions/PostgreSQL migrations (or approved equivalent); patient-scoped authorization; outbox/inbox sync; conflict policy; remote notification adapter; rate limits and audit events.
 
 **Dependencies:** stable local schema from WS3; security review from WS0.
 
@@ -327,13 +327,13 @@ Decisions already captured in the repository:
 
 - local-first architecture and offline capture (`docs/adr/0001-local-first.md`);
 - strict clinical boundary (`docs/adr/0002-clinical-boundary.md`);
-- Expo + Supabase direction (`docs/adr/0003-expo-supabase-stack.md`);
+- Expo + VPS PostgreSQL direction (`docs/adr/0004-vps-postgresql-backend.md`);
 - Atmos-inspired dark, amber, mobile-first visual language (`design.md`).
 
 Open questions that must be answered before the corresponding gate:
 
 - Which emergency numbers and care pathways are configurable for each launch region? The mobile build now reads `EXPO_PUBLIC_EMERGENCY_REGION` and `EXPO_PUBLIC_EMERGENCY_NUMBER`, defaulting to Colombia/123 for this launch.
-- Which Supabase region, retention period, and backup policy satisfy counsel’s decision?
+- Which VPS retention period, encrypted backup policy, and TLS boundary satisfy counsel’s decision?
 - Which exact Android/iOS versions are in the beta support matrix?
 - Will remote alerts use SMS, WhatsApp, push, or a provider abstraction at beta?
 - Which clinician-authored measurement-plan format is accepted for the first pilot?
