@@ -6,6 +6,7 @@ export type AccessibilityPreferences = {
   reduceMotion: boolean;
   notificationSound: boolean;
   notificationVibration: boolean;
+  appLockEnabled: boolean;
   onboardingCompleted: boolean;
   updatedAt: string;
 };

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 29;
+const DATABASE_VERSION = 30;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -142,6 +142,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
         reduce_motion INTEGER NOT NULL DEFAULT 0,
         notification_sound INTEGER NOT NULL DEFAULT 1,
         notification_vibration INTEGER NOT NULL DEFAULT 1,
+        app_lock_enabled INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL
       );
     `);
@@ -389,6 +390,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!preferenceColumns.some((column) => column.name === 'notification_sound')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN notification_sound INTEGER NOT NULL DEFAULT 1');
     if (!preferenceColumns.some((column) => column.name === 'notification_vibration')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN notification_vibration INTEGER NOT NULL DEFAULT 1');
     currentVersion = 29;
+  }
+
+  if (currentVersion < 30) {
+    const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
+    if (!preferenceColumns.some((column) => column.name === 'app_lock_enabled')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN app_lock_enabled INTEGER NOT NULL DEFAULT 0');
+    currentVersion = 30;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

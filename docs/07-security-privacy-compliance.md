@@ -41,7 +41,7 @@ No advertising SDK, data broker, or cross-app tracking SDK is permitted.
 
 - SQLite database encrypted on native builds using a reviewed key lifecycle.
 - Tokens/key material in SecureStore, not AsyncStorage or source code.
-- Optional biometric/PIN app lock; emergency card/help remain available according to user privacy preference.
+- Optional biometric/PIN app lock; emergency card/help remain available without unlocking so a locked user is not denied urgent care information.
 - Redact app-switcher snapshots on sensitive screens where platform support allows.
 - Exclude sensitive plaintext from logs, crash reports, clipboard defaults, and notification bodies.
 - Root/jailbreak detection may inform risk but must not silently lock a patient out of emergency information.

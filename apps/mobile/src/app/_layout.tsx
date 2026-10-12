@@ -13,6 +13,7 @@ import { colors, isLightTheme } from '../theme/tokens';
 import { PrivacyProvider } from '../privacyContext';
 import { syncPendingData } from '../sync';
 import { initializeDatabaseEncryption } from '../db/encryption';
+import { AppLockGate } from '../components/AppLockGate';
 
 async function initializeDatabase(db: Parameters<typeof migrateDbIfNeeded>[0]) {
   await initializeDatabaseEncryption(db);
@@ -73,8 +74,10 @@ export default function RootLayout() {
               <SyncBridge />
               <CareProvider>
                 <SafetyProvider>
-                <StatusBar style={isLightTheme ? 'dark' : 'light'} />
-                <AppNavigator />
+                <AppLockGate>
+                  <StatusBar style={isLightTheme ? 'dark' : 'light'} />
+                  <AppNavigator />
+                </AppLockGate>
                 </SafetyProvider>
               </CareProvider>
             </AuthProvider>

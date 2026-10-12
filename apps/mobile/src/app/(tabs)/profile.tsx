@@ -22,6 +22,7 @@ import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
 import { supabase } from '../../supabase';
 import { openNotificationSettings, sendTestNotification } from '../../notifications';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
 
@@ -59,6 +60,32 @@ export default function ProfileScreen() {
   const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
   const [invitationStatuses, setInvitationStatuses] = useState<Record<string, InvitationStatus>>({});
+  const [appLockBusy, setAppLockBusy] = useState(false);
+
+  async function toggleAppLock() {
+    if (preferences.appLockEnabled) {
+      await setPreference('appLockEnabled', false);
+      return;
+    }
+    if (Platform.OS === 'web') {
+      Alert.alert('No disponible en web', 'El bloqueo biométrico requiere una compilación nativa.');
+      return;
+    }
+    setAppLockBusy(true);
+    try {
+      const [hasHardware, enrolled] = await Promise.all([LocalAuthentication.hasHardwareAsync(), LocalAuthentication.isEnrolledAsync()]);
+      if (!hasHardware || !enrolled) {
+        Alert.alert('Configura un desbloqueo', 'Activa una huella, rostro o código del dispositivo antes de habilitar el bloqueo de GlucoCare.');
+        return;
+      }
+      const result = await LocalAuthentication.authenticateAsync({ promptMessage: 'Confirma el bloqueo de GlucoCare', promptSubtitle: 'Protege tus datos de salud', cancelLabel: 'Cancelar' });
+      if (result.success) await setPreference('appLockEnabled', true);
+    } catch {
+      Alert.alert('No se pudo activar', 'Intenta de nuevo desde un dispositivo con bloqueo configurado.');
+    } finally {
+      setAppLockBusy(false);
+    }
+  }
 
   const refreshInvitationStatuses = useCallback(async () => {
     setInvitationStatuses(await fetchInvitationStatuses(session));
@@ -233,6 +260,11 @@ export default function ProfileScreen() {
         <PrimaryButton label={`Alto contraste: ${preferences.highContrast ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('highContrast', !preferences.highContrast)} />
         <PrimaryButton label={`Modo simple: ${preferences.simpleMode ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('simpleMode', !preferences.simpleMode)} />
         <PrimaryButton label={`Reducir movimiento: ${preferences.reduceMotion ? 'activado' : 'desactivado'}`} tone="quiet" onPress={() => void setPreference('reduceMotion', !preferences.reduceMotion)} />
+      </Panel>
+      <Panel>
+        <Caption>PRIVACIDAD DEL DISPOSITIVO</Caption>
+        <Body>Protege la aplicación con el método de desbloqueo del dispositivo. La ayuda de emergencia seguirá disponible sin desbloquear.</Body>
+        <PrimaryButton label={appLockBusy ? 'Verificando…' : `Bloqueo biométrico: ${preferences.appLockEnabled ? 'activado' : 'desactivado'}`} tone="quiet" disabled={appLockBusy} onPress={() => void toggleAppLock()} />
       </Panel>
       <Panel>
         <Caption>RECORDATORIOS</Caption>
