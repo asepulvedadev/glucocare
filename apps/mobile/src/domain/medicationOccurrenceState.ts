@@ -1,6 +1,7 @@
 import type { MedicationOccurrenceStatus } from '../types/medicationOccurrences';
 
 const transitions: Record<MedicationOccurrenceStatus, MedicationOccurrenceStatus[]> = {
+  planned: ['due', 'expired'],
   due: ['taken', 'skipped', 'snoozed', 'expired', 'not_recorded'],
   snoozed: ['taken', 'skipped', 'expired', 'not_recorded'],
   taken: [],

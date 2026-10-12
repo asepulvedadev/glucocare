@@ -98,7 +98,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const { error } = await supabase.from('medication_occurrences').upsert({
         id: event.entityId, patient_id: patientId, medication_id: medicationId, schedule_revision_id: schedule.data.id,
         scheduled_at: stringValue(payload.scheduledAt, new Date().toISOString()),
-        status: stringValue(payload.status, 'due') as 'due' | 'taken' | 'skipped' | 'snoozed' | 'expired' | 'not_recorded',
+        status: stringValue(payload.status, 'due') as 'planned' | 'due' | 'taken' | 'skipped' | 'snoozed' | 'expired' | 'not_recorded',
         acted_at: payload.actedAt ? String(payload.actedAt) : null,
       }, { onConflict: 'id' });
       if (error) throw error;

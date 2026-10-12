@@ -90,7 +90,11 @@ Only one revision is active for a patient at a given instant. Historical reading
 
 Occurrence statuses:
 
-`due | taken | skipped | snoozed | expired | not_recorded`
+`planned | due | taken | skipped | snoozed | expired | not_recorded`
+
+Future doses remain `planned` until their scheduled instant. Only `due` or
+`snoozed` occurrences can be acknowledged by the patient; a planned dose
+cannot be marked taken early.
 
 “Reminder opened” is telemetry, not adherence.
 

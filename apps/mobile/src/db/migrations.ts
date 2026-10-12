@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 33;
+const DATABASE_VERSION = 34;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -444,6 +444,33 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
     if (!preferenceColumns.some((column) => column.name === 'glucose_unit')) await db.execAsync("ALTER TABLE accessibility_preferences ADD COLUMN glucose_unit TEXT NOT NULL DEFAULT 'mg/dL' CHECK (glucose_unit IN ('mg/dL', 'mmol/L'))");
     currentVersion = 33;
+  }
+
+  if (currentVersion < 34) {
+    // Preserve future medication doses as planned rows so the UI cannot mark
+    // a dose taken before its scheduled time. SQLite requires a table rebuild
+    // to change the status CHECK constraint.
+    await db.execAsync(`
+      BEGIN;
+      ALTER TABLE medication_occurrences RENAME TO medication_occurrences_legacy;
+      CREATE TABLE medication_occurrences (
+        id TEXT PRIMARY KEY NOT NULL,
+        medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+        scheduled_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'due', 'taken', 'skipped', 'snoozed', 'expired', 'not_recorded')),
+        acted_at TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (medication_id, scheduled_at)
+      );
+      INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, acted_at, created_at)
+        SELECT id, medication_id, scheduled_at, status, acted_at, created_at
+        FROM medication_occurrences_legacy;
+      DROP TABLE medication_occurrences_legacy;
+      CREATE INDEX idx_medication_occurrences_scheduled_at ON medication_occurrences(scheduled_at ASC);
+      CREATE INDEX idx_medication_occurrences_medication ON medication_occurrences(medication_id, scheduled_at DESC);
+      COMMIT;
+    `);
+    currentVersion = 34;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

@@ -1,4 +1,4 @@
-export type MedicationOccurrenceStatus = 'due' | 'taken' | 'skipped' | 'snoozed' | 'expired' | 'not_recorded';
+export type MedicationOccurrenceStatus = 'planned' | 'due' | 'taken' | 'skipped' | 'snoozed' | 'expired' | 'not_recorded';
 
 export type MedicationOccurrence = {
   id: string;
@@ -10,6 +10,7 @@ export type MedicationOccurrence = {
 };
 
 export const medicationOccurrenceStatusLabel: Record<MedicationOccurrenceStatus, string> = {
+  planned: 'Programado',
   due: 'Pendiente',
   taken: 'Tomado',
   skipped: 'Omitido',

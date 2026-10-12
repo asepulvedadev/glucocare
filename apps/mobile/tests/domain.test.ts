@@ -106,6 +106,12 @@ describe('medication occurrence state machine', () => {
     expect(canTransitionMedicationOccurrence('expired', 'due')).toBe(false);
   });
 
+  it('does not allow a planned dose to be acknowledged before it is due', () => {
+    expect(transitionMedicationOccurrence('planned', 'due')).toBe('due');
+    expect(canTransitionMedicationOccurrence('planned', 'taken')).toBe(false);
+    expect(canTransitionMedicationOccurrence('planned', 'snoozed')).toBe(false);
+  });
+
   it('does not allow a completed occurrence to be changed silently', () => {
     expect(canTransitionMedicationOccurrence('taken', 'skipped')).toBe(false);
     expect(() => transitionMedicationOccurrence('taken', 'skipped')).toThrow('Invalid medication occurrence transition');

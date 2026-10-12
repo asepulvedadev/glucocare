@@ -52,7 +52,7 @@ export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medi
   const createdAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     const staleRows = await db.getAllAsync<MedicationOccurrenceRow>(
-      `SELECT * FROM medication_occurrences WHERE status IN ('due', 'snoozed') AND scheduled_at < ?`,
+      `SELECT * FROM medication_occurrences WHERE status IN ('planned', 'due', 'snoozed') AND scheduled_at < ?`,
       startOfLocalDay(now).toISOString(),
     );
     for (const row of staleRows) {
@@ -70,7 +70,7 @@ export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medi
           const inactiveRows = await db.getAllAsync<MedicationOccurrenceRow>(
             `SELECT * FROM medication_occurrences
              WHERE medication_id = ? AND scheduled_at >= ? AND scheduled_at < ?
-             AND status IN ('due', 'snoozed') AND scheduled_at IN (${placeholders})`,
+             AND status IN ('planned', 'due', 'snoozed') AND scheduled_at IN (${placeholders})`,
             medication.id,
             startOfLocalDay(now).toISOString(),
             new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString(),
@@ -87,10 +87,11 @@ export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medi
         continue;
       }
       for (const scheduledAt of times) {
+        const status = new Date(scheduledAt).getTime() <= now.getTime() ? 'due' : 'planned';
         await db.runAsync(
           `INSERT OR IGNORE INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at)
-           VALUES (?, ?, ?, 'due', ?)`,
-          newId(), medication.id, scheduledAt, createdAt,
+           VALUES (?, ?, ?, ?, ?)`,
+          newId(), medication.id, scheduledAt, status, createdAt,
         );
       }
     }
@@ -100,6 +101,21 @@ export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medi
 export async function listTodaysMedicationOccurrences(db: SQLiteDatabase, now = new Date()): Promise<MedicationOccurrence[]> {
   const start = startOfLocalDay(now).toISOString();
   const end = new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const plannedRows = await db.getAllAsync<MedicationOccurrenceRow>(
+    `SELECT * FROM medication_occurrences WHERE status = 'planned' AND scheduled_at <= ? AND scheduled_at >= ? AND scheduled_at < ?`,
+    now.toISOString(), start, end,
+  );
+  if (plannedRows.length > 0) {
+    await db.withTransactionAsync(async () => {
+      for (const row of plannedRows) {
+        const current = mapRow(row);
+        const next = { ...current, status: 'due' as const };
+        transitionMedicationOccurrence(current.status, next.status);
+        await db.runAsync("UPDATE medication_occurrences SET status = 'due' WHERE id = ?", row.id);
+        await enqueueOutbox(db, { id: newId(), entityType: 'medication_occurrence', entityId: row.id, eventType: 'medication_occurrence.due.v1', payload: next });
+      }
+    });
+  }
   const rows = await db.getAllAsync<MedicationOccurrenceRow>(
     `SELECT * FROM medication_occurrences WHERE scheduled_at >= ? AND scheduled_at < ? ORDER BY scheduled_at ASC`,
     start, end,

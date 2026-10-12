@@ -33,6 +33,29 @@ def migration_sql(version: int) -> str:
         )
     elif version == 33:
         return "ALTER TABLE accessibility_preferences ADD COLUMN glucose_unit TEXT NOT NULL DEFAULT 'mg/dL' CHECK (glucose_unit IN ('mg/dL', 'mmol/L'));"
+    elif version == 34:
+        return textwrap.dedent(
+            """
+            BEGIN;
+            ALTER TABLE medication_occurrences RENAME TO medication_occurrences_legacy;
+            CREATE TABLE medication_occurrences (
+              id TEXT PRIMARY KEY NOT NULL,
+              medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+              scheduled_at TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'due', 'taken', 'skipped', 'snoozed', 'expired', 'not_recorded')),
+              acted_at TEXT,
+              created_at TEXT NOT NULL,
+              UNIQUE (medication_id, scheduled_at)
+            );
+            INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, acted_at, created_at)
+              SELECT id, medication_id, scheduled_at, status, acted_at, created_at
+              FROM medication_occurrences_legacy;
+            DROP TABLE medication_occurrences_legacy;
+            CREATE INDEX idx_medication_occurrences_scheduled_at ON medication_occurrences(scheduled_at ASC);
+            CREATE INDEX idx_medication_occurrences_medication ON medication_occurrences(medication_id, scheduled_at DESC);
+            COMMIT;
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -101,7 +124,35 @@ def main() -> int:
     unit = db.execute("SELECT glucose_unit FROM accessibility_preferences WHERE id = 'default'").fetchone()
     if unit != ("mg/dL",):
         raise SystemExit(f"Unexpected glucose preference migration result: {unit!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, and unit preference v33 migrations passed.")
+    db.executescript(
+        """
+        CREATE TABLE medications (id TEXT PRIMARY KEY NOT NULL);
+        CREATE TABLE medication_occurrences (
+          id TEXT PRIMARY KEY NOT NULL,
+          medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+          scheduled_at TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'due' CHECK (status IN ('due', 'taken', 'skipped', 'snoozed', 'expired', 'not_recorded')),
+          acted_at TEXT,
+          created_at TEXT NOT NULL,
+          UNIQUE (medication_id, scheduled_at)
+        );
+        INSERT INTO medications (id) VALUES ('medication-1');
+        INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at)
+          VALUES ('occurrence-1', 'medication-1', '2026-10-12T08:00:00Z', 'due', 'now');
+        """
+    )
+    db.executescript(migration_sql(34))
+    preserved = db.execute("SELECT status FROM medication_occurrences WHERE id = 'occurrence-1'").fetchone()
+    if preserved != ("due",):
+        raise SystemExit(f"Unexpected preserved medication occurrence: {preserved!r}")
+    db.execute(
+        "INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        ('occurrence-2', 'medication-1', '2026-10-12T20:00:00Z', 'planned', 'now'),
+    )
+    planned = db.execute("SELECT status FROM medication_occurrences WHERE id = 'occurrence-2'").fetchone()
+    if planned != ("planned",):
+        raise SystemExit(f"Unexpected planned medication occurrence: {planned!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, and planned medication v34 migrations passed.")
     return 0
 
 

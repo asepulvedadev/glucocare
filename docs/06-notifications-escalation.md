@@ -50,6 +50,8 @@ Each reminder maps to a domain occurrence. Rescheduling cancels the prior OS ide
 
 ### Medication
 
+- Future doses are stored as `planned` and become `due` when their scheduled
+  instant is reached; the app never lets a planned dose be acknowledged early.
 - Taken
 - Snooze
 - Skip
