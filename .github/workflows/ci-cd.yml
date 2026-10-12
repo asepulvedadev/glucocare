@@ -91,6 +91,29 @@ jobs:
       - name: Verify migration history
         run: supabase migration list --local
 
+      - name: Smoke-test private alert delivery worker
+        run: |
+          set -euo pipefail
+          supabase functions serve process-alert-deliveries --no-verify-jwt >/tmp/glucocare-functions.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if response=$(curl --silent --show-error --write-out '\n%{http_code}' \
+              --request POST \
+              --header 'content-type: application/json' \
+              --header 'x-alert-worker-secret: invalid-for-ci' \
+              http://127.0.0.1:54321/functions/v1/process-alert-deliveries); then
+              status=$(printf '%s' "$response" | tail -n1)
+              body=$(printf '%s' "$response" | sed '$d')
+              test "$status" = "401"
+              printf '%s\n' "$body" | grep -q 'UNAUTHORIZED'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/glucocare-functions.log
+          exit 1
+
   deploy:
     name: Deploy docs and Expo web staging to AutoKing VPS
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

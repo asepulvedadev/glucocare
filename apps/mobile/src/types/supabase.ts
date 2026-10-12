@@ -67,12 +67,16 @@ export type Database = {
       alert_deliveries: {
         Row: {
           acknowledged_at: string | null
+          attempt_count: number
           channel: string
+          claim_token: string | null
+          claimed_at: string | null
           contact_id: string
           delivered_at: string | null
           failure_code: string | null
           id: string
           incident_id: string
+          next_attempt_at: string
           patient_id: string
           provider_event_id: string | null
           queued_at: string
@@ -80,12 +84,16 @@ export type Database = {
         }
         Insert: {
           acknowledged_at?: string | null
+          attempt_count?: number
           channel: string
+          claim_token?: string | null
+          claimed_at?: string | null
           contact_id: string
           delivered_at?: string | null
           failure_code?: string | null
           id: string
           incident_id: string
+          next_attempt_at?: string
           patient_id: string
           provider_event_id?: string | null
           queued_at?: string
@@ -93,12 +101,16 @@ export type Database = {
         }
         Update: {
           acknowledged_at?: string | null
+          attempt_count?: number
           channel?: string
+          claim_token?: string | null
+          claimed_at?: string | null
           contact_id?: string
           delivered_at?: string | null
           failure_code?: string | null
           id?: string
           incident_id?: string
+          next_attempt_at?: string
           patient_id?: string
           provider_event_id?: string | null
           queued_at?: string
