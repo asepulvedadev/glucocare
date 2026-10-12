@@ -21,7 +21,7 @@ import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
 
 export default function ProfileScreen() {
-  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, grantTrustedContactConsent, revokeTrustedContact } = useSafety();
+  const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety, grantTrustedContactConsent, sendTrustedContactInvitation, revokeTrustedContact } = useSafety();
   const db = useSQLiteContext();
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
@@ -30,6 +30,7 @@ export default function ProfileScreen() {
   const { consent, refresh: refreshPrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(null);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
 
   const refreshSyncConflicts = useCallback(async () => {
@@ -131,6 +132,28 @@ export default function ProfileScreen() {
     ]);
   }
 
+  function requestInvite(contact: typeof trustedContacts[number]) {
+    if (!session) {
+      Alert.alert('Conecta una cuenta', 'Necesitas una cuenta cloud para enviar una invitación verificada.');
+      return;
+    }
+    const channels = [
+      ...(contact.email ? [{ label: 'Correo', channel: 'email' as const }] : []),
+      ...(contact.phone ? [{ label: 'SMS', channel: 'sms' as const }] : []),
+    ];
+    Alert.alert('Enviar invitación', `La invitación para ${contact.name} expirará en 48 horas y no dará acceso a tu historial.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      ...channels.map(({ label, channel }) => ({ text: label, onPress: () => void (async () => {
+        setInvitingContactId(contact.id);
+        try {
+          await sendTrustedContactInvitation(contact.id, channel);
+          Alert.alert('Invitación enviada', `${contact.name} debe aceptar antes de recibir avisos.`);
+        } catch { Alert.alert('No se pudo enviar', 'El proveedor de correo/SMS puede no estar configurado. Tu contacto sigue guardado localmente.'); }
+        finally { setInvitingContactId(null); }
+      })() })),
+    ]);
+  }
+
   function requestDelete() {
     Alert.alert('Borrar datos locales', 'Esta acción elimina lecturas, planes, tomas, medicamentos, citas, contactos, tarjeta y eventos de ayuda de este dispositivo.', [
       { text: 'Cancelar', style: 'cancel' },
@@ -149,7 +172,7 @@ export default function ProfileScreen() {
       </Panel>
       <Panel>
         <Caption>PERSONA DE APOYO</Caption>
-        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>{contact.consentGranted ? <PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /> : <PrimaryButton label="Confirmar consentimiento" tone="quiet" onPress={() => requestGrantContact(contact.id, contact.name)} />}</Panel>)}
+        {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Panel key={contact.id}><Text style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>{contact.consentGranted ? <PrimaryButton label="Revocar consentimiento" tone="quiet" onPress={() => requestRevokeContact(contact.id, contact.name)} /> : <PrimaryButton label="Confirmar consentimiento" tone="quiet" onPress={() => requestGrantContact(contact.id, contact.name)} />}{contact.consentGranted && session && (contact.email || contact.phone) ? <PrimaryButton label={invitingContactId === contact.id ? 'Enviando invitación…' : 'Enviar invitación verificada'} tone="quiet" disabled={invitingContactId === contact.id} onPress={() => requestInvite(contact)} /> : null}</Panel>)}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
       </Panel>
       <Panel>

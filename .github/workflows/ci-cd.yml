@@ -99,6 +99,9 @@ jobs:
       - name: Smoke-test owner-only RLS writes
         run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-rls-owner-writes.sql
 
+      - name: Smoke-test contact invitation RLS
+        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-contact-invitation.sql
+
       - name: Smoke-test private alert delivery worker
         run: |
           set -euo pipefail
@@ -108,6 +111,7 @@ jobs:
           for attempt in $(seq 1 90); do
             if grep -q 'Serving functions on' /tmp/glucocare-functions.log; then
               grep -q 'process-alert-deliveries' /tmp/glucocare-functions.log
+              curl --fail --silent 'http://127.0.0.1:54321/functions/v1/contact-invitation?token=ci-smoke-token-12345678901234567890' | grep -q 'Invitación de persona de apoyo'
               exit 0
             fi
             sleep 1

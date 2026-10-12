@@ -3,6 +3,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { getEmergencyCard, grantTrustedContactConsent, insertTrustedContact, listTrustedContacts, revokeTrustedContact, upsertEmergencyCard } from './db/safetyRepository';
 import type { EmergencyCard, NewEmergencyCard, NewTrustedContact, TrustedContact } from './types/safety';
 import { newId } from './ids';
+import { supabase } from './supabase';
+
+export type TrustedContactInvitationChannel = 'email' | 'sms';
 
 type SafetyContextValue = {
   emergencyCard: EmergencyCard | null;
@@ -11,6 +14,7 @@ type SafetyContextValue = {
   saveEmergencyCard: (input: NewEmergencyCard) => Promise<void>;
   addTrustedContact: (input: NewTrustedContact) => Promise<void>;
   grantTrustedContactConsent: (contactId: string) => Promise<void>;
+  sendTrustedContactInvitation: (contactId: string, channel: TrustedContactInvitationChannel) => Promise<void>;
   revokeTrustedContact: (contactId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -58,7 +62,13 @@ export function SafetyProvider({ children }: PropsWithChildren) {
     setTrustedContacts((current) => current.map((item) => item.id === contact.id ? contact : item));
   }, [db]);
 
-  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, grantTrustedContactConsent: grantContactConsent, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, grantContactConsent, revokeContact, refresh]);
+  const sendContactInvitation = useCallback(async (contactId: string, channel: TrustedContactInvitationChannel) => {
+    if (!supabase) throw new Error('Cloud sync is not configured for this build.');
+    const { error } = await supabase.functions.invoke('contact-invitation', { body: { action: 'create', contactId, channel } });
+    if (error) throw error;
+  }, []);
+
+  const value = useMemo(() => ({ emergencyCard, trustedContacts, isLoading, saveEmergencyCard: saveCard, addTrustedContact: addContact, grantTrustedContactConsent: grantContactConsent, sendTrustedContactInvitation: sendContactInvitation, revokeTrustedContact: revokeContact, refresh }), [emergencyCard, trustedContacts, isLoading, saveCard, addContact, grantContactConsent, sendContactInvitation, revokeContact, refresh]);
   return <SafetyContext.Provider value={value}>{children}</SafetyContext.Provider>;
 }
 

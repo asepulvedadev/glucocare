@@ -31,6 +31,7 @@ The `patients.id = auth.uid()` convention provisions owner access through a priv
 
 Functions currently scaffolded:
 
+- `contact-invitation`: creates expiring, single-purpose email/SMS invitations and handles accept/decline/revoke without granting clinical-record access.
 - `emergency-alert`: records an incident and queues consented delivery ledger rows.
 - `process-alert-deliveries`: private worker for consented email/SMS delivery with claim tokens, bounded retries, and truthful provider states. Configure `ALERT_WORKER_SECRET`, `RESEND_*`, and/or `TWILIO_*` only in the hosted function environment.
 - `delete-account`: records a deletion request and removes the authenticated cloud user; local SQLite data remains under explicit user control.

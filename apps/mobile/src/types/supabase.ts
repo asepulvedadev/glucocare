@@ -323,6 +323,75 @@ export type Database = {
           },
         ]
       }
+      contact_invitations: {
+        Row: {
+          accepted_at: string | null
+          channel: string
+          contact_id: string
+          created_at: string
+          declined_at: string | null
+          delivery_error_code: string | null
+          delivery_status: string
+          expires_at: string
+          id: string
+          patient_id: string
+          revoked_at: string | null
+          scope_event_types: string[]
+          scope_fields: string[]
+          status: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          channel: string
+          contact_id: string
+          created_at?: string
+          declined_at?: string | null
+          delivery_error_code?: string | null
+          delivery_status?: string
+          expires_at: string
+          id?: string
+          patient_id: string
+          revoked_at?: string | null
+          scope_event_types?: string[]
+          scope_fields?: string[]
+          status?: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          channel?: string
+          contact_id?: string
+          created_at?: string
+          declined_at?: string | null
+          delivery_error_code?: string | null
+          delivery_status?: string
+          expires_at?: string
+          id?: string
+          patient_id?: string
+          revoked_at?: string | null
+          scope_event_types?: string[]
+          scope_fields?: string[]
+          status?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_invitations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "trusted_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_invitations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emergency_cards: {
         Row: {
           allergies: string | null
