@@ -67,26 +67,26 @@ function AppNavigator() {
 
 export default function RootLayout() {
   return (
-    <SQLiteProvider databaseName="glucocare.db" onInit={initializeDatabase}>
-      <GlucoseProvider>
-        <PrivacyProvider>
-          <AccessibilityProvider>
-            <AuthProvider>
-              <SyncBridge />
-              <CareProvider>
-                <SafetyProvider>
-                <AppErrorBoundary>
-                  <AppLockGate>
-                    <StatusBar style={isLightTheme ? 'dark' : 'light'} />
-                    <AppNavigator />
-                  </AppLockGate>
-                </AppErrorBoundary>
-                </SafetyProvider>
-              </CareProvider>
-            </AuthProvider>
-          </AccessibilityProvider>
-        </PrivacyProvider>
-      </GlucoseProvider>
-    </SQLiteProvider>
+    <AppErrorBoundary>
+      <SQLiteProvider databaseName="glucocare.db" onInit={initializeDatabase}>
+        <GlucoseProvider>
+          <PrivacyProvider>
+            <AccessibilityProvider>
+              <AuthProvider>
+                <SyncBridge />
+                <CareProvider>
+                  <SafetyProvider>
+                    <AppLockGate>
+                      <StatusBar style={isLightTheme ? 'dark' : 'light'} />
+                      <AppNavigator />
+                    </AppLockGate>
+                  </SafetyProvider>
+                </CareProvider>
+              </AuthProvider>
+            </AccessibilityProvider>
+          </PrivacyProvider>
+        </GlucoseProvider>
+      </SQLiteProvider>
+    </AppErrorBoundary>
   );
 }
