@@ -8,10 +8,14 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { colors } from '../theme/tokens';
 import { useSafety } from '../safetyContext';
 import { recordHelpEvent } from '../db/helpRepository';
+import { useAuth } from '../authContext';
+import { syncPendingData } from '../sync';
+import { queueEmergencyAlert } from '../alerts';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
   const { trustedContacts } = useSafety();
+  const { session, isConfigured: isCloudConfigured } = useAuth();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   async function callEmergency() {
     const url = 'tel:123';
@@ -21,9 +25,19 @@ export default function HelpScreen() {
   }
 
   async function registerAndContact() {
-    await recordHelpEvent(db, 'user_requested_help');
+    const incidentId = await recordHelpEvent(db, 'user_requested_help');
+    let remoteQueued = false;
+    if (session && isCloudConfigured && primaryContact) {
+      try {
+        await syncPendingData(db, session);
+        const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
+        if (channel) remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
+      } catch {
+        // Local event and direct-call fallback remain available if the cloud path fails.
+      }
+    }
     if (!primaryContact?.phone) {
-      Alert.alert('Alerta registrada', 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
+      Alert.alert('Alerta registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
       return;
     }
     const url = `tel:${primaryContact.phone}`;

@@ -7,6 +7,7 @@ import { scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderP
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
+import { newId } from './ids';
 
 type CareContextValue = {
   medications: Medication[];
@@ -55,7 +56,7 @@ export function CareProvider({ children }: PropsWithChildren) {
   const addMedication = useCallback(async (input: NewMedication) => {
     const medication: Medication = {
       ...input,
-      id: `medication_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: newId(),
       createdAt: new Date().toISOString(),
       reminderState: 'unavailable',
     };
@@ -73,7 +74,7 @@ export function CareProvider({ children }: PropsWithChildren) {
   const addAppointment = useCallback(async (input: NewAppointment) => {
     const appointment: Appointment = {
       ...input,
-      id: `appointment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: newId(),
       createdAt: new Date().toISOString(),
       reminderState: 'unavailable',
     };

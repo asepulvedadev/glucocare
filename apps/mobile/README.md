@@ -16,6 +16,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Help-event recording with an explicit call fallback; alert delivery is never overstated.
 - JSON bundle and glucose CSV export, plus local data deletion with scheduled-reminder cleanup.
 - Configurable measurement plan with one, two, or three daily times and optional care-team instructions.
+- Optional Supabase Auth session with SecureStore/local web persistence and an explicit glucose outbox sync action.
 - SQLCipher config enabled for native builds; web SQLite uses the documented WASM/COOP/COEP setup.
 
 ## Commands
@@ -30,6 +31,8 @@ npx expo export --platform web
 ```
 
 Use a development build for native modules and notifications. Expo Go is useful for early UI review but is not the release artifact.
+
+Cloud sync is opt-in and disabled until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are supplied. See [`../../supabase/README.md`](../../supabase/README.md) before linking a hosted project.
 
 ## Safety boundary
 

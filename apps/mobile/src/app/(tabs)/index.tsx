@@ -40,7 +40,7 @@ export default function TodayScreen() {
               <Text style={styles.value}>{latest.value} <Text style={styles.unit}>{latest.unit}</Text></Text>
               <Caption>{glucoseContextLabel[latest.context]} · {latestTime}</Caption>
             </View>
-            <Text style={styles.localBadge}>Guardado en este dispositivo</Text>
+            <Text style={styles.localBadge}>{latest.syncState === 'synced' ? 'Sincronizado' : latest.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
           </View>
         ) : <Body>Aún no hay registros. Tu primer registro aparecerá aquí.</Body>}
       </Panel>

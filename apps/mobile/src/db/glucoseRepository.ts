@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { GlucoseContext, GlucoseReading, GlucoseUnit } from '../types/domain';
+import { newId } from '../ids';
+import { enqueueOutbox } from './outboxRepository';
 
 export type NewGlucoseReading = Omit<GlucoseReading, 'id' | 'syncState'>;
 
@@ -11,7 +13,7 @@ type GlucoseRow = {
   recorded_at: string;
   symptoms: string | null;
   note: string | null;
-  sync_state: 'local';
+  sync_state: 'local' | 'pending' | 'synced' | 'failed';
 };
 
 function mapRow(row: GlucoseRow): GlucoseReading {
@@ -40,20 +42,16 @@ export async function insertGlucoseReading(
 ): Promise<GlucoseReading> {
   const stored: GlucoseReading = {
     ...reading,
-    id: `glucose_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    syncState: 'local',
+    id: newId(),
+    syncState: 'pending',
   };
-  await db.runAsync(
-    `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    stored.id,
-    stored.value,
-    stored.unit,
-    stored.context,
-    stored.recordedAt,
-    stored.symptoms ?? null,
-    stored.note ?? null,
-    stored.syncState,
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO glucose_readings (id, value, unit, context, recorded_at, symptoms, note, sync_state)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      stored.id, stored.value, stored.unit, stored.context, stored.recordedAt, stored.symptoms ?? null, stored.note ?? null, stored.syncState,
+    );
+    await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
+  });
   return stored;
 }

@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { EmergencyCard, TrustedContact } from '../types/safety';
+import { enqueueOutbox } from './outboxRepository';
+import { newId } from '../ids';
 
 type EmergencyRow = { id: 'default'; full_name: string; birth_date: string | null; diabetes_type: string | null; allergies: string | null; care_provider: string | null; emergency_notes: string | null; updated_at: string };
 type ContactRow = { id: string; name: string; relationship: string | null; phone: string | null; email: string | null; consent_granted: number; created_at: string };
@@ -11,10 +13,13 @@ export async function getEmergencyCard(db: SQLiteDatabase): Promise<EmergencyCar
 }
 
 export async function upsertEmergencyCard(db: SQLiteDatabase, card: EmergencyCard) {
-  await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, emergency_notes, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
-    card.id, card.fullName, card.birthDate ?? null, card.diabetesType ?? null, card.allergies ?? null, card.careProvider ?? null, card.emergencyNotes ?? null, card.updatedAt);
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, emergency_notes, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
+      card.id, card.fullName, card.birthDate ?? null, card.diabetesType ?? null, card.allergies ?? null, card.careProvider ?? null, card.emergencyNotes ?? null, card.updatedAt);
+    await enqueueOutbox(db, { id: newId(), entityType: 'emergency_card', entityId: card.id, eventType: 'emergency.card.saved.v1', payload: card });
+  });
 }
 
 export async function listTrustedContacts(db: SQLiteDatabase): Promise<TrustedContact[]> {
@@ -23,5 +28,8 @@ export async function listTrustedContacts(db: SQLiteDatabase): Promise<TrustedCo
 }
 
 export async function insertTrustedContact(db: SQLiteDatabase, contact: TrustedContact) {
-  await db.runAsync(`INSERT INTO trusted_contacts (id, name, relationship, phone, email, consent_granted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, contact.id, contact.name, contact.relationship ?? null, contact.phone ?? null, contact.email ?? null, contact.consentGranted ? 1 : 0, contact.createdAt);
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(`INSERT INTO trusted_contacts (id, name, relationship, phone, email, consent_granted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, contact.id, contact.name, contact.relationship ?? null, contact.phone ?? null, contact.email ?? null, contact.consentGranted ? 1 : 0, contact.createdAt);
+    await enqueueOutbox(db, { id: newId(), entityType: 'trusted_contact', entityId: contact.id, eventType: 'contact.created.v1', payload: contact });
+  });
 }

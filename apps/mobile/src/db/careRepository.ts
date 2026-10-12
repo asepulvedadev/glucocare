@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Medication, MedicationRoute, ReminderState } from '../types/care';
+import { enqueueOutbox } from './outboxRepository';
+import { newId } from '../ids';
 
 export type StoredMedication = Medication;
 
@@ -37,18 +39,13 @@ export async function listMedications(db: SQLiteDatabase): Promise<Medication[]>
 }
 
 export async function insertMedication(db: SQLiteDatabase, medication: Medication) {
-  await db.runAsync(
-    `INSERT INTO medications (id, name, dose_text, route, hour, minute, enabled, notification_id, reminder_state, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    medication.id,
-    medication.name,
-    medication.doseText,
-    medication.route,
-    medication.hour,
-    medication.minute,
-    medication.enabled ? 1 : 0,
-    medication.notificationId ?? null,
-    medication.reminderState,
-    medication.createdAt,
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO medications (id, name, dose_text, route, hour, minute, enabled, notification_id, reminder_state, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      medication.id, medication.name, medication.doseText, medication.route, medication.hour, medication.minute,
+      medication.enabled ? 1 : 0, medication.notificationId ?? null, medication.reminderState, medication.createdAt,
+    );
+    await enqueueOutbox(db, { id: newId(), entityType: 'medication', entityId: medication.id, eventType: 'medication.created.v1', payload: medication });
+  });
 }

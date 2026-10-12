@@ -2,6 +2,7 @@ import { PropsWithChildren, createContext, useCallback, useContext, useEffect, u
 import { useSQLiteContext } from 'expo-sqlite';
 import { getEmergencyCard, insertTrustedContact, listTrustedContacts, upsertEmergencyCard } from './db/safetyRepository';
 import type { EmergencyCard, NewEmergencyCard, NewTrustedContact, TrustedContact } from './types/safety';
+import { newId } from './ids';
 
 type SafetyContextValue = {
   emergencyCard: EmergencyCard | null;
@@ -41,7 +42,7 @@ export function SafetyProvider({ children }: PropsWithChildren) {
   }, [db]);
 
   const addContact = useCallback(async (input: NewTrustedContact) => {
-    const contact: TrustedContact = { ...input, id: `contact_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, createdAt: new Date().toISOString() };
+    const contact: TrustedContact = { ...input, id: newId(), createdAt: new Date().toISOString() };
     await insertTrustedContact(db, contact); setTrustedContacts((current) => [...current, contact]);
   }, [db]);
 

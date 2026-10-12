@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../../components/Screen';
@@ -8,14 +9,30 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { useSafety } from '../../safetyContext';
 import { useGlucose } from '../../context';
 import { useCare } from '../../careContext';
+import { useAuth } from '../../authContext';
 import { deleteAllLocalData, shareExport } from '../../dataLifecycle';
 import { colors } from '../../theme/tokens';
+import { syncPendingData } from '../../sync';
 
 export default function ProfileScreen() {
   const { emergencyCard, trustedContacts, isLoading, refresh: refreshSafety } = useSafety();
   const db = useSQLiteContext();
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
+  const { session, isConfigured: isCloudConfigured } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncNow() {
+    if (!session) return;
+    setSyncing(true);
+    try {
+      const result = await syncPendingData(db, session);
+      if (result.state === 'disabled') Alert.alert('Sincronización no disponible', 'Este build no tiene configurada la conexión cloud.');
+      else if (result.state === 'failed') Alert.alert('Sincronización parcial', `Subidos: ${result.uploaded}. Pendientes con error: ${result.failed}. Conservamos la copia local.`);
+      else Alert.alert('Sincronización lista', result.uploaded ? `Se subieron ${result.uploaded} registro(s).` : 'No había registros pendientes.');
+    } catch { Alert.alert('Sincronización no disponible', 'No se pudo conectar. Tu información local permanece intacta.'); }
+    finally { setSyncing(false); }
+  }
 
   async function exportData(format: 'json' | 'csv') {
     try {
@@ -44,6 +61,12 @@ export default function ProfileScreen() {
         <Caption>PERSONA DE APOYO</Caption>
         {trustedContacts.length === 0 ? <><Text style={styles.title}>Sin contacto registrado</Text><Body>Agrega un número o correo solo después de dar tu consentimiento explícito.</Body></> : trustedContacts.map((contact) => <Text key={contact.id} style={styles.contact}>{contact.name}{contact.phone ? ` · ${contact.phone}` : ''}{contact.consentGranted ? ' · Consentimiento activo' : ' · Consentimiento pendiente'}</Text>)}
         <PrimaryButton label="Agregar contacto" tone="quiet" onPress={() => router.push('/trusted-contact')} />
+      </Panel>
+      <Panel>
+        <Caption>SINCRONIZACIÓN OPCIONAL</Caption>
+        {session ? <><Text style={styles.title}>Cuenta conectada</Text><Body>{session.user.email ?? 'Sesión activa'} · tus registros locales pueden sincronizarse.</Body></> : <><Text style={styles.title}>Solo este dispositivo</Text><Body>{isCloudConfigured ? 'Conecta una cuenta para continuar entre dispositivos.' : 'La nube aún no está configurada en este entorno. Tus datos locales siguen disponibles.'}</Body></>}
+        <PrimaryButton label={session ? 'Administrar cuenta' : 'Conectar cuenta'} tone="quiet" onPress={() => router.push('/auth')} />
+        {session ? <PrimaryButton label={syncing ? 'Sincronizando…' : 'Sincronizar ahora'} tone="quiet" disabled={syncing} onPress={() => void syncNow()} /> : null}
       </Panel>
       <Panel>
         <Caption>TUS DATOS</Caption>

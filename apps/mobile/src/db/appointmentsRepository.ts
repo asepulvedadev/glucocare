@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Appointment, AppointmentReminderState, AppointmentStatus } from '../types/appointments';
+import { enqueueOutbox } from './outboxRepository';
+import { newId } from '../ids';
 
 type AppointmentRow = {
   id: string;
@@ -35,18 +37,13 @@ export async function listAppointments(db: SQLiteDatabase): Promise<Appointment[
 }
 
 export async function insertAppointment(db: SQLiteDatabase, appointment: Appointment) {
-  await db.runAsync(
-    `INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, notification_id, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    appointment.id,
-    appointment.title,
-    appointment.provider,
-    appointment.scheduledAt,
-    appointment.status,
-    appointment.location ?? null,
-    appointment.notes ?? null,
-    appointment.reminderState,
-    appointment.notificationId ?? null,
-    appointment.createdAt,
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, notification_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      appointment.id, appointment.title, appointment.provider, appointment.scheduledAt, appointment.status,
+      appointment.location ?? null, appointment.notes ?? null, appointment.reminderState, appointment.notificationId ?? null, appointment.createdAt,
+    );
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.created.v1', payload: appointment });
+  });
 }

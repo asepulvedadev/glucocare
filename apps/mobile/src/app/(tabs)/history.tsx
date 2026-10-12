@@ -32,7 +32,7 @@ export default function HistoryScreen() {
           </View>
           {reading.symptoms ? <Body>Síntomas: {reading.symptoms}</Body> : null}
           {reading.note ? <Body>Nota: {reading.note}</Body> : null}
-          <Text style={styles.local}>Guardado localmente</Text>
+          <Text style={styles.local}>{reading.syncState === 'synced' ? 'Sincronizado' : reading.syncState === 'failed' ? 'Sincronización pendiente' : 'Guardado localmente'}</Text>
         </Panel>
       ))}
     </Screen>

@@ -9,7 +9,7 @@ export type GlucoseReading = {
   recordedAt: string;
   symptoms?: string;
   note?: string;
-  syncState: 'local';
+  syncState: 'local' | 'pending' | 'synced' | 'failed';
 };
 
 export const glucoseContextLabel: Record<GlucoseContext, string> = {
