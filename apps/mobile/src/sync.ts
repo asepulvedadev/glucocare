@@ -50,6 +50,20 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         classification: glucosePayload.riskClassification ? String(glucosePayload.riskClassification) : null,
       });
       if (error) throw error;
+      if (event.eventType === 'glucose.reading.corrected.v1') {
+        const { error: auditError } = await supabase.functions.invoke('record-glucose-audit', {
+          body: {
+            eventId: event.id,
+            readingId: event.entityId,
+            occurredAt: payload.occurredAt,
+            action: payload.action,
+            reason: payload.reason,
+            before: payload.before,
+            after: payload.after,
+          },
+        });
+        if (auditError) throw auditError;
+      }
       return;
     }
     case 'medication': {

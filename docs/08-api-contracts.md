@@ -89,7 +89,7 @@ Server returns per-event acceptance/rejection and an opaque next cursor. One inv
 | Event | Notes |
 |---|---|
 | `glucose.reading.recorded.v1` | Append-only; includes original/canonical unit values. |
-| `glucose.reading.corrected.v1` | References original and audit reason. |
+| `glucose.reading.corrected.v1` | References original and audit reason. Mobile sync persists the immutable cloud audit through the private `record-glucose-audit` function; retries reuse the outbox event UUID. |
 | `care_plan.revision.activated.v1` | Immutable revision and effective time. |
 | `medication.occurrence.responded.v1` | Taken/skipped/snoozed with user time. |
 | `appointment.updated.v1` | Replaces editable appointment details and reschedules the local reminder. |
