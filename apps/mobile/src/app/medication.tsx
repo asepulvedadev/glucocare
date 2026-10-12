@@ -9,6 +9,7 @@ import { useCare } from '../careContext';
 import { openNotificationSettings } from '../notifications';
 import { medicationRouteLabel, type MedicationRoute } from '../types/care';
 import { colors, radii, spacing } from '../theme/tokens';
+import { isValidMedicationDate } from '../domain/medication';
 
 const routes: MedicationRoute[] = ['oral', 'injection', 'inhaled', 'topical', 'other'];
 
@@ -35,8 +36,7 @@ export default function MedicationScreen() {
 
   async function save() {
     const parsedTimes = times.filter((value) => value.trim()).map(parseTime);
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if ((startDate.trim() && !datePattern.test(startDate.trim())) || (endDate.trim() && !datePattern.test(endDate.trim())) || (startDate.trim() && endDate.trim() && startDate.trim() > endDate.trim())) {
+    if ((startDate.trim() && !isValidMedicationDate(startDate.trim())) || (endDate.trim() && !isValidMedicationDate(endDate.trim())) || (startDate.trim() && endDate.trim() && startDate.trim() > endDate.trim())) {
       Alert.alert('Revisa la vigencia', 'Usa AAAA-MM-DD y asegúrate de que la fecha inicial no sea posterior a la final.');
       return;
     }
