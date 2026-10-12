@@ -67,10 +67,31 @@ jobs:
       - name: Export web bundle
         run: npx expo export --platform web
 
+  database:
+    name: Validate Supabase schema and RLS foundation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local database
+        run: supabase db start
+
+      - name: Lint migrations
+        run: supabase db lint --local --level warning --fail-on error
+
+      - name: Verify migration history
+        run: supabase migration list
+
   deploy:
     name: Deploy documentation staging to AutoKing VPS
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [validate, mobile]
+    needs: [validate, mobile, database]
     runs-on: ubuntu-24.04
     environment: production
     env:

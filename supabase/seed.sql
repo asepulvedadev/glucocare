@@ -1,0 +1,1 @@
+-- Intentionally empty: clinical records must never be seeded into local or hosted environments.
