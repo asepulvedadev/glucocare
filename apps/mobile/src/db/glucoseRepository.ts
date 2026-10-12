@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { GlucoseContext, GlucoseReading, GlucoseUnit } from '../types/domain';
 import { newId } from '../ids';
 import { enqueueOutbox } from './outboxRepository';
+import { completeNearestMeasurementOccurrence } from './measurementOccurrenceRepository';
 
 export type NewGlucoseReading = Omit<GlucoseReading, 'id' | 'syncState'>;
 
@@ -53,5 +54,10 @@ export async function insertGlucoseReading(
     );
     await enqueueOutbox(db, { id: newId(), entityType: 'glucose_reading', entityId: stored.id, eventType: 'glucose.reading.recorded.v1', payload: stored });
   });
+  try {
+    await completeNearestMeasurementOccurrence(db, stored.id, stored.recordedAt);
+  } catch {
+    // A measurement occurrence is an optional tracking projection; never block saving the reading.
+  }
   return stored;
 }

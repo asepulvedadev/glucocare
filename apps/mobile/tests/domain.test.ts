@@ -3,6 +3,7 @@ import { canTransitionAppointment, transitionAppointment } from '../src/domain/a
 import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
+import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -45,5 +46,17 @@ describe('medication occurrence state machine', () => {
   it('does not allow a completed occurrence to be changed silently', () => {
     expect(canTransitionMedicationOccurrence('taken', 'skipped')).toBe(false);
     expect(() => transitionMedicationOccurrence('taken', 'skipped')).toThrow('Invalid medication occurrence transition');
+  });
+});
+
+describe('measurement occurrence state machine', () => {
+  it('moves a planned measurement to due or completed', () => {
+    expect(canTransitionMeasurementOccurrence('planned', 'due')).toBe(true);
+    expect(transitionMeasurementOccurrence('planned', 'completed')).toBe('completed');
+  });
+
+  it('keeps completed measurements immutable', () => {
+    expect(canTransitionMeasurementOccurrence('completed', 'skipped')).toBe(false);
+    expect(() => transitionMeasurementOccurrence('completed', 'skipped')).toThrow('Invalid measurement occurrence transition');
   });
 });

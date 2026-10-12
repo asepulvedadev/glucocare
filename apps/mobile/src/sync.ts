@@ -92,6 +92,21 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       if (error) throw error;
       return;
     }
+    case 'measurement_occurrence': {
+      if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
+      const plan = await supabase.from('measurement_plan_revisions').select('id').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle();
+      if (plan.error) throw plan.error;
+      if (!plan.data) throw new Error('Measurement plan has not synced yet.');
+      const { error } = await supabase.from('measurement_occurrences').upsert({
+        id: event.entityId, patient_id: patientId, plan_revision_id: plan.data.id,
+        scheduled_at: stringValue(payload.scheduledAt, new Date().toISOString()),
+        status: stringValue(payload.status, 'planned') as 'planned' | 'due' | 'completed' | 'skipped' | 'expired',
+        completed_reading_id: payload.completedReadingId ? String(payload.completedReadingId) : null,
+        completed_at: payload.completedAt ? String(payload.completedAt) : null,
+      }, { onConflict: 'id' });
+      if (error) throw error;
+      return;
+    }
     case 'emergency_card': {
       const { error } = await supabase.from('emergency_cards').upsert({
         patient_id: patientId, full_name: stringValue(payload.fullName), birth_date: payload.birthDate ? String(payload.birthDate) : null,

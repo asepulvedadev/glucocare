@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../../components/Typography';
@@ -8,6 +8,7 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { useCare } from '../../careContext';
 import { medicationRouteLabel } from '../../types/care';
 import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
+import { measurementOccurrenceStatusLabel } from '../../types/measurementOccurrences';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { colors, spacing } from '../../theme/tokens';
 
@@ -16,8 +17,13 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, medicationOccurrences, appointments, measurementPlan, isLoading, markMedicationOccurrence } = useCare();
+  const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, isLoading, markMedicationOccurrence, markMeasurementOccurrence, refresh } = useCare();
   const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
+  const [actingMeasurementId, setActingMeasurementId] = useState<string | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    void refresh();
+  }, [refresh]));
 
   async function updateOccurrence(occurrenceId: string, status: 'taken' | 'skipped') {
     setActingOccurrenceId(occurrenceId);
@@ -27,6 +33,17 @@ export default function CareScreen() {
       Alert.alert('No se pudo actualizar', 'Conserva la instrucción de tu equipo de salud y vuelve a intentarlo.');
     } finally {
       setActingOccurrenceId(null);
+    }
+  }
+
+  async function updateMeasurementOccurrence(occurrenceId: string, status: 'skipped') {
+    setActingMeasurementId(occurrenceId);
+    try {
+      await markMeasurementOccurrence(occurrenceId, status);
+    } catch {
+      Alert.alert('No se pudo actualizar', 'Vuelve a intentarlo cuando estés listo.');
+    } finally {
+      setActingMeasurementId(null);
     }
   }
 
@@ -90,7 +107,27 @@ export default function CareScreen() {
           <Caption>PLAN DE MEDICIÓN</Caption>
           <PrimaryButton label={measurementPlan ? 'Editar' : 'Configurar'} tone="quiet" onPress={() => router.push('/measurement-plan')} />
         </View>
-        {measurementPlan ? <><Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text><Body>{measurementPlan.times.join(' · ')}</Body>{measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}</> : <View style={styles.planRow}><View style={styles.indicator} /><Body>Configúralo con instrucciones de tu equipo de salud</Body></View>}
+        {measurementPlan ? <>
+          <Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text>
+          <Body>{measurementPlan.times.join(' · ')}</Body>
+          {measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}
+          <View style={styles.measurementList}>
+            {measurementOccurrences.map((occurrence) => {
+              const status = occurrence.status;
+              const actionable = status === 'planned' || status === 'due';
+              return <View key={occurrence.id} style={styles.measurementRow}>
+                <View style={styles.measurementCopy}>
+                  <Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  <Text style={styles.status} accessibilityLabel={`Estado de la medición: ${measurementOccurrenceStatusLabel[status]}`}>{measurementOccurrenceStatusLabel[status]}</Text>
+                </View>
+                {actionable ? <View style={styles.occurrenceActions}>
+                  <PrimaryButton label="Registrar lectura" tone="quiet" onPress={() => router.push('/log')} />
+                  <PrimaryButton label="Omitir" tone="quiet" disabled={actingMeasurementId === occurrence.id} onPress={() => void updateMeasurementOccurrence(occurrence.id, 'skipped')} />
+                </View> : null}
+              </View>;
+            })}
+          </View>
+        </> : <View style={styles.planRow}><View style={styles.indicator} /><Body>Configúralo con instrucciones de tu equipo de salud</Body></View>}
       </Panel>
     </Screen>
   );
@@ -108,6 +145,10 @@ const styles = StyleSheet.create({
   reminderMuted: { color: colors.attention },
   occurrenceStatus: { color: colors.textPrimary, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
   occurrenceActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
+  measurementList: { marginTop: spacing.sm, gap: spacing.xs },
+  measurementRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.xs, gap: spacing.xs },
+  measurementCopy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  measurementTime: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
   appointmentCopy: { flex: 1, gap: 2 },
   status: { color: colors.info, fontSize: 12, lineHeight: 17 },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
