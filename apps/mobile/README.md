@@ -43,6 +43,10 @@ npx eas-cli@latest build --profile preview
 
 Use a development build for native modules and notifications. Expo Go is useful for early UI review but is not the release artifact.
 
+### Native EAS builds
+
+The repository includes a manual GitHub Actions workflow at [`.github/workflows/eas-build.yml`](../../.github/workflows/eas-build.yml). Add an `EXPO_TOKEN` secret to the `production` GitHub environment, then run **Native mobile build** and choose `preview` or `production` plus the target platform. The workflow verifies or initializes the EAS project before starting a non-interactive build; signing credentials remain managed by EAS and are never committed.
+
 `eas.json` defines development, preview, and production channels. Signing credentials, EAS project ID, and store metadata remain release-environment configuration and must not be committed.
 
 Cloud sync is opt-in and disabled until `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are supplied. See [`../../supabase/README.md`](../../supabase/README.md) before linking a hosted project.
