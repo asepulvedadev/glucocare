@@ -81,3 +81,10 @@ export async function markOutboxFailed(db: SQLiteDatabase, eventId: string, atte
   const status: OutboxStatus = attemptCount >= 8 ? 'dead_letter' : 'failed';
   await db.runAsync(`UPDATE sync_outbox SET status = ?, attempt_count = ?, next_attempt_at = ? WHERE id = ?`, status, attemptCount, nextAttemptAt, eventId);
 }
+
+export async function discardPendingOutboxForEntity(db: SQLiteDatabase, entityType: string, entityId: string) {
+  await db.runAsync(
+    `DELETE FROM sync_outbox WHERE entity_type = ? AND entity_id = ? AND status IN ('pending', 'sending', 'failed', 'dead_letter')`,
+    entityType, entityId,
+  );
+}

@@ -17,6 +17,7 @@ import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
 import { useAccessibility } from '../../accessibilityContext';
 import { listOpenSyncConflicts, type SyncConflict } from '../../db/syncConflictRepository';
+import { applyRemoteSyncConflict } from '../../db/syncConflictResolution';
 import { usePrivacy } from '../../privacyContext';
 
 export default function ProfileScreen() {
@@ -46,6 +47,21 @@ export default function ProfileScreen() {
       else Alert.alert('Sincronización lista', `Subidos: ${result.uploaded}. Descargados: ${result.downloaded}.`);
     } catch { Alert.alert('Sincronización no disponible', 'No se pudo conectar. Tu información local permanece intacta.'); }
     finally { setSyncing(false); }
+  }
+
+  function requestRemoteConflict(conflict: SyncConflict) {
+    Alert.alert('Usar versión cloud', 'Esto reemplazará el registro local pendiente con la versión descargada y descartará los eventos locales pendientes de este registro. ¿Continuar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Usar cloud', style: 'destructive', onPress: () => void (async () => {
+        setSyncing(true);
+        try {
+          await applyRemoteSyncConflict(db, conflict);
+          await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshSyncConflicts()]);
+          Alert.alert('Conflicto resuelto', 'Aplicamos la versión cloud.');
+        } catch { Alert.alert('No se pudo resolver', 'Conservamos tu copia local. Vuelve a sincronizar antes de elegir otra versión.'); }
+        finally { setSyncing(false); }
+      })() },
+    ]);
   }
 
   async function exportData(format: 'json' | 'csv') {
@@ -149,7 +165,7 @@ export default function ProfileScreen() {
         <Caption>CAMBIOS EN DOS DISPOSITIVOS</Caption>
         <Text style={styles.title}>{syncConflicts.length} cambio{syncConflicts.length === 1 ? '' : 's'} pendiente{syncConflicts.length === 1 ? '' : 's'}</Text>
         <Body>Conservamos tu cambio local para no sobrescribir información sin tu permiso. La aplicación intentará enviarlo de nuevo cuando haya conexión.</Body>
-        {syncConflicts.slice(0, 3).map((conflict) => <Text key={conflict.id} style={styles.contact}>{conflict.entityType} · detectado {new Date(conflict.detectedAt).toLocaleString('es-CO')}</Text>)}
+        {syncConflicts.slice(0, 3).map((conflict) => <Panel key={conflict.id}><Text style={styles.contact}>{conflict.entityType} · detectado {new Date(conflict.detectedAt).toLocaleString('es-CO')}</Text><PrimaryButton label="Usar versión cloud" tone="quiet" disabled={syncing} onPress={() => requestRemoteConflict(conflict)} /></Panel>)}
       </Panel> : null}
       <Panel>
         <Caption>TUS DATOS</Caption>
