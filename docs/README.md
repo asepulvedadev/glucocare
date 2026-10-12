@@ -17,6 +17,7 @@ These documents are the source of truth for product intent, safety, and implemen
 11. [Operations](11-operations-observability.md)
 12. [Risk register](12-risk-register.md)
 13. [Complete development plan](../DEVELOPMENT_PLAN.md)
+14. [Production configuration handoff](PRODUCTION_CONFIGURATION.md)
 
 ## Document ownership
 
