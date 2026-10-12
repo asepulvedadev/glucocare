@@ -22,6 +22,7 @@ describe('appointment state machine', () => {
   });
 
   it('exposes only valid next actions for the appointment UI', () => {
+    expect(availableAppointmentTransitions('requested')).toEqual(['pending_authorization', 'cancelled']);
     expect(availableAppointmentTransitions('authorized')).toEqual(['scheduled', 'cancelled']);
     expect(availableAppointmentTransitions('completed')).toEqual([]);
   });
