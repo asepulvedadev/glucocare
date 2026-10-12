@@ -27,7 +27,7 @@ Marketing, store listings, onboarding, and in-app copy must remain consistent wi
 
 | Category | Examples | Default |
 |---|---|---|
-| Identity | Name, email, phone | Minimum required |
+| Identity/emergency identifiers | Name, document type/number, blood type/RH, email, phone | Optional except account email; document and blood fields are user-entered and require explicit health-data consent before cloud sync |
 | Sensitive health | Glucose, diagnosis, medications, symptoms, incidents | Explicit health-data consent |
 | Support network | Contact name/channel/consent | Separate opt-in |
 | Location | Emergency location | Off; one-time or event-based consent |

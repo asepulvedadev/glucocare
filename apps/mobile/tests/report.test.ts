@@ -7,7 +7,7 @@ describe('clinician report', () => {
     const html = buildClinicianReportHtml({
       generatedAt: '2026-10-12T12:00:00.000Z',
       periodLabel: 'Últimos 7 días',
-      card: { full_name: '<Ana>', birth_date: null, diabetes_type: 'Tipo 2', allergies: null, care_provider: null, care_facility: null, emergency_number: '123', emergency_region: 'Bogotá', emergency_notes: null },
+      card: { full_name: '<Ana>', birth_date: null, document_type: 'CC', document_number: '<document>', diabetes_type: 'Tipo 2', blood_type: 'O', rh_factor: 'positive', allergies: null, care_provider: null, care_facility: 'IPS Demo', care_address: '<address>', emergency_number: '123', emergency_region: 'Bogotá', emergency_notes: null },
       readings: [{ value: 120, unit: 'mg/dL', context: 'fasting', recorded_at: '2026-10-12T10:00:00.000Z', symptoms: '<script>', note: null, ketone_result: 'moderate', risk_classification: 'high', risk_rule_id: '<rule>', risk_plan_updated_at: '2026-10-01T12:00:00.000Z' }],
       medications: [{ name: 'Metformin', presentation: 'tableta', dose_text: '500 mg', route: 'oral', times_json: '["08:00"]', enabled: 1 }],
       appointments: [],
@@ -29,6 +29,9 @@ describe('clinician report', () => {
     expect(html).toContain('Historial de tomas');
     expect(html).toContain('Emergencias');
     expect(html).toContain('Bogotá');
+    expect(html).toContain('&lt;document&gt;');
+    expect(html).toContain('&lt;address&gt;');
+    expect(html).toContain('Sangre / RH');
     expect(html).toContain('Metformin');
     expect(html).toContain('tableta');
     expect(html).toContain('&lt;note&gt;');
