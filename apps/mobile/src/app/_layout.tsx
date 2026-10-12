@@ -14,6 +14,7 @@ import { PrivacyProvider } from '../privacyContext';
 import { syncPendingData } from '../sync';
 import { initializeDatabaseEncryption } from '../db/encryption';
 import { AppLockGate } from '../components/AppLockGate';
+import { AppErrorBoundary } from '../components/AppErrorBoundary';
 
 async function initializeDatabase(db: Parameters<typeof migrateDbIfNeeded>[0]) {
   await initializeDatabaseEncryption(db);
@@ -74,10 +75,12 @@ export default function RootLayout() {
               <SyncBridge />
               <CareProvider>
                 <SafetyProvider>
-                <AppLockGate>
-                  <StatusBar style={isLightTheme ? 'dark' : 'light'} />
-                  <AppNavigator />
-                </AppLockGate>
+                <AppErrorBoundary>
+                  <AppLockGate>
+                    <StatusBar style={isLightTheme ? 'dark' : 'light'} />
+                    <AppNavigator />
+                  </AppLockGate>
+                </AppErrorBoundary>
                 </SafetyProvider>
               </CareProvider>
             </AuthProvider>
