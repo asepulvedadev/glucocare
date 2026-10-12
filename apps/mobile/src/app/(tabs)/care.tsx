@@ -155,12 +155,12 @@ export default function CareScreen() {
           <Body>{measurementPlan.times.map((time, index) => `${time} · ${measurementTimingLabel[measurementPlan.timings?.[index] ?? 'other']}`).join(' | ')}</Body>
           {measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}
           <View style={styles.measurementList}>
-            {measurementOccurrences.map((occurrence) => {
+            {measurementOccurrences.map((occurrence, occurrenceIndex) => {
               const status = occurrence.status;
               const actionable = status === 'planned' || status === 'due';
               return <View key={occurrence.id} style={styles.measurementRow}>
                 <View style={styles.measurementCopy}>
-                  <Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text>
+                  <View><Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text><Caption>{measurementTimingLabel[measurementPlan.timings?.[occurrenceIndex] ?? 'other']}</Caption></View>
                   <Text style={styles.status} accessibilityLabel={`Estado de la medición: ${measurementOccurrenceStatusLabel[status]}`}>{measurementOccurrenceStatusLabel[status]}</Text>
                 </View>
                 {actionable ? <View style={styles.occurrenceActions}>
