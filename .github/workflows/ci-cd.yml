@@ -81,6 +81,8 @@ jobs:
           npm run lint
 
       - name: Domain tests
+        env:
+          TZ: America/Bogota
         run: npm test
 
       - name: Smoke-test mobile SQLite migration
