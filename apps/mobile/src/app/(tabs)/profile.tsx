@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert, Platform, StyleSheet, Text } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { Screen } from '../../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
@@ -10,7 +12,7 @@ import { useSafety } from '../../safetyContext';
 import { useGlucose } from '../../context';
 import { useCare } from '../../careContext';
 import { useAuth } from '../../authContext';
-import { deleteAllLocalData, shareExport } from '../../dataLifecycle';
+import { deleteAllLocalData, restoreFromExportContent, shareExport } from '../../dataLifecycle';
 import { colors } from '../../theme/tokens';
 import { syncPendingData } from '../../sync';
 import { useAccessibility } from '../../accessibilityContext';
@@ -23,8 +25,8 @@ export default function ProfileScreen() {
   const { refresh: refreshGlucose } = useGlucose();
   const { refresh: refreshCare } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
-  const { preferences, setPreference } = useAccessibility();
-  const { consent } = usePrivacy();
+  const { preferences, setPreference, refresh: refreshAccessibility } = useAccessibility();
+  const { consent, refresh: refreshPrivacy } = usePrivacy();
   const [syncing, setSyncing] = useState(false);
   const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>([]);
 
@@ -51,6 +53,36 @@ export default function ProfileScreen() {
       const result = await shareExport(db, format);
       Alert.alert(result.shared ? 'Exportación lista' : 'Exportación preparada', result.shared ? `Se creó ${result.filename}.` : `No se pudo abrir el menú de compartir. Archivo: ${result.filename}`);
     } catch { Alert.alert('No se pudo exportar', 'Vuelve a intentarlo.'); }
+  }
+
+  async function readPickedJson(asset: DocumentPicker.DocumentPickerAsset) {
+    if (Platform.OS === 'web' && asset.file) return asset.file.text();
+    return new File(asset.uri).text();
+  }
+
+  async function importData() {
+    const result = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true, multiple: false });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    const confirmRestore = async () => {
+      try {
+        const content = await readPickedJson(asset);
+        const restored = await restoreFromExportContent(db, content);
+        await Promise.all([refreshGlucose(), refreshCare(), refreshSafety(), refreshAccessibility(), refreshPrivacy()]);
+        Alert.alert('Restauración lista', `${restored.imported} registros fueron restaurados localmente.${restored.contactsRequireConsent ? ' Los contactos importados requieren confirmar el consentimiento antes de usarlos.' : ''}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'El archivo no pudo restaurarse.';
+        Alert.alert('No se pudo restaurar', message);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.('Esto reemplazará todos los datos locales. El consentimiento y la sincronización no se restauran automáticamente. ¿Continuar?')) await confirmRestore();
+      return;
+    }
+    Alert.alert('Reemplazar datos locales', 'Esto reemplazará todos los datos locales. El consentimiento y la sincronización no se restauran automáticamente.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Restaurar', style: 'destructive', onPress: () => void confirmRestore() },
+    ]);
   }
 
   function requestRevokeContact(contactId: string, name: string) {
@@ -111,9 +143,10 @@ export default function ProfileScreen() {
       </Panel> : null}
       <Panel>
         <Caption>TUS DATOS</Caption>
-        <Body>Exporta una copia legible o elimina la información guardada en este dispositivo.</Body>
+        <Body>Exporta una copia legible, restaura un respaldo o elimina la información guardada en este dispositivo.</Body>
         <PrimaryButton label="Exportar JSON" tone="quiet" onPress={() => void exportData('json')} />
         <PrimaryButton label="Exportar lecturas CSV" tone="quiet" onPress={() => void exportData('csv')} />
+        <PrimaryButton label="Restaurar respaldo JSON" tone="quiet" onPress={() => void importData()} />
         <PrimaryButton label="Borrar datos locales" tone="urgent" onPress={requestDelete} />
       </Panel>
       <PrimaryButton label="Abrir ayuda" tone="urgent" onPress={() => router.push('/help')} />

@@ -18,7 +18,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Lock-screen notifications use generic copy; medication names, doses, appointment providers, and glucose values stay inside the app.
 - Local emergency card with care provider/facility details and consented trusted contacts.
 - Help-event recording with an explicit call fallback; alert delivery is never overstated.
-- JSON bundle and glucose CSV export, plus local data deletion with scheduled-reminder cleanup.
+- JSON bundle and glucose CSV export, plus replace-style local JSON restore and data deletion with scheduled-reminder cleanup. Restored contacts require consent again; cloud consent and sync queues are never restored from a file.
 - Versioned local privacy consent with separate controls for on-device storage, optional cloud sync, and emergency-contact sharing.
 - Configurable measurement plan with one, two, or three daily times and optional care-team instructions.
 - Daily measurement occurrence checklist that can be completed by a glucose reading or explicitly skipped.

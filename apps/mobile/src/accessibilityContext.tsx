@@ -8,6 +8,7 @@ type AccessibilityContextValue = {
   preferences: AccessibilityPreferences;
   isLoading: boolean;
   setPreference: (key: AccessibilityPreferenceKey, value: boolean) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AccessibilityContext = createContext<AccessibilityContextValue | null>(null);
@@ -16,6 +17,14 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   const db = useSQLiteContext();
   const [preferences, setPreferences] = useState<AccessibilityPreferences>({ id: 'default', simpleMode: false, largeText: false, highContrast: false, reduceMotion: false, updatedAt: new Date().toISOString() });
   const [isLoading, setIsLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [stored, systemReduceMotion] = await Promise.all([getAccessibilityPreferences(db), AccessibilityInfo.isReduceMotionEnabled()]);
+      setPreferences({ ...stored, reduceMotion: stored.reduceMotion || systemReduceMotion });
+    } finally { setIsLoading(false); }
+  }, [db]);
 
   useEffect(() => {
     let active = true;
@@ -31,7 +40,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     setPreferences(next);
   }, [db, preferences]);
 
-  const value = useMemo(() => ({ preferences, isLoading, setPreference }), [preferences, isLoading, setPreference]);
+  const value = useMemo(() => ({ preferences, isLoading, setPreference, refresh }), [preferences, isLoading, setPreference, refresh]);
   return <AccessibilityContext.Provider value={value}>{children}</AccessibilityContext.Provider>;
 }
 
