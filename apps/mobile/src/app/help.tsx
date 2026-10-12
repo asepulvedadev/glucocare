@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Alert, Linking, Platform, StyleSheet, Text } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Screen } from '../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
@@ -8,7 +8,7 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { colors } from '../theme/tokens';
 import { useSafety } from '../safetyContext';
-import { recordHelpEvent } from '../db/helpRepository';
+import { listHelpEvents, recordHelpEvent, type HelpEvent } from '../db/helpRepository';
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
 import { queueEmergencyAlert } from '../alerts';
@@ -22,6 +22,12 @@ export default function HelpScreen() {
   const { consent } = usePrivacy();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   const [processing, setProcessing] = useState(false);
+  const [helpEvents, setHelpEvents] = useState<HelpEvent[]>([]);
+  useEffect(() => {
+    let active = true;
+    void listHelpEvents(db).then((events) => { if (active) setHelpEvents(events); });
+    return () => { active = false; };
+  }, [db]);
   async function callEmergency() {
     const url = `tel:${emergencyConfig.number}`;
     const supported = await Linking.canOpenURL(url);
@@ -33,6 +39,7 @@ export default function HelpScreen() {
     setProcessing(true);
     try {
       const incidentId = await recordHelpEvent(db, 'user_requested_help');
+      setHelpEvents(await listHelpEvents(db));
       let remoteQueued = false;
       if (session && isCloudConfigured && consent?.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
         try {
@@ -94,8 +101,15 @@ export default function HelpScreen() {
         <Body>{primaryContact ? 'Puedes registrar la alerta y abrir una llamada. La app no puede confirmar que la persona conteste.' : 'Configura una persona de confianza desde tu perfil. La app te mostrará si el aviso fue creado, enviado o falló.'}</Body>
         <PrimaryButton label={processing ? 'Registrando…' : 'Registrar alerta y contactar'} tone="urgent" disabled={processing} onPress={confirmContact} />
       </Panel>
+      <Panel>
+        <Caption>HISTORIAL DE AYUDA</Caption>
+        {helpEvents.length === 0 ? <Body>Aún no hay eventos registrados.</Body> : helpEvents.slice(0, 5).map((event) => (
+          <Text key={event.id} style={styles.event}>{new Date(event.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })} · {event.contactState === 'queued_local' ? 'Guardado en este dispositivo' : event.contactState}</Text>
+        ))}
+        <Body>Este historial solo indica que se registró una solicitud; no confirma que alguien haya respondido.</Body>
+      </Panel>
       <Text style={styles.disclaimer}>Si estás inconsciente, confundido o no puedes mantenerte a salvo, no esperes una notificación de la app.</Text>
     </Screen>
   );
 }
-const styles = StyleSheet.create({ title: { color: colors.textPrimary, fontSize: 21, fontWeight: '700' }, disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' } });
+const styles = StyleSheet.create({ title: { color: colors.textPrimary, fontSize: 21, fontWeight: '700' }, event: { color: colors.textPrimary, fontSize: 15, lineHeight: 22, marginBottom: 8 }, disclaimer: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' } });
