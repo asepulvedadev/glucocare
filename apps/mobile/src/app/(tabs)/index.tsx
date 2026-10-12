@@ -14,11 +14,14 @@ import { usePrivacy } from '../../privacyContext';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
-  const { measurementPlan, medications, appointments } = useCare();
+  const { measurementPlan, medications, appointments, measurementOccurrences, medicationOccurrences } = useCare();
   const { preferences } = useAccessibility();
   const { consent } = usePrivacy();
   const latest = readings[0];
   const latestTime = latest ? new Date(latest.recordedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
+  const dueMeasurement = measurementOccurrences.find((occurrence) => occurrence.status === 'due' || occurrence.status === 'planned');
+  const dueMedicationOccurrence = medicationOccurrences.find((occurrence) => occurrence.status === 'due');
+  const dueMedication = dueMedicationOccurrence ? medications.find((medication) => medication.id === dueMedicationOccurrence.medicationId) : undefined;
 
   return (
     <Screen>
@@ -39,9 +42,19 @@ export default function TodayScreen() {
       </Panel> : null}
       <Panel tone="teal">
         <Caption>PRÓXIMA ACCIÓN</Caption>
-        <Text style={styles.cardTitle}>Registrar cómo estás</Text>
-        <Body>La hora se guardará automáticamente. Puedes corregirla después.</Body>
-        <PrimaryButton label="Registrar glucosa" onPress={() => router.push('/log')} />
+        {dueMedication ? <>
+          <Text style={styles.cardTitle}>Revisar {dueMedication.name}</Text>
+          <Body>Tienes una toma pendiente según el horario guardado: {new Date(dueMedicationOccurrence?.scheduledAt ?? new Date().toISOString()).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}.</Body>
+          <PrimaryButton label="Abrir rutina" onPress={() => router.push('/care')} />
+        </> : dueMeasurement ? <>
+          <Text style={styles.cardTitle}>Registrar medición pendiente</Text>
+          <Body>La hora se guardará automáticamente. Puedes corregirla después.</Body>
+          <PrimaryButton label="Registrar glucosa" onPress={() => router.push('/log')} />
+        </> : <>
+          <Text style={styles.cardTitle}>Registrar cómo estás</Text>
+          <Body>La hora se guardará automáticamente. Puedes corregirla después.</Body>
+          <PrimaryButton label="Registrar glucosa" onPress={() => router.push('/log')} />
+        </>}
       </Panel>
       {!preferences.simpleMode ? <Panel>
         <Caption>ÚLTIMO REGISTRO</Caption>
