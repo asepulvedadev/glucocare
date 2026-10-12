@@ -8,6 +8,6 @@ export function Panel({ children, tone = 'default' }: PropsWithChildren<{ tone?:
 
 const styles = StyleSheet.create({
   panel: { backgroundColor: colors.surface, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
-  urgent: { borderColor: colors.urgent, backgroundColor: '#211516' },
-  teal: { borderColor: colors.teal, backgroundColor: '#10231F' },
+  urgent: { borderColor: colors.urgent, backgroundColor: colors.surfaceRaised },
+  teal: { borderColor: colors.teal, backgroundColor: colors.surfaceRaised },
 });
