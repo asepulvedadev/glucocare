@@ -54,6 +54,36 @@ const secondDeviceReading = secondDeviceView.records.find((record) => record.ent
 if (secondDeviceReading?.payload.value !== 125) throw new Error('second device did not converge on the newest projection');
 const other = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (other.records.some((record) => record.entity_id === entityId)) throw new Error('cross-patient record leaked');
+const syncIncidentId = crypto.randomUUID();
+const incidentCreatedAt = new Date(Date.now() - 3_000).toISOString();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'emergency.incident.started.v1',
+  entityType: 'emergency_incident',
+  entityId: syncIncidentId,
+  payload: { id: syncIncidentId, createdAt: incidentCreatedAt, reason: 'user_requested_help', contactState: 'queued_local' },
+}) });
+const syncIncidentUpdatedAt = new Date(Date.now() - 500).toISOString();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'emergency.incident.status_changed.v1',
+  entityType: 'emergency_incident',
+  entityId: syncIncidentId,
+  payload: { id: syncIncidentId, createdAt: incidentCreatedAt, reason: 'user_requested_help', contactState: 'remote_queued', updatedAt: syncIncidentUpdatedAt },
+}) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(),
+  eventType: 'emergency.incident.status_changed.v1',
+  entityType: 'emergency_incident',
+  entityId: syncIncidentId,
+  payload: { id: syncIncidentId, createdAt: incidentCreatedAt, reason: 'user_requested_help', contactState: 'call_unavailable', updatedAt: new Date(Date.now() - 2_000).toISOString() },
+}) });
+const syncedIncident = (await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${first.session.accessToken}` } })).records.find((record) => record.entity_id === syncIncidentId);
+if (syncedIncident?.payload.contactState !== 'remote_queued') throw new Error(`incident projection regressed or is missing: ${JSON.stringify(syncedIncident)}`);
+const secondDeviceIncident = (await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` } })).records.find((record) => record.entity_id === syncIncidentId);
+if (secondDeviceIncident?.payload.contactState !== 'remote_queued') throw new Error('second device did not converge on the incident projection');
+const otherIncident = (await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${second.session.accessToken}` } })).records.find((record) => record.entity_id === syncIncidentId);
+if (otherIncident) throw new Error('cross-patient incident leaked');
 const contactId = crypto.randomUUID();
 const contactEventId = crypto.randomUUID();
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
