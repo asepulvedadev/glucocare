@@ -50,7 +50,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,allergies,care_provider,care_facility,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
+    supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,allergies,care_provider,care_facility,emergency_number,emergency_region,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
     supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
   ]);
   const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
@@ -170,10 +170,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       if (await preserveLocalChange('emergency_card', 'default', card as unknown as Record<string, unknown>)) {
         // Keep the user's local card until its pending event is acknowledged.
       } else {
-      await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes, updated_at)
-        VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, care_facility = excluded.care_facility, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
-        card.full_name, card.birth_date, card.diabetes_type, card.allergies, card.care_provider, card.care_facility, card.emergency_notes, card.updated_at);
+      await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_number, emergency_region, emergency_notes, updated_at)
+        VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, care_facility = excluded.care_facility, emergency_number = excluded.emergency_number, emergency_region = excluded.emergency_region, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
+        card.full_name, card.birth_date, card.diabetes_type, card.allergies, card.care_provider, card.care_facility, card.emergency_number, card.emergency_region, card.emergency_notes, card.updated_at);
       downloaded += 1;
       }
     }

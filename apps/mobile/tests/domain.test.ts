@@ -7,6 +7,7 @@ import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } f
 import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
+import { getEmergencyConfig } from '../src/config';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -95,6 +96,18 @@ describe('symptom safety escalation', () => {
     expect(hasUrgentSymptoms(URGENT_SYMPTOM_NOTICE)).toBe(true);
     expect(hasUrgentSymptoms(`${URGENT_SYMPTOM_NOTICE}. Me siento confundido`)).toBe(true);
     expect(hasUrgentSymptoms('Cansancio leve')).toBe(false);
+  });
+});
+
+describe('emergency configuration', () => {
+  it('prefers a patient-verified number and region over the launch default', () => {
+    expect(getEmergencyConfig({ emergencyNumber: '911', emergencyRegion: 'Ciudad demo' })).toEqual({ number: '911', region: 'Ciudad demo' });
+  });
+
+  it('keeps the reviewed launch fallback when the card is incomplete', () => {
+    const config = getEmergencyConfig({ emergencyNumber: '  ', emergencyRegion: '' });
+    expect(config.number).toBeTruthy();
+    expect(config.region).toBeTruthy();
   });
 });
 

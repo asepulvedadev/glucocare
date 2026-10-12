@@ -3,21 +3,21 @@ import type { EmergencyCard, TrustedContact } from '../types/safety';
 import { enqueueOutbox } from './outboxRepository';
 import { newId } from '../ids';
 
-type EmergencyRow = { id: 'default'; full_name: string; birth_date: string | null; diabetes_type: string | null; allergies: string | null; care_provider: string | null; care_facility: string | null; emergency_notes: string | null; updated_at: string };
+type EmergencyRow = { id: 'default'; full_name: string; birth_date: string | null; diabetes_type: string | null; allergies: string | null; care_provider: string | null; care_facility: string | null; emergency_number: string | null; emergency_region: string | null; emergency_notes: string | null; updated_at: string };
 type ContactRow = { id: string; name: string; relationship: string | null; phone: string | null; email: string | null; consent_granted: number; created_at: string };
 
 export async function getEmergencyCard(db: SQLiteDatabase): Promise<EmergencyCard | null> {
   const row = await db.getFirstAsync<EmergencyRow>('SELECT * FROM emergency_card WHERE id = ?', 'default');
   if (!row) return null;
-  return { id: 'default', fullName: row.full_name, birthDate: row.birth_date ?? undefined, diabetesType: row.diabetes_type ?? undefined, allergies: row.allergies ?? undefined, careProvider: row.care_provider ?? undefined, careFacility: row.care_facility ?? undefined, emergencyNotes: row.emergency_notes ?? undefined, updatedAt: row.updated_at };
+  return { id: 'default', fullName: row.full_name, birthDate: row.birth_date ?? undefined, diabetesType: row.diabetes_type ?? undefined, allergies: row.allergies ?? undefined, careProvider: row.care_provider ?? undefined, careFacility: row.care_facility ?? undefined, emergencyNumber: row.emergency_number ?? undefined, emergencyRegion: row.emergency_region ?? undefined, emergencyNotes: row.emergency_notes ?? undefined, updatedAt: row.updated_at };
 }
 
 export async function upsertEmergencyCard(db: SQLiteDatabase, card: EmergencyCard) {
   await db.withTransactionAsync(async () => {
-    await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, care_facility = excluded.care_facility, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
-      card.id, card.fullName, card.birthDate ?? null, card.diabetesType ?? null, card.allergies ?? null, card.careProvider ?? null, card.careFacility ?? null, card.emergencyNotes ?? null, card.updatedAt);
+    await db.runAsync(`INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_number, emergency_region, emergency_notes, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, care_facility = excluded.care_facility, emergency_number = excluded.emergency_number, emergency_region = excluded.emergency_region, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
+      card.id, card.fullName, card.birthDate ?? null, card.diabetesType ?? null, card.allergies ?? null, card.careProvider ?? null, card.careFacility ?? null, card.emergencyNumber ?? null, card.emergencyRegion ?? null, card.emergencyNotes ?? null, card.updatedAt);
     await enqueueOutbox(db, { id: newId(), entityType: 'emergency_card', entityId: card.id, eventType: 'emergency.card.saved.v1', payload: card });
   });
 }

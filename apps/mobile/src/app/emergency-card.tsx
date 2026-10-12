@@ -7,6 +7,7 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useSafety } from '../safetyContext';
 import { colors, radii, spacing } from '../theme/tokens';
+import { emergencyConfig } from '../config';
 
 export default function EmergencyCardScreen() {
   const { emergencyCard, saveEmergencyCard } = useSafety();
@@ -16,6 +17,8 @@ export default function EmergencyCardScreen() {
   const [allergies, setAllergies] = useState(emergencyCard?.allergies ?? '');
   const [careProvider, setCareProvider] = useState(emergencyCard?.careProvider ?? '');
   const [careFacility, setCareFacility] = useState(emergencyCard?.careFacility ?? '');
+  const [emergencyNumber, setEmergencyNumber] = useState(emergencyCard?.emergencyNumber ?? '');
+  const [emergencyRegion, setEmergencyRegion] = useState(emergencyCard?.emergencyRegion ?? '');
   const [emergencyNotes, setEmergencyNotes] = useState(emergencyCard?.emergencyNotes ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +36,8 @@ export default function EmergencyCardScreen() {
         allergies: allergies.trim() || undefined,
         careProvider: careProvider.trim() || undefined,
         careFacility: careFacility.trim() || undefined,
+        emergencyNumber: emergencyNumber.trim() || undefined,
+        emergencyRegion: emergencyRegion.trim() || undefined,
         emergencyNotes: emergencyNotes.trim() || undefined,
       });
       router.back();
@@ -63,6 +68,12 @@ export default function EmergencyCardScreen() {
         <TextInput accessibilityLabel="Profesional o centro de atención" value={careProvider} onChangeText={setCareProvider} placeholder="Profesional o centro de atención" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Lugar habitual de atención" value={careFacility} onChangeText={setCareFacility} placeholder="Hospital, clínica o dirección" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <TextInput accessibilityLabel="Notas de emergencia" value={emergencyNotes} onChangeText={setEmergencyNotes} placeholder="Indicaciones para quien te ayude" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
+      </Panel>
+      <Panel>
+        <Caption>NÚMERO LOCAL DE EMERGENCIAS</Caption>
+        <Body>Verifica el número de tu municipio. Si lo dejas vacío, se usará la configuración inicial: {emergencyConfig.number} ({emergencyConfig.region}).</Body>
+        <TextInput accessibilityLabel="Número local de emergencias" value={emergencyNumber} onChangeText={setEmergencyNumber} placeholder="Ej. 123" placeholderTextColor={colors.textDisabled} keyboardType="phone-pad" style={styles.input} />
+        <TextInput accessibilityLabel="Región del número de emergencias" value={emergencyRegion} onChangeText={setEmergencyRegion} placeholder="País, ciudad o municipio" placeholderTextColor={colors.textDisabled} style={styles.input} />
       </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar tarjeta'} onPress={() => void save()} disabled={saving} />
     </Screen>

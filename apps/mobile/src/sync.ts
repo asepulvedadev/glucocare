@@ -138,7 +138,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       const { error } = await supabase.from('emergency_cards').upsert({
         patient_id: patientId, full_name: stringValue(payload.fullName), birth_date: payload.birthDate ? String(payload.birthDate) : null,
         diabetes_type: payload.diabetesType ? String(payload.diabetesType) : null, allergies: payload.allergies ? String(payload.allergies) : null,
-        care_provider: payload.careProvider ? String(payload.careProvider) : null, care_facility: payload.careFacility ? String(payload.careFacility) : null, emergency_notes: payload.emergencyNotes ? String(payload.emergencyNotes) : null,
+        care_provider: payload.careProvider ? String(payload.careProvider) : null, care_facility: payload.careFacility ? String(payload.careFacility) : null, emergency_number: payload.emergencyNumber ? String(payload.emergencyNumber) : null, emergency_region: payload.emergencyRegion ? String(payload.emergencyRegion) : null, emergency_notes: payload.emergencyNotes ? String(payload.emergencyNotes) : null,
       }, { onConflict: 'patient_id' });
       if (error) throw error;
       return;

@@ -12,7 +12,7 @@ import { listHelpEvents, recordHelpEvent, updateHelpEventState, type HelpEvent }
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
 import { getEmergencyAlertDeliveries, queueEmergencyAlert, type EmergencyDelivery } from '../alerts';
-import { emergencyConfig } from '../config';
+import { getEmergencyConfig } from '../config';
 import { usePrivacy } from '../privacyContext';
 
 export default function HelpScreen() {
@@ -21,6 +21,7 @@ export default function HelpScreen() {
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const { consent } = usePrivacy();
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
+  const configuredEmergency = getEmergencyConfig(emergencyCard);
   const [processing, setProcessing] = useState(false);
   const [helpEvents, setHelpEvents] = useState<HelpEvent[]>([]);
   const [deliveryStatuses, setDeliveryStatuses] = useState<EmergencyDelivery[]>([]);
@@ -31,7 +32,7 @@ export default function HelpScreen() {
     return () => { active = false; };
   }, [db]);
   async function callEmergency() {
-    const url = `tel:${emergencyConfig.number}`;
+    const url = `tel:${configuredEmergency.number}`;
     const supported = await Linking.canOpenURL(url);
     if (supported) await Linking.openURL(url);
     else Alert.alert('Llama a emergencias', 'No pudimos abrir el marcador. Usa el número local de emergencias.');
@@ -104,7 +105,7 @@ export default function HelpScreen() {
       <Panel tone="urgent">
         <Caption>EMERGENCIA</Caption>
         <Text style={styles.title}>Llama al número local de emergencias</Text>
-        <Body>En {emergencyConfig.region}, el número configurado es {emergencyConfig.number}. Si estás en otro lugar, usa el número local de emergencias.</Body>
+        <Body>En {configuredEmergency.region}, el número configurado es {configuredEmergency.number}. Si estás en otro lugar, usa el número local de emergencias.</Body>
         <PrimaryButton label="Llamar a emergencias" tone="urgent" onPress={() => void callEmergency()} />
       </Panel>
       <Panel>

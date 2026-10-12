@@ -6,3 +6,10 @@ export const emergencyConfig = {
   number: env?.EXPO_PUBLIC_EMERGENCY_NUMBER?.trim() || '123',
   region: env?.EXPO_PUBLIC_EMERGENCY_REGION?.trim() || 'Colombia',
 };
+
+export function getEmergencyConfig(card?: { emergencyNumber?: string; emergencyRegion?: string } | null) {
+  return {
+    number: card?.emergencyNumber?.trim() || emergencyConfig.number,
+    region: card?.emergencyRegion?.trim() || emergencyConfig.region,
+  };
+}

@@ -6,6 +6,8 @@ export type EmergencyCard = {
   allergies?: string;
   careProvider?: string;
   careFacility?: string;
+  emergencyNumber?: string;
+  emergencyRegion?: string;
   emergencyNotes?: string;
   updatedAt: string;
 };

@@ -260,9 +260,9 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
 
     for (const row of emergencyCard) {
       await db.runAsync(
-        `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), requiredString(row, 'full_name'), optionalString(row, 'birth_date'), optionalString(row, 'diabetes_type'), optionalString(row, 'allergies'), optionalString(row, 'care_provider'), optionalString(row, 'care_facility'), optionalString(row, 'emergency_notes'), requiredString(row, 'updated_at'),
+        `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_number, emergency_region, emergency_notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'full_name'), optionalString(row, 'birth_date'), optionalString(row, 'diabetes_type'), optionalString(row, 'allergies'), optionalString(row, 'care_provider'), optionalString(row, 'care_facility'), optionalString(row, 'emergency_number'), optionalString(row, 'emergency_region'), optionalString(row, 'emergency_notes'), requiredString(row, 'updated_at'),
       );
     }
 

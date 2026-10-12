@@ -401,6 +401,8 @@ export type Database = {
           deleted_at: string | null
           diabetes_type: string | null
           emergency_notes: string | null
+          emergency_number: string | null
+          emergency_region: string | null
           full_name: string
           patient_id: string
           updated_at: string
@@ -413,6 +415,8 @@ export type Database = {
           deleted_at?: string | null
           diabetes_type?: string | null
           emergency_notes?: string | null
+          emergency_number?: string | null
+          emergency_region?: string | null
           full_name: string
           patient_id: string
           updated_at?: string
@@ -425,6 +429,8 @@ export type Database = {
           deleted_at?: string | null
           diabetes_type?: string | null
           emergency_notes?: string | null
+          emergency_number?: string | null
+          emergency_region?: string | null
           full_name?: string
           patient_id?: string
           updated_at?: string
