@@ -62,4 +62,44 @@ describe('reviewed sync conflict resolution', () => {
     expect(JSON.stringify(insert)).toContain('remote_queued');
     expect(JSON.stringify(insert)).not.toContain('must-not-be-stored');
   });
+
+  it('preserves the full emergency card when reviewing a remote conflict', async () => {
+    const db = databaseMock();
+    const remote = conflict('emergency_card', {
+      full_name: 'Patiente Sintética',
+      diagnosis_year: '2020',
+      insulin_use: 'yes',
+      critical_conditions: 'Hipertensión',
+      insurer: 'EPS Demo',
+      policy_number: 'POL-123',
+      emergency_number: '123',
+      emergency_region: 'Bogotá',
+      updated_at: '2026-10-12T08:00:00.000Z',
+    });
+    remote.entityId = 'default';
+    await applyRemoteSyncConflict(db as never, remote);
+    const insert = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO emergency_card'));
+    expect(insert?.[0]).toContain('diagnosis_year');
+    expect(insert?.[0]).toContain('emergency_number');
+    expect(JSON.stringify(insert)).toContain('EPS Demo');
+  });
+
+  it('keeps care-plan provenance and validity dates when applying a remote conflict', async () => {
+    const db = databaseMock();
+    const remote = conflict('care_plan', {
+      target_bands: { low: 70, urgent_low: 54, high: 180, urgent_high: 250 },
+      symptom_actions: ['Sigue las instrucciones de tu equipo de salud.'],
+      source: 'Endocrinología · 2026',
+      effective_from: '2026-10-01',
+      effective_to: '2027-10-01',
+      clinician_verified: true,
+      created_at: '2026-10-12T08:00:00.000Z',
+    });
+    remote.entityId = 'default';
+    await applyRemoteSyncConflict(db as never, remote);
+    const insert = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO care_plan'));
+    expect(insert?.[0]).toContain('effective_from');
+    expect(insert?.[0]).toContain('effective_to');
+    expect(JSON.stringify(insert)).toContain('Endocrinología');
+  });
 });

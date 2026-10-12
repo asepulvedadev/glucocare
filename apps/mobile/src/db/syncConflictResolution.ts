@@ -146,19 +146,19 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
         const bands = jsonObject(payload.target_bands);
         const actions = Array.isArray(payload.symptom_actions) ? payload.symptom_actions.map(String).join('\n') : null;
         await db.runAsync(
-          `INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, clinician_verified, updated_at)
-           VALUES ('default', ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET low_threshold = excluded.low_threshold, urgent_low_threshold = excluded.urgent_low_threshold, high_threshold = excluded.high_threshold, urgent_high_threshold = excluded.urgent_high_threshold, instructions = excluded.instructions, clinician_verified = excluded.clinician_verified, updated_at = excluded.updated_at`,
-          typeof bands.low === 'number' ? bands.low : null, typeof bands.urgent_low === 'number' ? bands.urgent_low : null, typeof bands.high === 'number' ? bands.high : null, typeof bands.urgent_high === 'number' ? bands.urgent_high : null, actions, payload.clinician_verified === true ? 1 : 0, requiredString(payload.created_at, 'created_at'),
+          `INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, source, effective_from, effective_to, clinician_verified, updated_at)
+           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET low_threshold = excluded.low_threshold, urgent_low_threshold = excluded.urgent_low_threshold, high_threshold = excluded.high_threshold, urgent_high_threshold = excluded.urgent_high_threshold, instructions = excluded.instructions, source = excluded.source, effective_from = excluded.effective_from, effective_to = excluded.effective_to, clinician_verified = excluded.clinician_verified, updated_at = excluded.updated_at`,
+          typeof bands.low === 'number' ? bands.low : null, typeof bands.urgent_low === 'number' ? bands.urgent_low : null, typeof bands.high === 'number' ? bands.high : null, typeof bands.urgent_high === 'number' ? bands.urgent_high : null, actions, payload.source ? String(payload.source) : null, dateOnly(payload.effective_from), dateOnly(payload.effective_to), payload.clinician_verified === true ? 1 : 0, requiredString(payload.created_at, 'created_at'),
         );
         break;
       }
       case 'emergency_card':
         await db.runAsync(
-          `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes, updated_at)
-           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, allergies = excluded.allergies, care_provider = excluded.care_provider, care_facility = excluded.care_facility, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
-          requiredString(payload.full_name, 'full_name'), payload.birth_date ? String(payload.birth_date) : null, payload.diabetes_type ? String(payload.diabetes_type) : null, payload.allergies ? String(payload.allergies) : null, payload.care_provider ? String(payload.care_provider) : null, payload.care_facility ? String(payload.care_facility) : null, payload.emergency_notes ? String(payload.emergency_notes) : null, requiredString(payload.updated_at, 'updated_at'),
+          `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_number, emergency_region, emergency_notes, updated_at)
+           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET full_name = excluded.full_name, birth_date = excluded.birth_date, diabetes_type = excluded.diabetes_type, diagnosis_year = excluded.diagnosis_year, insulin_use = excluded.insulin_use, allergies = excluded.allergies, critical_conditions = excluded.critical_conditions, care_provider = excluded.care_provider, care_facility = excluded.care_facility, insurer = excluded.insurer, policy_number = excluded.policy_number, emergency_number = excluded.emergency_number, emergency_region = excluded.emergency_region, emergency_notes = excluded.emergency_notes, updated_at = excluded.updated_at`,
+          requiredString(payload.full_name, 'full_name'), payload.birth_date ? String(payload.birth_date) : null, payload.diabetes_type ? String(payload.diabetes_type) : null, payload.diagnosis_year ? String(payload.diagnosis_year) : null, ['yes', 'no', 'unknown'].includes(String(payload.insulin_use)) ? String(payload.insulin_use) : null, payload.allergies ? String(payload.allergies) : null, payload.critical_conditions ? String(payload.critical_conditions) : null, payload.care_provider ? String(payload.care_provider) : null, payload.care_facility ? String(payload.care_facility) : null, payload.insurer ? String(payload.insurer) : null, payload.policy_number ? String(payload.policy_number) : null, payload.emergency_number ? String(payload.emergency_number) : null, payload.emergency_region ? String(payload.emergency_region) : null, payload.emergency_notes ? String(payload.emergency_notes) : null, requiredString(payload.updated_at, 'updated_at'),
         );
         break;
       case 'trusted_contact':
