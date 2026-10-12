@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -22,6 +22,25 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_glucose_recorded_at ON glucose_readings(recorded_at DESC);
     `);
     currentVersion = 1;
+  }
+
+  if (currentVersion < 2) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS medications (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        dose_text TEXT NOT NULL,
+        route TEXT NOT NULL,
+        hour INTEGER NOT NULL CHECK (hour BETWEEN 0 AND 23),
+        minute INTEGER NOT NULL CHECK (minute BETWEEN 0 AND 59),
+        enabled INTEGER NOT NULL DEFAULT 1,
+        notification_id TEXT,
+        reminder_state TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_medications_schedule ON medications(hour ASC, minute ASC);
+    `);
+    currentVersion = 2;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
