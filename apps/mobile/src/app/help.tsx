@@ -47,9 +47,10 @@ export default function HelpScreen() {
       if (session && isCloudConfigured && consent?.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
         try {
           await syncPendingData(db, session);
-          const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
-          if (channel) {
-            remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
+          const consentedContacts = trustedContacts.filter((contact) => contact.consentGranted);
+          const channels = [...new Set(consentedContacts.flatMap((contact) => [contact.email ? 'email' as const : null, contact.phone ? 'sms' as const : null].filter((channel): channel is 'email' | 'sms' => channel !== null)))];
+          if (channels.length) {
+            remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: consentedContacts.map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels }));
             if (remoteQueued) {
               setDeliveryIncidentId(incidentId);
               setDeliveryStatuses(await getEmergencyAlertDeliveries(incidentId));
