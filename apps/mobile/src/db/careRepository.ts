@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Medication, MedicationRoute, ReminderState } from '../types/care';
 import { enqueueOutbox } from './outboxRepository';
 import { newId } from '../ids';
+import { insertChangeAuditEvent } from './changeAuditRepository';
 
 export type StoredMedication = Medication;
 
@@ -83,17 +84,22 @@ export async function insertMedication(db: SQLiteDatabase, medication: Medicatio
       JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]),
       medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.createdAt,
     );
+    await insertChangeAuditEvent(db, { entityType: 'medication', entityId: medication.id, action: 'created', after: medication });
     await enqueueOutbox(db, { id: newId(), entityType: 'medication', entityId: medication.id, eventType: 'medication.created.v1', payload: medication });
   });
 }
 
 export async function updateMedication(db: SQLiteDatabase, medication: Medication) {
+  const previousRow = await db.getFirstAsync<MedicationRow>('SELECT * FROM medications WHERE id = ?', medication.id);
+  if (!previousRow) throw new Error('Medication not found.');
+  const previous = mapRow(previousRow);
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `UPDATE medications SET name = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, notification_id = ?, notification_ids_json = ?, reminder_state = ? WHERE id = ?`,
       medication.name, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
       JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]), medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.id,
     );
+    await insertChangeAuditEvent(db, { entityType: 'medication', entityId: medication.id, action: 'updated', before: previous, after: medication });
     await enqueueOutbox(db, { id: newId(), entityType: 'medication', entityId: medication.id, eventType: 'medication.updated.v1', payload: medication });
   });
 }

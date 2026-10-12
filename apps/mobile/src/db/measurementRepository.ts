@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { MeasurementPlan, MeasurementTiming, MeasurementWindow } from '../types/measurement';
 import { enqueueOutbox } from './outboxRepository';
 import { newId } from '../ids';
+import { insertChangeAuditEvent } from './changeAuditRepository';
 
 type PlanRow = { id: 'default'; readings_per_day: number; times_json: string; timings_json: string | null; windows_json: string | null; weekdays_json: string | null; effective_from: string | null; effective_to: string | null; instructions: string | null; updated_at: string };
 
@@ -53,10 +54,12 @@ export async function getMeasurementPlan(db: SQLiteDatabase): Promise<Measuremen
 }
 
 export async function upsertMeasurementPlan(db: SQLiteDatabase, plan: MeasurementPlan) {
+  const previous = await getMeasurementPlan(db);
   await db.withTransactionAsync(async () => {
     await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, windows_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, windows_json = excluded.windows_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`, plan.id, plan.readingsPerDay, JSON.stringify(plan.times), JSON.stringify(plan.timings ?? Array.from({ length: plan.readingsPerDay }, () => 'other')), JSON.stringify(plan.windows ?? []), JSON.stringify(plan.weekdays ?? defaultWeekdays), plan.effectiveFrom ?? null, plan.effectiveTo ?? null, plan.instructions ?? null, plan.updatedAt);
+    await insertChangeAuditEvent(db, { entityType: 'measurement_plan', entityId: plan.id, action: previous ? 'updated' : 'created', before: previous ?? undefined, after: plan });
     await enqueueOutbox(db, { id: newId(), entityType: 'measurement_plan', entityId: plan.id, eventType: 'measurement_plan.revision_saved.v1', payload: plan });
   });
 }

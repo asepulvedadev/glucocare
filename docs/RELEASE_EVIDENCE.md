@@ -26,6 +26,7 @@ beta authorization.
 | Operational monitoring | Payload-free systemd health check every five minutes | VPS timer active; external paging channel pending |
 | Accessibility | Semantic labels, large text, high contrast, simple mode, reduced motion, persistent help | Code coverage; TalkBack/VoiceOver evidence pending |
 | Range export | CSV and printable clinician report expose a selected 7-day, 30-day, or all-history period; JSON remains a complete backup | Automated range-boundary test; native share/print evidence pending |
+| Care-plan auditability | Medication, appointment, care-plan, and measurement-plan changes retain local before/after snapshots in `change_audit_events` and survive JSON backup/restore | Automated v35 migration and repository code path; reviewer/accessibility evidence pending |
 
 ## Reproducible checks
 

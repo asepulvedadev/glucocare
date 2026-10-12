@@ -7,6 +7,7 @@ import { cancelAllScheduledReminders, cancelMeasurementPlanReminders, cancelMedi
 import { buildClinicianReportHtml, type ClinicianReportAppointment, type ClinicianReportCard, type ClinicianReportCorrection, type ClinicianReportHelpEvent, type ClinicianReportMeal, type ClinicianReportMedication, type ClinicianReportMedicationOccurrence, type ClinicianReportReading } from './report';
 import { conversionVersionForUnit, toCanonicalMgDl } from './domain/glucoseSummary';
 import { exportRangeLabel, exportRangeSince, type ExportRange } from './domain/exportRange';
+import { insertChangeAuditEvent } from './db/changeAuditRepository';
 
 export type ExportFormat = 'json' | 'csv';
 
@@ -169,6 +170,7 @@ export async function buildExportContent(db: SQLiteDatabase, format: ExportForma
     accessibilityPreferences: await rows(db, 'accessibility_preferences'),
     privacyConsent: await rows(db, 'privacy_consents'),
     syncConflicts: await rows(db, 'sync_conflicts'),
+    changeAuditEvents: await rows(db, 'change_audit_events'),
   };
   if (format === 'json') return { content: JSON.stringify(bundle, null, 2), filename: `glucocare-export-${Date.now()}.json`, mimeType: 'application/json' };
 
@@ -233,6 +235,7 @@ async function clearLocalTables(db: SQLiteDatabase) {
   await db.runAsync('DELETE FROM sync_outbox');
   await db.runAsync('DELETE FROM sync_metadata');
   await db.runAsync('DELETE FROM sync_conflicts');
+  await db.runAsync('DELETE FROM change_audit_events');
   await db.runAsync('DELETE FROM accessibility_preferences');
   await db.runAsync('DELETE FROM privacy_consents');
 }
@@ -259,6 +262,7 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
   const measurementOccurrences = rowsFrom(bundle, 'measurementOccurrences');
   const mealEvents = rowsFrom(bundle, 'mealEvents');
   const accessibilityPreferences = rowsFrom(bundle, 'accessibilityPreferences');
+  const changeAuditEvents = rowsFrom(bundle, 'changeAuditEvents');
 
   await cancelStoredReminders(db);
   await db.withTransactionAsync(async () => {
@@ -380,6 +384,22 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
         `INSERT INTO accessibility_preferences (id, simple_mode, large_text, high_contrast, reduce_motion, notification_sound, notification_vibration, app_lock_enabled, onboarding_completed, glucose_unit, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         requiredString(row, 'id'), booleanFlag(row, 'simple_mode'), booleanFlag(row, 'large_text'), booleanFlag(row, 'high_contrast'), booleanFlag(row, 'reduce_motion'), booleanFlag(row, 'notification_sound', true), booleanFlag(row, 'notification_vibration', true), booleanFlag(row, 'app_lock_enabled'), booleanFlag(row, 'onboarding_completed'), glucoseUnit, requiredString(row, 'updated_at'),
       );
+    }
+
+    for (const row of changeAuditEvents) {
+      const beforeJson = optionalString(row, 'before_json');
+      const afterJson = requiredString(row, 'after_json');
+      if (beforeJson !== null) JSON.parse(beforeJson);
+      JSON.parse(afterJson);
+      await insertChangeAuditEvent(db, {
+        id: requiredString(row, 'id'),
+        entityType: requiredString(row, 'entity_type'),
+        entityId: requiredString(row, 'entity_id'),
+        action: requiredString(row, 'action'),
+        occurredAt: requiredString(row, 'occurred_at'),
+        before: beforeJson === null ? undefined : JSON.parse(beforeJson),
+        after: JSON.parse(afterJson),
+      });
     }
   });
   return { imported: glucose.length + carePlan.length + medications.length + appointments.length + emergencyCard.length + trustedContacts.length + helpEvents.length + measurementPlan.length + medicationOccurrences.length + measurementOccurrences.length + mealEvents.length, contactsRequireConsent: trustedContacts.length > 0 };

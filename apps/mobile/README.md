@@ -14,6 +14,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Unusually high data-entry values request explicit confirmation before saving; this is a typo check, not a clinical threshold or diagnosis.
 - Glucose entries preserve the capture timezone, UTC offset, and whether the timestamp was edited for auditability.
 - Existing readings can be corrected from History; the previous and new snapshots are retained in a local append-only audit record and queued as `glucose.reading.corrected.v1`.
+- Medication, appointment, care-plan, and measurement-plan edits also retain local before/after snapshots in `change_audit_events`; complete JSON backups preserve this audit trail.
 - When cloud sync is enabled, correction events are persisted through the private `record-glucose-audit` function; a missing function keeps the outbox pending instead of silently dropping the audit trail.
 - Optional clinician-provided glucose thresholds with deterministic, non-diagnostic risk labels and urgent foreground guidance.
 - Urgent clinician-configured glucose risks also surface a privacy-preserving local notification when notification permission is already granted; saving a reading never requires notification permission.

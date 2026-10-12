@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 34;
+const DATABASE_VERSION = 35;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -471,6 +471,22 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       COMMIT;
     `);
     currentVersion = 34;
+  }
+
+  if (currentVersion < 35) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS change_audit_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        action TEXT NOT NULL,
+        before_json TEXT,
+        after_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_change_audit_entity ON change_audit_events(entity_type, entity_id, occurred_at DESC);
+    `);
+    currentVersion = 35;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

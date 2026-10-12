@@ -56,6 +56,21 @@ def migration_sql(version: int) -> str:
             COMMIT;
             """
         )
+    elif version == 35:
+        return textwrap.dedent(
+            """
+            CREATE TABLE IF NOT EXISTS change_audit_events (
+              id TEXT PRIMARY KEY NOT NULL,
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              occurred_at TEXT NOT NULL,
+              action TEXT NOT NULL,
+              before_json TEXT,
+              after_json TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_change_audit_entity ON change_audit_events(entity_type, entity_id, occurred_at DESC);
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -152,7 +167,11 @@ def main() -> int:
     planned = db.execute("SELECT status FROM medication_occurrences WHERE id = 'occurrence-2'").fetchone()
     if planned != ("planned",):
         raise SystemExit(f"Unexpected planned medication occurrence: {planned!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, and planned medication v34 migrations passed.")
+    db.executescript(migration_sql(35))
+    db.execute("INSERT INTO change_audit_events (id, entity_type, entity_id, occurred_at, action, after_json) VALUES ('audit-1', 'medication', 'medication-1', 'now', 'created', '{}')")
+    if db.execute("SELECT COUNT(*) FROM change_audit_events").fetchone() != (1,):
+        raise SystemExit("Unexpected change audit migration result")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, and change audit v35 migrations passed.")
     return 0
 
 
