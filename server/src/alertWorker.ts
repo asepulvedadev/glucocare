@@ -7,6 +7,8 @@ const batchSize = Math.min(Math.max(Number(process.env.ALERT_WORKER_BATCH_SIZE ?
 const maxAttempts = Math.min(Math.max(Number(process.env.ALERT_WORKER_MAX_ATTEMPTS ?? 5), 1), 10);
 const runOnce = process.env.ALERT_WORKER_ONCE === 'true';
 const heartbeatFile = process.env.ALERT_WORKER_HEARTBEAT_FILE ?? '/tmp/glucocare-alert-worker.heartbeat';
+const maintenanceIntervalMs = Math.max(Number(process.env.ALERT_WORKER_MAINTENANCE_INTERVAL_MS ?? 60 * 60_000), 60_000);
+let lastMaintenanceAt = 0;
 
 type Delivery = {
   id: string;
@@ -96,7 +98,18 @@ async function handleDelivery(delivery: Delivery) {
   await updateParent(alertId);
 }
 
+async function runMaintenance(now = Date.now()) {
+  if (now - lastMaintenanceAt < maintenanceIntervalMs) return;
+  // Expired sessions and invitations are no longer useful for authentication
+  // or consent decisions. Keep this housekeeping in the private worker so the
+  // public API never needs a cleanup request and never logs the affected rows.
+  await pool.query(`DELETE FROM app_sessions WHERE expires_at <= now()`);
+  await pool.query(`UPDATE contact_invitations SET status = 'expired' WHERE status = 'pending' AND expires_at <= now()`);
+  lastMaintenanceAt = now;
+}
+
 async function tick() {
+  await runMaintenance();
   const deliveries = await claimBatch();
   for (const delivery of deliveries) await handleDelivery(delivery);
   // The container health check uses this heartbeat to distinguish a live

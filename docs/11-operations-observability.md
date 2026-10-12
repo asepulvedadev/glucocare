@@ -116,6 +116,9 @@ If the worker stops after claiming a delivery, the two-minute lease expires and
 the next tick reclaims that delivery. This prevents a crashed process from
 leaving an alert permanently stuck in `processing`; the worker smoke test
 exercises this recovery path.
+The same private worker periodically removes expired authentication sessions and
+marks expired pending contact invitations. This is housekeeping only: it never
+deletes health records or changes an accepted consent into a different state.
 
 The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
 PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd
