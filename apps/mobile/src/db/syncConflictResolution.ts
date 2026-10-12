@@ -89,16 +89,18 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
       case 'medication':
         {
           const times = Array.isArray(payload.times) ? payload.times.map(String).filter((time) => /^\d{2}:\d{2}$/.test(time)) : [];
+          const schedule = jsonObject(payload.schedule);
+          const scheduleJson = Object.keys(schedule).length ? JSON.stringify(schedule) : JSON.stringify({ kind: 'fixed', times });
           const firstTime = times[0]?.match(/^(\d{2}):(\d{2})$/);
           if (firstTime) {
             await db.runAsync(
-              `UPDATE medications SET name = ?, presentation = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, created_at = ? WHERE id = ?`,
-              requiredString(payload.name, 'name'), payload.presentation ? String(payload.presentation) : null, requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.prescriber_name ? String(payload.prescriber_name) : null, payload.instructions ? String(payload.instructions) : null, payload.start_date ? String(payload.start_date) : null, payload.end_date ? String(payload.end_date) : null, Number(firstTime[1]), Number(firstTime[2]), JSON.stringify(times), payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
+              `UPDATE medications SET name = ?, presentation = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, schedule_json = ?, enabled = ?, created_at = ? WHERE id = ?`,
+              requiredString(payload.name, 'name'), payload.presentation ? String(payload.presentation) : null, requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.prescriber_name ? String(payload.prescriber_name) : null, payload.instructions ? String(payload.instructions) : null, payload.start_date ? String(payload.start_date) : null, payload.end_date ? String(payload.end_date) : null, Number(firstTime[1]), Number(firstTime[2]), JSON.stringify(times), scheduleJson, payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
             );
           } else {
             await db.runAsync(
-              `UPDATE medications SET name = ?, presentation = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, enabled = ?, created_at = ? WHERE id = ?`,
-              requiredString(payload.name, 'name'), payload.presentation ? String(payload.presentation) : null, requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.prescriber_name ? String(payload.prescriber_name) : null, payload.instructions ? String(payload.instructions) : null, payload.start_date ? String(payload.start_date) : null, payload.end_date ? String(payload.end_date) : null, payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
+              `UPDATE medications SET name = ?, presentation = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, schedule_json = ?, enabled = ?, created_at = ? WHERE id = ?`,
+              requiredString(payload.name, 'name'), payload.presentation ? String(payload.presentation) : null, requiredString(payload.dose_text, 'dose_text'), localRoute(payload.route), payload.prescriber_name ? String(payload.prescriber_name) : null, payload.instructions ? String(payload.instructions) : null, payload.start_date ? String(payload.start_date) : null, payload.end_date ? String(payload.end_date) : null, scheduleJson, payload.enabled === false ? 0 : 1, requiredString(payload.created_at, 'created_at'), conflict.entityId,
             );
           }
         }

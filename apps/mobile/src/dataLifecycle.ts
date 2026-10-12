@@ -24,7 +24,7 @@ export async function printClinicianReport(db: SQLiteDatabase, range: ExportRang
   const [card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, auditEvents] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_number, emergency_region, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>(`SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, ketone_result, risk_classification FROM glucose_readings${rangeClause('recorded_at')} ORDER BY recorded_at DESC LIMIT 200`, ...rangeParams),
-    db.getAllAsync<ClinicianReportMedication>('SELECT name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
+    db.getAllAsync<ClinicianReportMedication>('SELECT name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, schedule_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>(`SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments${rangeClause('scheduled_at')} ORDER BY scheduled_at ASC LIMIT 100`, ...rangeParams),
     db.getAllAsync<ClinicianReportMeal>(`SELECT meal_type, occurred_at, note FROM meal_events${rangeClause('occurred_at')} ORDER BY occurred_at DESC LIMIT 200`, ...rangeParams),
     db.getAllAsync<ClinicianReportMedicationOccurrence>(`SELECT medications.name AS medication_name, medications.dose_text, medication_occurrences.scheduled_at, medication_occurrences.status, medication_occurrences.acted_at FROM medication_occurrences INNER JOIN medications ON medications.id = medication_occurrences.medication_id${rangeClause('medication_occurrences.scheduled_at')} ORDER BY medication_occurrences.scheduled_at DESC LIMIT 300`, ...rangeParams),
@@ -121,6 +121,18 @@ function jsonObjectArray(value: unknown, field: string): string {
   try {
     const parsed: unknown = JSON.parse(value);
     if (!Array.isArray(parsed) || parsed.some((item) => !isObject(item))) throw new Error('not an object array');
+    return JSON.stringify(parsed);
+  } catch {
+    throw new Error(`Invalid ${field}.`);
+  }
+}
+
+function jsonObjectJson(value: unknown, field: string): string {
+  if (value === undefined || value === null) return '{}';
+  if (typeof value !== 'string' || value.length > 32_000) throw new Error(`Invalid ${field}.`);
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isObject(parsed)) throw new Error('not an object');
     return JSON.stringify(parsed);
   } catch {
     throw new Error(`Invalid ${field}.`);
@@ -309,10 +321,10 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       const route = enumValue(row, 'route', ['oral', 'injection', 'inhaled', 'topical', 'other'] as const);
       const reminderState = enumValue(row, 'reminder_state', ['scheduled', 'scheduled_limited', 'permission_denied', 'unavailable'] as const, 'unavailable');
       await db.runAsync(
-        `INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '[]', ?, ?)`,
+        `INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, schedule_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '[]', ?, ?)`,
         requiredString(row, 'id'), requiredString(row, 'name'), optionalString(row, 'presentation'), requiredString(row, 'dose_text'), route, optionalString(row, 'prescriber_name'), optionalString(row, 'instructions'), optionalString(row, 'start_date'), optionalString(row, 'end_date'), hour, minute,
-        jsonArray(row.times_json, 'times_json'), booleanFlag(row, 'enabled', true), reminderState === 'scheduled' || reminderState === 'scheduled_limited' ? 'unavailable' : reminderState, requiredString(row, 'created_at'),
+        jsonArray(row.times_json, 'times_json'), jsonObjectJson(row.schedule_json, 'schedule_json'), booleanFlag(row, 'enabled', true), reminderState === 'scheduled' || reminderState === 'scheduled_limited' ? 'unavailable' : reminderState, requiredString(row, 'created_at'),
       );
     }
 

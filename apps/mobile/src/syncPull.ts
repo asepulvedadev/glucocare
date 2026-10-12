@@ -76,7 +76,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     instructions: record.instructions ?? null, start_date: record.startDate ?? null, end_date: record.endDate ?? null,
     enabled: record.enabled !== false, created_at: record.createdAt ?? record.updated_at,
   })) };
-  const schedulesResult = { data: medicationRecords.map((record) => ({ medication_id: record.id, times_json: record.times ?? [], revision_number: 1 })) };
+  const schedulesResult = { data: medicationRecords.map((record) => ({ medication_id: record.id, times_json: record.times ?? [], schedule: record.schedule ?? null, revision_number: 1 })) };
   const medicationOccurrencesResult = { data: collect('medication_occurrence').map((record) => ({ id: record.id, medication_id: record.medicationId, scheduled_at: record.scheduledAt, status: record.status, acted_at: record.actedAt ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
   const appointmentsResult = { data: collect('appointment').map((record) => ({ id: record.id, title: record.title, provider: record.provider, specialty: record.specialty ?? null, insurer: record.insurer ?? null, authorization_number: record.authorizationNumber ?? null, facility: record.facility ?? null, scheduled_at: record.scheduledAt, requested_at: record.requestedAt ?? record.createdAt, status: record.status, location: record.location ?? null, virtual_url: record.virtualUrl ?? null, preparation_notes: record.preparationNotes ?? record.notes ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
   const measurementOccurrencesResult = { data: collect('measurement_occurrence').map((record) => ({ id: record.id, plan_revision_id: record.planId ?? 'default', scheduled_at: record.scheduledAt, window_index: record.windowIndex ?? null, meal_event_id: record.mealEventId ?? null, status: record.status, completed_reading_id: record.completedReadingId ?? null, completed_at: record.completedAt ?? null, created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
@@ -115,15 +115,17 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     return true;
   }
 
-  const schedules = new Map<string, { hour: number; minute: number; times: string[] }>();
+  const schedules = new Map<string, { hour: number; minute: number; times: string[]; schedule?: unknown }>();
   for (const schedule of schedulesResult.data ?? []) {
     if (schedules.has(schedule.medication_id)) continue;
-    const firstTime = jsonArray(schedule.times_json)[0];
+    const times = jsonArray(schedule.times_json);
+    const schedulePayload = jsonObject(schedule.schedule);
+    const firstTime = times[0] ?? (typeof schedulePayload.anchorTime === 'string' ? schedulePayload.anchorTime : schedulePayload.kind === 'meal_relative' ? '00:00' : undefined);
     const match = firstTime?.match(/^(\d{1,2}):(\d{2})$/);
     if (match) {
       const hour = Number(match[1]);
       const minute = Number(match[2]);
-      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) schedules.set(schedule.medication_id, { hour, minute, times: jsonArray(schedule.times_json) });
+      if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) schedules.set(schedule.medication_id, { hour, minute, times, schedule: schedule.schedule });
     }
   }
 
@@ -140,12 +142,12 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
       downloaded += 1;
     }
     for (const medication of medicationsResult.data ?? []) {
-      const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'] };
-      if (await preserveLocalChange('medication', medication.id, { ...(medication as unknown as Record<string, unknown>), times: time.times })) continue;
-      await db.runAsync(`INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, reminder_state, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
-        ON CONFLICT(id) DO UPDATE SET name = excluded.name, presentation = excluded.presentation, dose_text = excluded.dose_text, route = excluded.route, prescriber_name = excluded.prescriber_name, instructions = excluded.instructions, start_date = excluded.start_date, end_date = excluded.end_date, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, enabled = excluded.enabled`,
-        medication.id, medication.name, medication.presentation, medication.dose_text, localRoute(medication.route), medication.prescriber_name, medication.instructions, medication.start_date, medication.end_date, time.hour, time.minute, JSON.stringify(time.times), medication.enabled ? 1 : 0, medication.created_at);
+      const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'], schedule: null };
+      if (await preserveLocalChange('medication', medication.id, { ...(medication as unknown as Record<string, unknown>), times: time.times, schedule: time.schedule })) continue;
+      await db.runAsync(`INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, schedule_json, enabled, reminder_state, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
+        ON CONFLICT(id) DO UPDATE SET name = excluded.name, presentation = excluded.presentation, dose_text = excluded.dose_text, route = excluded.route, prescriber_name = excluded.prescriber_name, instructions = excluded.instructions, start_date = excluded.start_date, end_date = excluded.end_date, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, schedule_json = excluded.schedule_json, enabled = excluded.enabled`,
+        medication.id, medication.name, medication.presentation, medication.dose_text, localRoute(medication.route), medication.prescriber_name, medication.instructions, medication.start_date, medication.end_date, time.hour, time.minute, JSON.stringify(time.times), JSON.stringify(time.schedule ?? { kind: 'fixed', times: time.times }), medication.enabled ? 1 : 0, medication.created_at);
       downloaded += 1;
     }
     const plan = planResult.data;

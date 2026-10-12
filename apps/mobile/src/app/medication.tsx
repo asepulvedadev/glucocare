@@ -11,8 +11,13 @@ import { openNotificationSettings } from '../notifications';
 import { medicationRouteLabel, type Medication, type MedicationRoute } from '../types/care';
 import { colors, radii, spacing } from '../theme/tokens';
 import { isValidMedicationDate } from '../domain/medication';
+import { validateMedicationSchedule } from '../domain/medicationSchedule';
+import { mealTypeLabel, type MealType } from '../types/meals';
 
 const routes: MedicationRoute[] = ['oral', 'injection', 'inhaled', 'topical', 'other'];
+const weekdayOptions = [{ value: 1, label: 'L', name: 'lunes' }, { value: 2, label: 'M', name: 'martes' }, { value: 3, label: 'X', name: 'miércoles' }, { value: 4, label: 'J', name: 'jueves' }, { value: 5, label: 'V', name: 'viernes' }, { value: 6, label: 'S', name: 'sábado' }, { value: 7, label: 'D', name: 'domingo' }];
+const everyDay = weekdayOptions.map((day) => day.value);
+const mealOptions: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 function parseTime(raw: string) {
   const match = raw.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -42,26 +47,47 @@ function MedicationForm({ existing }: { existing?: Medication }) {
   const [startDate, setStartDate] = useState(existing?.startDate ?? '');
   const [endDate, setEndDate] = useState(existing?.endDate ?? '');
   const [route, setRoute] = useState<MedicationRoute>(existing?.route ?? 'oral');
-  const [times, setTimes] = useState(existing ? [...(existing.times ?? [`${String(existing.hour).padStart(2, '0')}:${String(existing.minute).padStart(2, '0')}`]), '', ''].slice(0, 3) : ['08:00', '', '']);
+  const initialSchedule = existing?.schedule;
+  const [scheduleKind, setScheduleKind] = useState<'fixed' | 'interval' | 'meal_relative'>(initialSchedule?.kind ?? 'fixed');
+  const [times, setTimes] = useState(initialSchedule?.kind === 'fixed' ? [...(initialSchedule.times ?? []), '', ''].slice(0, 3) : existing ? [...(existing.times ?? [`${String(existing.hour).padStart(2, '0')}:${String(existing.minute).padStart(2, '0')}`]), '', ''].slice(0, 3) : ['08:00', '', '']);
+  const [anchorTime, setAnchorTime] = useState(initialSchedule?.anchorTime ?? existing?.times?.[0] ?? '08:00');
+  const [intervalHours, setIntervalHours] = useState(initialSchedule?.intervalHours ? String(initialSchedule.intervalHours) : '8');
+  const [meal, setMeal] = useState<MealType>(initialSchedule?.meal ?? 'breakfast');
+  const [mealOffset, setMealOffset] = useState(initialSchedule?.offsetMinutes !== undefined ? String(initialSchedule.offsetMinutes) : '120');
+  const [weekdays, setWeekdays] = useState<number[]>(initialSchedule?.weekdays?.length ? initialSchedule.weekdays : everyDay);
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [saving, setSaving] = useState(false);
 
+  function toggleWeekday(day: number) {
+    setWeekdays((current) => {
+      if (current.includes(day) && current.length === 1) return current;
+      return current.includes(day) ? current.filter((item) => item !== day) : [...current, day].sort((a, b) => a - b);
+    });
+  }
+
 
   async function save() {
-    const parsedTimes = times.filter((value) => value.trim()).map(parseTime);
+    const valuesToParse = scheduleKind === 'fixed' ? times : [scheduleKind === 'interval' ? anchorTime : '00:00'];
+    const parsedTimes = valuesToParse.filter((value) => value.trim()).map(parseTime);
     if ((startDate.trim() && !isValidMedicationDate(startDate.trim())) || (endDate.trim() && !isValidMedicationDate(endDate.trim())) || (startDate.trim() && endDate.trim() && startDate.trim() > endDate.trim())) {
       Alert.alert('Revisa la vigencia', 'Usa AAAA-MM-DD y asegúrate de que la fecha inicial no sea posterior a la final.');
       return;
     }
-    if (!name.trim() || !doseText.trim() || parsedTimes.some((value) => !value) || parsedTimes.length < 1) {
-      Alert.alert('Completa los datos', 'Escribe el nombre, la dosis indicada por tu equipo y al menos una hora válida en formato HH:MM.');
-      return;
-    }
     const validTimes = parsedTimes.filter((value): value is { hour: number; minute: number } => Boolean(value));
     const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
+    const schedule = scheduleKind === 'fixed'
+      ? { kind: 'fixed' as const, times: [...new Set(timeValues)].sort(), weekdays }
+      : scheduleKind === 'interval'
+        ? { kind: 'interval' as const, anchorTime: timeValues[0], intervalHours: Number(intervalHours), weekdays }
+        : { kind: 'meal_relative' as const, anchorTime: '00:00', meal, offsetMinutes: Number(mealOffset), weekdays };
+    if (!name.trim() || !doseText.trim() || parsedTimes.some((value) => !value) || parsedTimes.length < 1 || !validateMedicationSchedule(schedule)) {
+      Alert.alert('Completa los datos', 'Revisa nombre, dosis, horario y días. Usa horas HH:MM; los intervalos deben estar entre 1 y 24 horas y las ventanas de comida entre -240 y 1440 minutos.');
+      return;
+    }
     setSaving(true);
     try {
-      const input = { name: name.trim(), presentation: presentation.trim() || undefined, doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled };
+      const compatibilityTime = validTimes[0] ?? { hour: 0, minute: 0 };
+      const input = { name: name.trim(), presentation: presentation.trim() || undefined, doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: compatibilityTime.hour, minute: compatibilityTime.minute, times: schedule.kind === 'fixed' ? schedule.times : [schedule.anchorTime], schedule, enabled };
       const state = existing ? await updateMedication(existing.id, input) : await addMedication(input);
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
@@ -106,9 +132,28 @@ function MedicationForm({ existing }: { existing?: Medication }) {
         <View style={styles.chips}>{routes.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: route === option }} onPress={() => setRoute(option)} style={[styles.chip, route === option && styles.chipSelected]}><Text style={[styles.chipText, route === option && styles.chipSelectedText]}>{medicationRouteLabel[option]}</Text></Pressable>)}</View>
       </Panel>
       <Panel>
-        <Caption>HORAS DEL RECORDATORIO</Caption>
-        {times.map((value, index) => <TextInput key={index} accessibilityLabel={`Hora del recordatorio ${index + 1}`} value={value} onChangeText={(next) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} keyboardType="numbers-and-punctuation" placeholder={index === 0 ? '08:00' : 'Opcional · HH:MM'} placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
-        <Body>Se programará en las horas indicadas y se renovará por ventanas cortas para respetar la vigencia. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
+        <Caption>TIPO DE HORARIO</Caption>
+        <View style={styles.chips}>{(['fixed', 'interval', 'meal_relative'] as const).map((kind) => <Pressable key={kind} accessibilityRole="radio" accessibilityState={{ selected: scheduleKind === kind }} onPress={() => setScheduleKind(kind)} style={[styles.chip, scheduleKind === kind && styles.chipSelected]}><Text style={[styles.chipText, scheduleKind === kind && styles.chipSelectedText]}>{kind === 'fixed' ? 'Horas fijas' : kind === 'interval' ? 'Cada intervalo' : 'Relativo a comida'}</Text></Pressable>)}</View>
+        {scheduleKind === 'fixed' ? <>
+          <Caption>HORAS DEL RECORDATORIO</Caption>
+          {times.map((value, index) => <TextInput key={index} accessibilityLabel={`Hora del recordatorio ${index + 1}`} value={value} onChangeText={(next) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} keyboardType="numbers-and-punctuation" placeholder={index === 0 ? '08:00' : 'Opcional · HH:MM'} placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
+          <Body>Se programarán las horas indicadas en los días seleccionados.</Body>
+        </> : scheduleKind === 'interval' ? <>
+          <Caption>HORA DE INICIO</Caption>
+          <TextInput accessibilityLabel="Hora de inicio del intervalo" value={anchorTime} onChangeText={setAnchorTime} keyboardType="numbers-and-punctuation" placeholder="08:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />
+          <Caption>INTERVALO EN HORAS (1–24)</Caption>
+          <TextInput accessibilityLabel="Intervalo en horas" value={intervalHours} onChangeText={setIntervalHours} keyboardType="number-pad" placeholder="8" placeholderTextColor={colors.textDisabled} style={styles.input} />
+          <Body>El intervalo se cuenta desde la hora de inicio. No modifica la dosis ni sustituye una indicación médica.</Body>
+        </> : <>
+          <Caption>COMIDA DE REFERENCIA</Caption>
+          <View style={styles.chips}>{mealOptions.map((option) => <Pressable key={option} accessibilityRole="radio" accessibilityState={{ selected: meal === option }} onPress={() => setMeal(option)} style={[styles.chip, meal === option && styles.chipSelected]}><Text style={[styles.chipText, meal === option && styles.chipSelectedText]}>{mealTypeLabel[option]}</Text></Pressable>)}</View>
+          <Caption>MINUTOS RESPECTO A LA COMIDA</Caption>
+          <TextInput accessibilityLabel={`Minutos respecto a ${mealTypeLabel[meal]}`} value={mealOffset} onChangeText={setMealOffset} keyboardType="numbers-and-punctuation" placeholder="120" placeholderTextColor={colors.textDisabled} style={styles.input} />
+          <Body>Ejemplo: 120 genera la toma dos horas después de registrar explícitamente la comida. Valores negativos son antes de comer.</Body>
+        </>}
+        <Caption>DÍAS ACTIVOS</Caption>
+        <View style={styles.dayChips}>{weekdayOptions.map((day) => <Pressable key={day.value} accessibilityRole="checkbox" accessibilityLabel={`Medicamento activo el ${day.name}`} accessibilityState={{ checked: weekdays.includes(day.value) }} onPress={() => toggleWeekday(day.value)} style={[styles.dayChip, weekdays.includes(day.value) && styles.chipSelected]}><Text style={[styles.chipText, weekdays.includes(day.value) && styles.chipSelectedText]}>{day.label}</Text></Pressable>)}</View>
+        <Body>Los días no seleccionados no generan recordatorios ni tomas pendientes.</Body>
       </Panel>
       <Panel>
         <Caption>VIGENCIA E INSTRUCCIONES (OPCIONAL)</Caption>
@@ -128,6 +173,8 @@ const styles = StyleSheet.create({
   timeInput: { fontSize: 28, fontWeight: '700' },
   multiline: { minHeight: 84, textAlignVertical: 'top', paddingTop: spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  dayChips: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs, marginVertical: spacing.xs },
+  dayChip: { flex: 1, minHeight: 44, justifyContent: 'center', alignItems: 'center', borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
   chipSelected: { backgroundColor: colors.surfaceRaised, borderColor: colors.amber },
   chipText: { color: colors.textSecondary, fontSize: 14 },

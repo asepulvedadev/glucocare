@@ -77,6 +77,8 @@ def migration_sql(version: int) -> str:
         return "ALTER TABLE accessibility_preferences ADD COLUMN touch_feedback INTEGER NOT NULL DEFAULT 1;"
     elif version == 38:
         return "ALTER TABLE medications ADD COLUMN presentation TEXT;"
+    elif version == 39:
+        return "ALTER TABLE medications ADD COLUMN schedule_json TEXT NOT NULL DEFAULT '{}';"
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -190,7 +192,11 @@ def main() -> int:
     presentation = db.execute("SELECT presentation FROM medications WHERE id = 'medication-2'").fetchone()
     if presentation != ("tableta",):
         raise SystemExit(f"Unexpected medication presentation migration result: {presentation!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, and medication presentation v38 migrations passed.")
+    db.executescript(migration_sql(39))
+    schedule = db.execute("SELECT schedule_json FROM medications WHERE id = 'medication-2'").fetchone()
+    if schedule != ("{}",):
+        raise SystemExit(f"Unexpected medication schedule migration result: {schedule!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, and medication schedule v39 migrations passed.")
     return 0
 
 

@@ -86,7 +86,7 @@ Do not show glucose value, diagnosis, medication name, or appointment specialty 
 
 - Treat prescription text as a record, not executable clinical logic.
 - Require confirmation for dose, route, frequency, start/end dates, and timezone.
-- Store an immutable schedule revision when any of these change.
+- Store an immutable schedule revision in `change_audit_events` when any of these change; the active schedule remains a user-editable projection.
 - Do not advise taking an extra dose after a missed reminder.
 - Do not infer that an ignored reminder means a missed dose.
 - Distinguish “taken,” “skipped,” “snoozed,” and “not recorded.”

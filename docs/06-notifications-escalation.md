@@ -19,7 +19,7 @@ Expo supports scheduling local notifications and receiving push notifications, b
 
 ### Bounded horizon
 
-The mobile implementation schedules rolling one-shot windows of medication and glucose-check notifications. Medication reminders are capped by configured start/end dates; glucose checks honor weekdays, plan validity, fixed times, and explicitly recorded meal-relative windows. All medication, measurement, and appointment reminders share a 60-request native budget; the earliest reminders win, and a record is marked `scheduled_limited` when the device cannot fit the complete rolling window. Reconciliation on resume makes omitted future reminders eligible again. The scheduler never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
+The mobile implementation schedules rolling one-shot windows of medication and glucose-check notifications. Medication reminders honor configured start/end dates, fixed times, intervals, weekday filters, and explicitly recorded meal-relative offsets; glucose checks honor weekdays, plan validity, fixed times, and explicitly recorded meal-relative windows. All medication, measurement, and appointment reminders share a 60-request native budget; the earliest reminders win, and a record is marked `scheduled_limited` when the device cannot fit the complete rolling window. Reconciliation on resume makes omitted future reminders eligible again. The scheduler never uses an unbounded daily repeat, because a repeating OS notification could survive the end of a prescription. Reconcile the window on:
 
 - App start/resume.
 - Schedule edit.

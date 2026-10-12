@@ -77,8 +77,8 @@ export async function ensurePermission(): Promise<ReminderPermission> {
   return result.status === 'granted' ? 'granted' : 'permission_denied';
 }
 
-export async function scheduleMedicationReminder(medication: Medication): Promise<{ state: ReminderPermission; notificationId?: string; notificationIds?: string[] }> {
-  const dates = medicationReminderDates(medication);
+export async function scheduleMedicationReminder(medication: Medication, meals: MealEvent[] = []): Promise<{ state: ReminderPermission; notificationId?: string; notificationIds?: string[] }> {
+  const dates = medicationReminderDates(medication, new Date(), undefined, meals);
   if (!dates.length) return { state: 'unavailable' };
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission };
@@ -213,10 +213,10 @@ async function hasScheduledNotifications(notificationIds: string[]) {
   return notificationIds.every((id) => scheduledIds.has(id));
 }
 
-export async function reconcileMedicationReminder(medication: Medication) {
+export async function reconcileMedicationReminder(medication: Medication, meals: MealEvent[] = []) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const };
   const notificationIds = medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []);
-  const expectedDates = medicationReminderDates(medication);
+  const expectedDates = medicationReminderDates(medication, new Date(), undefined, meals);
   if (!expectedDates.length) {
     await cancelReminder(notificationIds);
     return { state: 'unavailable' as const, notificationId: undefined, notificationIds: [] };
@@ -225,7 +225,7 @@ export async function reconcileMedicationReminder(medication: Medication) {
   if (permission !== 'granted') return { state: permission as ReminderPermission };
   if (notificationIds.length === expectedDates.length && await hasScheduledNotifications(notificationIds)) return { state: 'granted' as const, notificationId: notificationIds[0], notificationIds };
   await cancelReminder(notificationIds);
-  return scheduleMedicationReminder(medication);
+  return scheduleMedicationReminder(medication, meals);
 }
 
 export async function scheduleAppointmentReminder(appointment: Appointment): Promise<{ state: ReminderPermission; notificationId?: string }> {
@@ -301,7 +301,7 @@ function buildManagedSchedules(
 ): ManagedSchedule[] {
   const schedules: ManagedSchedule[] = [];
   for (const medication of medications) {
-    for (const date of medicationReminderDates(medication, now)) {
+    for (const date of medicationReminderDates(medication, now, undefined, meals)) {
       schedules.push({
         candidate: { key: `medication:${medication.id}:${date.toISOString()}`, kind: 'medication', ownerId: medication.id, scheduledAt: date },
         channel: MEDICATION_CHANNEL,
@@ -383,7 +383,7 @@ async function refreshNotificationSchedulesInternal(db: SQLiteDatabase) {
   }
 
   await Promise.all(medications.map(async (medication) => {
-    const expected = medicationReminderDates(medication, now).length;
+    const expected = medicationReminderDates(medication, now, undefined, meals).length;
     const ids = scheduledIds.get(medication.id) ?? [];
     const state: ReminderScheduleState = expected === 0 ? 'unavailable' : ids.length === expected ? 'scheduled' : ids.length > 0 ? 'scheduled_limited' : 'unavailable';
     await updateMedicationReminder(db, medication.id, state, ids[0], ids);

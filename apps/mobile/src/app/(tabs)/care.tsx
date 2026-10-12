@@ -16,12 +16,9 @@ import { isCarePlanExpired } from '../../domain/glucoseRisk';
 import { isMeasurementPlanActive, legacyMeasurementWindows } from '../../domain/measurementPlan';
 import { mealTypeLabel } from '../../types/meals';
 import { isMedicationActive } from '../../domain/medication';
+import { legacyMedicationSchedule, medicationScheduleLabel } from '../../domain/medicationSchedule';
 import { colors, spacing } from '../../theme/tokens';
 import { PlatformCapabilityNotice } from '../../components/PlatformCapabilityNotice';
-
-function formatTime(hour: number, minute: number) {
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
 
 export default function CareScreen() {
   const { medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, isLoading, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh } = useCare();
@@ -105,7 +102,7 @@ export default function CareScreen() {
           </>
         ) : medications.map((medication) => (
           <View key={medication.id} style={styles.medicationRow}>
-            <View style={styles.timeBox}><Text style={styles.time}>{(medication.times?.length ? medication.times : [formatTime(medication.hour, medication.minute)]).join(' · ')}</Text><Caption>diario</Caption></View>
+            <View style={styles.timeBox}><Text style={styles.time}>{medicationScheduleLabel(medication.schedule ?? legacyMedicationSchedule(medication))}</Text><Caption>{medication.schedule?.kind === 'interval' ? 'intervalo' : medication.schedule?.kind === 'meal_relative' ? 'comida registrada' : 'horario fijo'}</Caption></View>
             <View style={styles.medicationCopy}>
               <Text style={styles.medicationName}>{medication.name}</Text>
               <Body>{medication.presentation ? `${medication.presentation} · ` : ''}{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>

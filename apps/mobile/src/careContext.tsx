@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications, updateMedication as updateStoredMedication } from './db/careRepository';
@@ -53,13 +53,25 @@ export function CareProvider({ children }: PropsWithChildren) {
   const [carePlan, setCarePlan] = useState<CarePlan | null>(null);
   const [mealEvents, setMealEvents] = useState<MealEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const medicationOccurrenceReconcile = useRef<Promise<void> | null>(null);
+
+  const reconcileMedicationOccurrences = useCallback(async (storedMedications: Medication[], meals: MealEvent[]) => {
+    if (medicationOccurrenceReconcile.current) await medicationOccurrenceReconcile.current;
+    const task = ensureTodaysMedicationOccurrences(db, storedMedications, meals);
+    medicationOccurrenceReconcile.current = task;
+    try {
+      await task;
+    } finally {
+      if (medicationOccurrenceReconcile.current === task) medicationOccurrenceReconcile.current = null;
+    }
+  }, [db]);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
       await refreshNotificationSchedules(db).catch(() => undefined);
       const [storedMedications, storedAppointments, storedPlan, storedCarePlan, storedMeals] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db), listMealEvents(db)]);
-      await ensureTodaysMedicationOccurrences(db, storedMedications);
+      await reconcileMedicationOccurrences(storedMedications, storedMeals);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
       const storedMeasurementOccurrences = await listTodaysMeasurementOccurrences(db);
@@ -71,14 +83,14 @@ export function CareProvider({ children }: PropsWithChildren) {
       setMeasurementPlan(storedPlan);
       setMealEvents(storedMeals);
     } finally { setIsLoading(false); }
-  }, [db]);
+  }, [db, reconcileMedicationOccurrences]);
 
   useEffect(() => {
     let active = true;
     void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db), getCarePlan(db), listMealEvents(db)]).then(async ([storedMedications, storedAppointments, storedPlan, storedCarePlan, storedMeals]) => {
       await refreshNotificationSchedules(db).catch(() => undefined);
       const [reconciledMedications, reconciledAppointments] = await Promise.all([listMedications(db), listAppointments(db)]);
-      await ensureTodaysMedicationOccurrences(db, reconciledMedications);
+      await reconcileMedicationOccurrences(reconciledMedications, storedMeals);
       const storedOccurrences = await listTodaysMedicationOccurrences(db);
       await ensureTodaysMeasurementOccurrences(db, storedPlan);
       const storedMeasurementOccurrences = await listTodaysMeasurementOccurrences(db);
@@ -95,7 +107,7 @@ export function CareProvider({ children }: PropsWithChildren) {
       if (active) setIsLoading(false);
     });
     return () => { active = false; };
-  }, [db]);
+  }, [db, reconcileMedicationOccurrences]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -114,11 +126,11 @@ export function CareProvider({ children }: PropsWithChildren) {
     await insertMedication(db, medication);
     await refreshNotificationSchedules(db).catch(() => undefined);
     const stored = (await listMedications(db)).find((item) => item.id === medication.id) ?? medication;
-    await ensureTodaysMedicationOccurrences(db, [stored]);
+    await reconcileMedicationOccurrences([stored], await listMealEvents(db));
     setMedications(await listMedications(db));
     setMedicationOccurrences(await listTodaysMedicationOccurrences(db));
     return stored.reminderState;
-  }, [db]);
+  }, [db, reconcileMedicationOccurrences]);
 
   const updateMedication = useCallback(async (medicationId: string, input: NewMedication) => {
     const current = medications.find((item) => item.id === medicationId);
@@ -127,11 +139,11 @@ export function CareProvider({ children }: PropsWithChildren) {
     await updateStoredMedication(db, medication);
     await refreshNotificationSchedules(db).catch(() => undefined);
     const stored = (await listMedications(db)).find((item) => item.id === medication.id) ?? medication;
-    await ensureTodaysMedicationOccurrences(db, [stored]);
+    await reconcileMedicationOccurrences([stored], await listMealEvents(db));
     setMedications(await listMedications(db));
     setMedicationOccurrences(await listTodaysMedicationOccurrences(db));
     return stored.reminderState;
-  }, [db, medications]);
+  }, [db, medications, reconcileMedicationOccurrences]);
 
   const addAppointment = useCallback(async (input: NewAppointment) => {
     const appointment: Appointment = {
@@ -181,12 +193,15 @@ export function CareProvider({ children }: PropsWithChildren) {
   const addMealEvent = useCallback(async (input: NewMealEvent) => {
     const stored = await insertMealEvent(db, input);
     setMealEvents((current) => [stored, ...current]);
+    const storedMedications = await listMedications(db);
+    await reconcileMedicationOccurrences(storedMedications, await listMealEvents(db));
+    setMedicationOccurrences(await listTodaysMedicationOccurrences(db));
     const plan = await getMeasurementPlan(db);
     const occurredAt = new Date(input.occurredAt);
     await ensureTodaysMeasurementOccurrences(db, plan, occurredAt);
     await refreshNotificationSchedules(db).catch(() => undefined);
     setMeasurementOccurrences(await listTodaysMeasurementOccurrences(db, occurredAt));
-  }, [db]);
+  }, [db, reconcileMedicationOccurrences]);
 
   const markMedicationOccurrence = useCallback(async (occurrenceId: string, status: MedicationOccurrenceStatus) => {
     const updated = await recordMedicationOccurrence(db, occurrenceId, status);

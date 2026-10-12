@@ -1,10 +1,12 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { newId } from '../ids';
 import type { Medication } from '../types/care';
+import type { MealEvent } from '../types/meals';
 import type { MedicationOccurrence, MedicationOccurrenceStatus } from '../types/medicationOccurrences';
 import { transitionMedicationOccurrence } from '../domain/medicationOccurrenceState';
 import { isMedicationActive } from '../domain/medication';
 import { enqueueOutbox } from './outboxRepository';
+import { medicationOccurrenceDatesForDay } from '../domain/medicationReminder';
 
 type MedicationOccurrenceRow = {
   id: string;
@@ -40,15 +42,7 @@ function startOfLocalDay(now: Date) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-function occurrenceTimesForToday(medication: Medication, now: Date) {
-  const times = medication.times?.length ? medication.times : [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`];
-  return times.map((time) => {
-    const [hour, minute] = time.split(':').map(Number);
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute).toISOString();
-  });
-}
-
-export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medications: Medication[], now = new Date()) {
+export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medications: Medication[], meals: MealEvent[] = [], now = new Date()) {
   const createdAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     const staleRows = await db.getAllAsync<MedicationOccurrenceRow>(
@@ -63,26 +57,22 @@ export async function ensureTodaysMedicationOccurrences(db: SQLiteDatabase, medi
       await enqueueOutbox(db, { id: newId(), entityType: 'medication_occurrence', entityId: row.id, eventType: 'medication_occurrence.expired.v1', payload: next });
     }
     for (const medication of medications) {
-      const times = occurrenceTimesForToday(medication, now);
+      const times = medicationOccurrenceDatesForDay(medication, meals, now).map((date) => date.toISOString());
       if (!isMedicationActive(medication, now)) {
-        if (times.length > 0) {
-          const placeholders = times.map(() => '?').join(', ');
-          const inactiveRows = await db.getAllAsync<MedicationOccurrenceRow>(
-            `SELECT * FROM medication_occurrences
-             WHERE medication_id = ? AND scheduled_at >= ? AND scheduled_at < ?
-             AND status IN ('planned', 'due', 'snoozed') AND scheduled_at IN (${placeholders})`,
-            medication.id,
-            startOfLocalDay(now).toISOString(),
-            new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString(),
-            ...times,
-          );
-          for (const row of inactiveRows) {
-            const current = mapRow(row);
-            const next = { ...current, status: 'expired' as const, actedAt: now.toISOString() };
-            transitionMedicationOccurrence(current.status, next.status);
-            await db.runAsync('UPDATE medication_occurrences SET status = ?, acted_at = ? WHERE id = ?', 'expired', next.actedAt, row.id);
-            await enqueueOutbox(db, { id: newId(), entityType: 'medication_occurrence', entityId: row.id, eventType: 'medication_occurrence.expired.v1', payload: next });
-          }
+        const inactiveRows = await db.getAllAsync<MedicationOccurrenceRow>(
+          `SELECT * FROM medication_occurrences
+           WHERE medication_id = ? AND scheduled_at >= ? AND scheduled_at < ?
+           AND status IN ('planned', 'due', 'snoozed')`,
+          medication.id,
+          startOfLocalDay(now).toISOString(),
+          new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        );
+        for (const row of inactiveRows) {
+          const current = mapRow(row);
+          const next = { ...current, status: 'expired' as const, actedAt: now.toISOString() };
+          transitionMedicationOccurrence(current.status, next.status);
+          await db.runAsync('UPDATE medication_occurrences SET status = ?, acted_at = ? WHERE id = ?', 'expired', next.actedAt, row.id);
+          await enqueueOutbox(db, { id: newId(), entityType: 'medication_occurrence', entityId: row.id, eventType: 'medication_occurrence.expired.v1', payload: next });
         }
         continue;
       }

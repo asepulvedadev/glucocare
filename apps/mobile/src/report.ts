@@ -1,4 +1,5 @@
 import { ketoneResultLabel } from './types/domain';
+import { medicationScheduleLabel, parseMedicationSchedule } from './domain/medicationSchedule';
 
 export type ClinicianReportReading = {
   value: number;
@@ -12,7 +13,7 @@ export type ClinicianReportReading = {
   ketone_result?: string | null;
   risk_classification: string | null;
 };
-export type ClinicianReportMedication = { name: string; presentation?: string | null; dose_text: string; route: string; prescriber_name?: string | null; instructions?: string | null; start_date?: string | null; end_date?: string | null; times_json: string | null; enabled: number };
+export type ClinicianReportMedication = { name: string; presentation?: string | null; dose_text: string; route: string; prescriber_name?: string | null; instructions?: string | null; start_date?: string | null; end_date?: string | null; times_json: string | null; schedule_json?: string | null; enabled: number };
 export type ClinicianReportAppointment = { title: string; provider: string; specialty?: string | null; insurer?: string | null; authorization_number?: string | null; facility?: string | null; scheduled_at: string; status: string; location: string | null; virtual_url?: string | null; preparation_notes?: string | null };
 export type ClinicianReportCard = { full_name: string; birth_date: string | null; diabetes_type: string | null; diagnosis_year?: string | null; insulin_use?: string | null; allergies: string | null; critical_conditions?: string | null; care_provider: string | null; care_facility: string | null; insurer?: string | null; policy_number?: string | null; emergency_number?: string | null; emergency_region?: string | null; emergency_notes: string | null };
 export type ClinicianReportMeal = { meal_type: string; occurred_at: string; note: string | null };
@@ -54,7 +55,9 @@ export function buildClinicianReportHtml(input: {
     let times = '—';
     try {
       const parsed: unknown = medication.times_json ? JSON.parse(medication.times_json) : [];
-      if (Array.isArray(parsed)) times = parsed.filter((item): item is string => typeof item === 'string').join(', ') || '—';
+      const legacyTimes = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+      const schedule = parseMedicationSchedule(medication.schedule_json, { kind: 'fixed', times: legacyTimes });
+      times = medicationScheduleLabel(schedule) || '—';
     } catch { /* Keep the report readable if a legacy schedule is malformed. */ }
     const validity = medication.start_date || medication.end_date ? `${medication.start_date || '—'} → ${medication.end_date || '—'}` : '—';
     const details = [medication.prescriber_name ? `Indicó: ${medication.prescriber_name}` : '', medication.instructions || ''].filter(Boolean).join(' · ') || '—';

@@ -11,6 +11,7 @@ import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } f
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
 import { medicationReminderDates } from '../src/domain/medicationReminder';
+import { validateMedicationSchedule } from '../src/domain/medicationSchedule';
 import { measurementReminderDates } from '../src/domain/measurementReminder';
 import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
 import { exportRangeSince } from '../src/domain/exportRange';
@@ -168,6 +169,26 @@ describe('bounded medication reminder schedule', () => {
   it('returns no schedule for disabled or invalid medication dates', () => {
     expect(medicationReminderDates({ enabled: false, hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
     expect(medicationReminderDates({ enabled: true, startDate: '2026-02-30', hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
+  });
+
+  it('supports interval schedules and weekday filters', () => {
+    const dates = medicationReminderDates({ enabled: true, hour: 8, minute: 0, schedule: { kind: 'interval', anchorTime: '08:00', intervalHours: 8, weekdays: [1] } }, new Date('2026-10-12T06:00:00-05:00'), 2);
+    expect(dates).toHaveLength(2);
+    expect(dates.every((date) => date.getDay() === 1)).toBe(true);
+    expect(dates.map((date) => date.getHours())).toEqual([8, 16]);
+  });
+
+  it('anchors medication schedules to an explicit meal event', () => {
+    const dates = medicationReminderDates({ enabled: true, hour: 0, minute: 0, schedule: { kind: 'meal_relative', meal: 'lunch', offsetMinutes: 120, weekdays: [1] } }, new Date('2026-10-12T12:30:00-05:00'), 2, [{ id: 'meal-1', mealType: 'lunch', occurredAt: '2026-10-12T12:00:00-05:00', createdAt: '2026-10-12T12:00:00-05:00', syncState: 'local' }]);
+    expect(dates).toHaveLength(1);
+    expect(dates[0].getHours()).toBe(14);
+  });
+
+  it('rejects unsafe or incomplete schedule metadata', () => {
+    expect(validateMedicationSchedule({ kind: 'interval', anchorTime: '08:00', intervalHours: 0 })).toBe(false);
+    expect(validateMedicationSchedule({ kind: 'meal_relative', meal: 'dinner', offsetMinutes: 120, weekdays: [8] })).toBe(false);
+    expect(validateMedicationSchedule({ kind: 'meal_relative', offsetMinutes: 30 })).toBe(false);
+    expect(validateMedicationSchedule({ kind: 'fixed', times: ['08:00', '20:00'], weekdays: [1, 3] })).toBe(true);
   });
 });
 
