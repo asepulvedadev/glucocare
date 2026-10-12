@@ -15,6 +15,18 @@ import { measurementReminderDates } from '../src/domain/measurementReminder';
 import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../src/domain/notificationSchedule';
 import { exportRangeSince } from '../src/domain/exportRange';
 import { ketoneResultLabel } from '../src/types/domain';
+import { selectPrimaryTrustedContact } from '../src/domain/trustedContactSelection';
+
+describe('trusted contact selection', () => {
+  it('prefers a consented phone contact for the immediate call fallback', () => {
+    const selected = selectPrimaryTrustedContact([
+      { id: 'email', consentGranted: true, phone: '' },
+      { id: 'phone', consentGranted: true, phone: '+573001112233' },
+      { id: 'revoked', consentGranted: false, phone: '+573009998877' },
+    ]);
+    expect(selected?.id).toBe('phone');
+  });
+});
 
 describe('export ranges', () => {
   it('returns a deterministic rolling UTC lower bound and preserves all-history exports', () => {

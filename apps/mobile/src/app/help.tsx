@@ -17,6 +17,7 @@ import { getEmergencyAlertDeliveries, queueEmergencyAlert, type EmergencyDeliver
 import { getEmergencyConfig } from '../config';
 import { usePrivacy } from '../privacyContext';
 import { newId } from '../ids';
+import { selectPrimaryTrustedContact } from '../domain/trustedContactSelection';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
@@ -24,7 +25,11 @@ export default function HelpScreen() {
   const { medications } = useCare();
   const { session, isConfigured: isCloudConfigured } = useAuth();
   const { consent } = usePrivacy();
-  const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
+  const consentedContacts = trustedContacts.filter((contact) => contact.consentGranted);
+  // Prefer a consented phone contact for the immediate call fallback. An
+  // email-only contact may still receive the remote alert, but must not hide a
+  // different consented contact who can actually be called.
+  const primaryContact = selectPrimaryTrustedContact(trustedContacts);
   const configuredEmergency = getEmergencyConfig(emergencyCard);
   const [processing, setProcessing] = useState(false);
   const [helpEvents, setHelpEvents] = useState<HelpEvent[]>([]);
@@ -55,7 +60,6 @@ export default function HelpScreen() {
       if (session && isCloudConfigured && consent?.localDataConsent && consent.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
         try {
           await syncPendingData(db, session);
-          const consentedContacts = trustedContacts.filter((contact) => contact.consentGranted);
           const channels = [...new Set(consentedContacts.flatMap((contact) => [contact.email ? 'email' as const : null, contact.phone ? 'sms' as const : null].filter((channel): channel is 'email' | 'sms' => channel !== null)))];
           if (channels.length) {
             remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: consentedContacts.map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels }));
