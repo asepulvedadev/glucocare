@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import type { Medication } from './types/care';
 import type { Appointment } from './types/appointments';
 import type { GlucoseRiskClassification } from './types/carePlan';
-import { isMedicationActive } from './domain/medication';
+import { medicationReminderDates } from './domain/medicationReminder';
 import { listMedications, updateMedicationReminder } from './db/careRepository';
 import { listAppointments, updateAppointmentReminder } from './db/appointmentsRepository';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -64,22 +64,21 @@ export async function ensurePermission(): Promise<ReminderPermission> {
 }
 
 export async function scheduleMedicationReminder(medication: Medication): Promise<{ state: ReminderPermission; notificationId?: string; notificationIds?: string[] }> {
-  if (!isMedicationActive(medication)) return { state: 'unavailable' };
+  const dates = medicationReminderDates(medication);
+  if (!dates.length) return { state: 'unavailable' };
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission };
 
-  const times = medication.times?.length ? medication.times : [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`];
   const notificationIds: string[] = [];
-  for (const time of times) {
-    const [hour, minute] = time.split(':').map(Number);
+  for (const date of dates) {
     const trigger: Notifications.SchedulableNotificationTriggerInput = Platform.OS === 'android'
-      ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute, channelId: channelId(MEDICATION_CHANNEL) }
-      : { type: Notifications.SchedulableTriggerInputTypes.CALENDAR, hour, minute, repeats: true };
+      ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: channelId(MEDICATION_CHANNEL) }
+      : { type: Notifications.SchedulableTriggerInputTypes.DATE, date };
     notificationIds.push(await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Recordatorio de rutina',
         body: 'Tienes una tarea de salud programada. Abre GlucoCare para ver los detalles.',
-        data: { url: '/care', medicationId: medication.id, time },
+        data: { url: '/care', medicationId: medication.id, scheduledAt: date.toISOString() },
         sound: notificationPreferences.sound ? 'default' : undefined,
       },
       trigger,
@@ -162,13 +161,14 @@ async function hasScheduledNotifications(notificationIds: string[]) {
 export async function reconcileMedicationReminder(medication: Medication) {
   if (Platform.OS === 'web') return { state: 'unavailable' as const };
   const notificationIds = medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : []);
-  if (!isMedicationActive(medication)) {
+  const expectedDates = medicationReminderDates(medication);
+  if (!expectedDates.length) {
     await cancelReminder(notificationIds);
     return { state: 'unavailable' as const, notificationId: undefined, notificationIds: [] };
   }
   const permission = await ensurePermission();
   if (permission !== 'granted') return { state: permission as ReminderPermission };
-  if (await hasScheduledNotifications(notificationIds)) return { state: 'granted' as const, notificationId: notificationIds[0], notificationIds };
+  if (notificationIds.length === expectedDates.length && await hasScheduledNotifications(notificationIds)) return { state: 'granted' as const, notificationId: notificationIds[0], notificationIds };
   await cancelReminder(notificationIds);
   return scheduleMedicationReminder(medication);
 }

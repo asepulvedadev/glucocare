@@ -10,6 +10,7 @@ import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
 import { canUploadEventForConsent, cloudTrustedContactConsentStatus } from '../src/syncConsent';
+import { medicationReminderDates } from '../src/domain/medicationReminder';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -86,6 +87,26 @@ describe('medication occurrence state machine', () => {
   it('does not allow a completed occurrence to be changed silently', () => {
     expect(canTransitionMedicationOccurrence('taken', 'skipped')).toBe(false);
     expect(() => transitionMedicationOccurrence('taken', 'skipped')).toThrow('Invalid medication occurrence transition');
+  });
+});
+
+describe('bounded medication reminder schedule', () => {
+  it('does not schedule before the start date or after the end date', () => {
+    const dates = medicationReminderDates({ enabled: true, startDate: '2026-10-15', endDate: '2026-10-16', hour: 8, minute: 0, times: ['08:00', '20:00'] }, new Date('2026-10-12T12:00:00-05:00'), 90);
+    expect(dates).toHaveLength(4);
+    expect(dates.every((date) => date.getFullYear() === 2026 && date.getMonth() === 9 && [15, 16].includes(date.getDate()))).toBe(true);
+  });
+
+  it('skips a time already passed today and caps an open-ended plan', () => {
+    const dates = medicationReminderDates({ enabled: true, hour: 8, minute: 0, times: ['08:00', '20:00'] }, new Date('2026-10-12T12:00:00-05:00'), 3);
+    expect(dates).toHaveLength(5);
+    expect(dates[0].getHours()).toBe(20);
+    expect(dates.at(-1)?.getDate()).toBe(14);
+  });
+
+  it('returns no schedule for disabled or invalid medication dates', () => {
+    expect(medicationReminderDates({ enabled: false, hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
+    expect(medicationReminderDates({ enabled: true, startDate: '2026-02-30', hour: 8, minute: 0 }, new Date('2026-10-12T12:00:00-05:00'))).toEqual([]);
   });
 });
 

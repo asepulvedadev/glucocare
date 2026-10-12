@@ -102,7 +102,7 @@ function MedicationForm({ existing }: { existing?: Medication }) {
       <Panel>
         <Caption>HORAS DEL RECORDATORIO</Caption>
         {times.map((value, index) => <TextInput key={index} accessibilityLabel={`Hora del recordatorio ${index + 1}`} value={value} onChangeText={(next) => setTimes((current) => current.map((item, itemIndex) => itemIndex === index ? next : item))} keyboardType="numbers-and-punctuation" placeholder={index === 0 ? '08:00' : 'Opcional · HH:MM'} placeholderTextColor={colors.textDisabled} style={[styles.input, styles.timeInput]} />)}
-        <Body>Se repetirá cada día en las horas indicadas. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
+        <Body>Se programará en las horas indicadas y se renovará por ventanas cortas para respetar la vigencia. El sistema operativo puede limitar alarmas exactas o pedir permisos.</Body>
       </Panel>
       <Panel>
         <Caption>VIGENCIA E INSTRUCCIONES (OPCIONAL)</Caption>
