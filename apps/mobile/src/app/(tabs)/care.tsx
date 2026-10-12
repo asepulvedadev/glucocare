@@ -108,7 +108,7 @@ export default function CareScreen() {
             <View style={styles.timeBox}><Text style={styles.time}>{(medication.times?.length ? medication.times : [formatTime(medication.hour, medication.minute)]).join(' · ')}</Text><Caption>diario</Caption></View>
             <View style={styles.medicationCopy}>
               <Text style={styles.medicationName}>{medication.name}</Text>
-              <Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>
+              <Body>{medication.presentation ? `${medication.presentation} · ` : ''}{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>
               {medication.prescriberName ? <Caption>Indicado por {medication.prescriberName}</Caption> : null}
               {medication.startDate || medication.endDate ? <Caption>Vigencia: {medication.startDate ?? 'sin fecha inicial'} → {medication.endDate ?? 'sin fecha final'}</Caption> : null}
               {medication.instructions ? <Caption>{medication.instructions}</Caption> : null}

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 37;
+const DATABASE_VERSION = 38;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -29,6 +29,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE TABLE IF NOT EXISTS medications (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
+        presentation TEXT,
         dose_text TEXT NOT NULL,
         route TEXT NOT NULL,
         hour INTEGER NOT NULL CHECK (hour BETWEEN 0 AND 23),
@@ -499,6 +500,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     const preferenceColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accessibility_preferences)');
     if (!preferenceColumns.some((column) => column.name === 'touch_feedback')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN touch_feedback INTEGER NOT NULL DEFAULT 1');
     currentVersion = 37;
+  }
+
+  if (currentVersion < 38) {
+    const medicationColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(medications)');
+    if (!medicationColumns.some((column) => column.name === 'presentation')) await db.execAsync('ALTER TABLE medications ADD COLUMN presentation TEXT');
+    currentVersion = 38;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

@@ -35,6 +35,7 @@ export default function MedicationScreen() {
 function MedicationForm({ existing }: { existing?: Medication }) {
   const { addMedication, updateMedication } = useCare();
   const [name, setName] = useState(existing?.name ?? '');
+  const [presentation, setPresentation] = useState(existing?.presentation ?? '');
   const [doseText, setDoseText] = useState(existing?.doseText ?? '');
   const [prescriberName, setPrescriberName] = useState(existing?.prescriberName ?? '');
   const [instructions, setInstructions] = useState(existing?.instructions ?? '');
@@ -60,7 +61,7 @@ function MedicationForm({ existing }: { existing?: Medication }) {
     const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
     setSaving(true);
     try {
-      const input = { name: name.trim(), doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled };
+      const input = { name: name.trim(), presentation: presentation.trim() || undefined, doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: validTimes[0].hour, minute: validTimes[0].minute, times: [...new Set(timeValues)].sort(), enabled };
       const state = existing ? await updateMedication(existing.id, input) : await addMedication(input);
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
@@ -87,6 +88,8 @@ function MedicationForm({ existing }: { existing?: Medication }) {
       <Panel>
         <Caption>NOMBRE</Caption>
         <TextInput accessibilityLabel="Nombre del medicamento" value={name} onChangeText={setName} placeholder="Ej. Metformina" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Caption>PRESENTACIÓN (OPCIONAL)</Caption>
+        <TextInput accessibilityLabel="Presentación del medicamento" value={presentation} onChangeText={setPresentation} placeholder="Ej. tableta, frasco o vial" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>DOSIS INDICADA</Caption>
         <TextInput accessibilityLabel="Dosis indicada" value={doseText} onChangeText={setDoseText} placeholder="Ej. 500 mg" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>QUIÉN LO INDICÓ (OPCIONAL)</Caption>

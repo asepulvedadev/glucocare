@@ -9,7 +9,7 @@ describe('clinician report', () => {
       periodLabel: 'Últimos 7 días',
       card: { full_name: '<Ana>', birth_date: null, diabetes_type: 'Tipo 2', allergies: null, care_provider: null, care_facility: null, emergency_number: '123', emergency_region: 'Bogotá', emergency_notes: null },
       readings: [{ value: 120, unit: 'mg/dL', context: 'fasting', recorded_at: '2026-10-12T10:00:00.000Z', symptoms: '<script>', note: null, ketone_result: 'moderate', risk_classification: null }],
-      medications: [],
+      medications: [{ name: 'Metformin', presentation: 'tableta', dose_text: '500 mg', route: 'oral', times_json: '["08:00"]', enabled: 1 }],
       appointments: [],
       meals: [{ meal_type: 'lunch', occurred_at: '2026-10-12T12:00:00.000Z', note: '<note>' }],
       medicationOccurrences: [{ medication_name: 'Metformin', dose_text: '500 mg', scheduled_at: '2026-10-12T08:00:00.000Z', status: 'taken', acted_at: '2026-10-12T08:03:00.000Z' }],
@@ -28,6 +28,7 @@ describe('clinician report', () => {
     expect(html).toContain('Emergencias');
     expect(html).toContain('Bogotá');
     expect(html).toContain('Metformin');
+    expect(html).toContain('tableta');
     expect(html).toContain('&lt;note&gt;');
     expect(html).toContain('&lt;reason&gt;');
   });

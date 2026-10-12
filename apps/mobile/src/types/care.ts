@@ -4,6 +4,8 @@ export type ReminderState = 'scheduled' | 'scheduled_limited' | 'permission_deni
 export type Medication = {
   id: string;
   name: string;
+  /** Optional presentation supplied by the prescription or care team (e.g. tablet, vial). */
+  presentation?: string;
   doseText: string;
   route: MedicationRoute;
   prescriberName?: string;

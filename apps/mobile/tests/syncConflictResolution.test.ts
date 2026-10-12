@@ -38,12 +38,13 @@ describe('reviewed sync conflict resolution', () => {
 
   it('includes the remote medication schedule when applying a routine conflict', async () => {
     const db = databaseMock();
-    const remote = conflict('medication', { name: 'Routine', dose_text: '1', route: 'oral', enabled: true, created_at: '2026-10-12T08:00:00.000Z', times: ['07:00', '19:00'] });
+    const remote = conflict('medication', { name: 'Routine', presentation: 'tableta', dose_text: '1', route: 'oral', enabled: true, created_at: '2026-10-12T08:00:00.000Z', times: ['07:00', '19:00'] });
     remote.entityId = 'medication-1';
     await applyRemoteSyncConflict(db as never, remote);
     const update = db.runAsync.mock.calls.find(([sql]) => String(sql).includes('UPDATE medications'));
     expect(update?.[0]).toContain('times_json');
     expect(JSON.stringify(update)).toContain('07:00');
+    expect(JSON.stringify(update)).toContain('tableta');
   });
 
   it('applies a remote emergency incident projection without delivery details', async () => {

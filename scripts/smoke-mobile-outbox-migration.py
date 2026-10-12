@@ -75,6 +75,8 @@ def migration_sql(version: int) -> str:
         return "ALTER TABLE glucose_readings ADD COLUMN ketone_result TEXT NOT NULL DEFAULT 'not_checked' CHECK (ketone_result IN ('not_checked', 'negative', 'trace', 'small', 'moderate', 'large', 'unknown'));"
     elif version == 37:
         return "ALTER TABLE accessibility_preferences ADD COLUMN touch_feedback INTEGER NOT NULL DEFAULT 1;"
+    elif version == 38:
+        return "ALTER TABLE medications ADD COLUMN presentation TEXT;"
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -183,7 +185,12 @@ def main() -> int:
     touch_feedback = db.execute("SELECT touch_feedback FROM accessibility_preferences WHERE id = 'default'").fetchone()
     if touch_feedback != (1,):
         raise SystemExit(f"Unexpected touch feedback migration result: {touch_feedback!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, and touch feedback v37 migrations passed.")
+    db.executescript(migration_sql(38))
+    db.execute("INSERT INTO medications (id, presentation) VALUES ('medication-2', 'tableta')")
+    presentation = db.execute("SELECT presentation FROM medications WHERE id = 'medication-2'").fetchone()
+    if presentation != ("tableta",):
+        raise SystemExit(f"Unexpected medication presentation migration result: {presentation!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, and medication presentation v38 migrations passed.")
     return 0
 
 

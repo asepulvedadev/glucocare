@@ -9,6 +9,7 @@ export type StoredMedication = Medication;
 type MedicationRow = {
   id: string;
   name: string;
+  presentation: string | null;
   dose_text: string;
   route: MedicationRoute;
   prescriber_name: string | null;
@@ -53,6 +54,7 @@ function mapRow(row: MedicationRow): Medication {
   return {
     id: row.id,
     name: row.name,
+    presentation: row.presentation ?? undefined,
     doseText: row.dose_text,
     route: row.route,
     prescriberName: row.prescriber_name ?? undefined,
@@ -78,9 +80,9 @@ export async function listMedications(db: SQLiteDatabase): Promise<Medication[]>
 export async function insertMedication(db: SQLiteDatabase, medication: Medication) {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO medications (id, name, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      medication.id, medication.name, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
+      `INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, enabled, notification_id, notification_ids_json, reminder_state, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      medication.id, medication.name, medication.presentation ?? null, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
       JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]),
       medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.createdAt,
     );
@@ -95,8 +97,8 @@ export async function updateMedication(db: SQLiteDatabase, medication: Medicatio
   const previous = mapRow(previousRow);
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `UPDATE medications SET name = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, notification_id = ?, notification_ids_json = ?, reminder_state = ? WHERE id = ?`,
-      medication.name, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
+      `UPDATE medications SET name = ?, presentation = ?, dose_text = ?, route = ?, prescriber_name = ?, instructions = ?, start_date = ?, end_date = ?, hour = ?, minute = ?, times_json = ?, enabled = ?, notification_id = ?, notification_ids_json = ?, reminder_state = ? WHERE id = ?`,
+      medication.name, medication.presentation ?? null, medication.doseText, medication.route, medication.prescriberName ?? null, medication.instructions ?? null, medication.startDate ?? null, medication.endDate ?? null, medication.hour, medication.minute,
       JSON.stringify(medication.times ?? [`${String(medication.hour).padStart(2, '0')}:${String(medication.minute).padStart(2, '0')}`]), medication.enabled ? 1 : 0, medication.notificationId ?? null, JSON.stringify(medication.notificationIds ?? (medication.notificationId ? [medication.notificationId] : [])), medication.reminderState, medication.id,
     );
     await insertChangeAuditEvent(db, { entityType: 'medication', entityId: medication.id, action: 'updated', before: previous, after: medication });
