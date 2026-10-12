@@ -230,9 +230,9 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
 
     for (const row of carePlan) {
       await db.runAsync(
-        `INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, clinician_verified, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), nullableNumber(row, 'low_threshold'), nullableNumber(row, 'urgent_low_threshold'), nullableNumber(row, 'high_threshold'), nullableNumber(row, 'urgent_high_threshold'), optionalString(row, 'instructions'), booleanFlag(row, 'clinician_verified'), requiredString(row, 'updated_at'),
+        `INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, source, effective_from, effective_to, clinician_verified, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), nullableNumber(row, 'low_threshold'), nullableNumber(row, 'urgent_low_threshold'), nullableNumber(row, 'high_threshold'), nullableNumber(row, 'urgent_high_threshold'), optionalString(row, 'instructions'), optionalString(row, 'source'), optionalString(row, 'effective_from'), optionalString(row, 'effective_to'), booleanFlag(row, 'clinician_verified'), requiredString(row, 'updated_at'),
       );
     }
 

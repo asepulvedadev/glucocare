@@ -128,6 +128,7 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
         } as Json,
         symptom_actions: payload.instructions ? [String(payload.instructions)] : [],
         source: payload.clinicianVerified ? 'clinician_verified' : 'patient_entered',
+        effective_to: payload.effectiveTo ? String(payload.effectiveTo) : null,
         clinician_verified: payload.clinicianVerified === true,
       }, { onConflict: 'patient_id,revision_number' });
       if (error) throw error;

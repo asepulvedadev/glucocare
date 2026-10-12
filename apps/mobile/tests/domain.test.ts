@@ -4,7 +4,7 @@ import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/m
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
-import { classifyGlucose, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
+import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 import { summarizeGlucose, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 
@@ -81,6 +81,12 @@ describe('clinician-provided glucose risk plan', () => {
 
   it('converts mmol/L using an explicit fixed conversion for comparison', () => {
     expect(classifyGlucose(10.5, 'mmol/L', { id: 'default', ...plan, clinicianVerified: true, updatedAt: new Date().toISOString() })).toBe('high');
+  });
+
+  it('stops applying thresholds after the plan expiry date', () => {
+    const expired = { id: 'default' as const, ...plan, clinicianVerified: true, updatedAt: '2026-01-01T00:00:00.000Z', effectiveTo: '2026-01-31T23:59:59.000Z' };
+    expect(isCarePlanExpired(expired, new Date('2026-02-01T00:00:00.000Z'))).toBe(true);
+    expect(classifyGlucose(50, 'mg/dL', expired)).toBe('unclassified');
   });
 });
 

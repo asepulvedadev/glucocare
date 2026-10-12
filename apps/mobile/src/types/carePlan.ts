@@ -7,6 +7,9 @@ export type CarePlan = {
   highThreshold?: number;
   urgentHighThreshold?: number;
   instructions?: string;
+  source?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
   clinicianVerified: boolean;
   updatedAt: string;
 };

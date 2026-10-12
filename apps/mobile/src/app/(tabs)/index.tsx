@@ -10,11 +10,12 @@ import { glucoseContextLabel } from '../../types/domain';
 import { colors, radii, spacing } from '../../theme/tokens';
 import { useAccessibility } from '../../accessibilityContext';
 import { glucoseRiskLabel } from '../../types/carePlan';
+import { isCarePlanExpired } from '../../domain/glucoseRisk';
 import { usePrivacy } from '../../privacyContext';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
-  const { measurementPlan, medications, appointments, measurementOccurrences, medicationOccurrences } = useCare();
+  const { measurementPlan, medications, appointments, measurementOccurrences, medicationOccurrences, carePlan } = useCare();
   const { preferences } = useAccessibility();
   const { consent } = usePrivacy();
   const latest = readings[0];
@@ -36,6 +37,11 @@ export default function TodayScreen() {
         <Text style={styles.cardTitle}>Configura tu consentimiento</Text>
         <Body>Antes de guardar registros, revisa cómo se almacenan y comparten tus datos.</Body>
         <PrimaryButton label="Revisar preferencias" tone="quiet" onPress={() => router.push('/privacy-consent')} />
+      </Panel> : null}
+      {carePlan && isCarePlanExpired(carePlan) ? <Panel tone="urgent">
+        <Caption>PLAN CLÍNICO VENCIDO</Caption>
+        <Body>Las nuevas lecturas no se clasificarán automáticamente hasta que revises la vigencia con tu equipo de salud.</Body>
+        <PrimaryButton label="Revisar plan" tone="quiet" onPress={() => router.push('/care-plan')} />
       </Panel> : null}
       <Panel tone="teal">
         <Caption>PRÓXIMA ACCIÓN</Caption>

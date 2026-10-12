@@ -6,7 +6,7 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
-import { validateCarePlanThresholds } from '../domain/glucoseRisk';
+import { isCarePlanExpired, validateCarePlanThresholds } from '../domain/glucoseRisk';
 import { colors, radii, spacing } from '../theme/tokens';
 
 function fieldValue(value: number | undefined) {
@@ -19,6 +19,17 @@ function parseOptional(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseOptionalDate(value: string) {
+  if (!value.trim()) return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return null;
+  const parsed = new Date(`${value.trim()}T23:59:59`);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function dateInput(value?: string) {
+  return value ? value.slice(0, 10) : '';
+}
+
 export default function CarePlanScreen() {
   const { carePlan, saveCarePlan } = useCare();
   const [urgentLow, setUrgentLow] = useState(fieldValue(carePlan?.urgentLowThreshold));
@@ -26,8 +37,11 @@ export default function CarePlanScreen() {
   const [high, setHigh] = useState(fieldValue(carePlan?.highThreshold));
   const [urgentHigh, setUrgentHigh] = useState(fieldValue(carePlan?.urgentHighThreshold));
   const [instructions, setInstructions] = useState(carePlan?.instructions ?? '');
+  const [source, setSource] = useState(carePlan?.source ?? '');
+  const [effectiveTo, setEffectiveTo] = useState(dateInput(carePlan?.effectiveTo));
   const [clinicianVerified, setClinicianVerified] = useState(carePlan?.clinicianVerified ?? false);
   const [saving, setSaving] = useState(false);
+  const planExpired = isCarePlanExpired(carePlan);
 
   async function save() {
     const values = {
@@ -42,13 +56,18 @@ export default function CarePlanScreen() {
       highThreshold: values.highThreshold === null ? undefined : values.highThreshold,
       urgentHighThreshold: values.urgentHighThreshold === null ? undefined : values.urgentHighThreshold,
     };
+    const parsedEffectiveTo = parseOptionalDate(effectiveTo);
+    if (parsedEffectiveTo === null) {
+      Alert.alert('Revisa la vigencia', 'Usa una fecha válida en formato AAAA-MM-DD o deja el campo vacío.');
+      return;
+    }
     if (Object.values(values).some((value) => value === null) || !validateCarePlanThresholds(thresholds)) {
       Alert.alert('Revisa los umbrales', 'Usa números positivos en mg/dL y conserva el orden: urgente bajo, bajo, alto, urgente alto.');
       return;
     }
     setSaving(true);
     try {
-      await saveCarePlan({ ...thresholds, instructions: instructions.trim() || undefined, clinicianVerified });
+      await saveCarePlan({ ...thresholds, instructions: instructions.trim() || undefined, source: source.trim() || undefined, effectiveTo: parsedEffectiveTo, effectiveFrom: carePlan?.effectiveFrom ?? new Date().toISOString(), clinicianVerified });
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Vuelve a intentarlo.');
@@ -61,6 +80,7 @@ export default function CarePlanScreen() {
       <Eyebrow>Plan clínico</Eyebrow>
       <Heading>Umbrales de tu equipo</Heading>
       <Body>Solo escribe valores que te haya entregado tu equipo de salud. GlucoCare no inventa objetivos, diagnostica ni calcula dosis.</Body>
+      {planExpired ? <Panel tone="urgent"><Caption>PLAN VENCIDO</Caption><Body>Estas reglas ya no se usan para clasificar nuevas lecturas. Actualiza la fecha solo con indicaciones de tu equipo de salud.</Body></Panel> : null}
       <Panel>
         <Caption>VALORES EN MG/DL (OPCIONALES)</Caption>
         {[
@@ -73,6 +93,12 @@ export default function CarePlanScreen() {
           <TextInput accessibilityLabel={String(label)} value={String(value)} onChangeText={setter as (value: string) => void} keyboardType="decimal-pad" placeholder="Sin configurar" placeholderTextColor={colors.textDisabled} style={styles.input} />
         </View>)}
         <Body>Si dejas todos los valores vacíos, las lecturas quedarán sin clasificación automática.</Body>
+      </Panel>
+      <Panel>
+        <Caption>VIGENCIA Y FUENTE</Caption>
+        <TextInput accessibilityLabel="Fuente del plan clínico" value={source} onChangeText={setSource} placeholder="Ej. endocrinología · 2026-10-12" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Fecha de revisión del plan clínico" value={effectiveTo} onChangeText={setEffectiveTo} placeholder="Vigente hasta AAAA-MM-DD (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Body>Si el plan vence, la app dejará de clasificar nuevas lecturas con esos umbrales hasta que tu equipo lo revise.</Body>
       </Panel>
       <Panel>
         <Caption>INSTRUCCIONES DE TU EQUIPO</Caption>

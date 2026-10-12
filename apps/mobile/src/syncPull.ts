@@ -49,7 +49,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     supabase.from('appointments').select('id,title,provider,scheduled_at,status,location,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at,effective_from,effective_to,source').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,allergies,care_provider,care_facility,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
     supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
   ]);
@@ -152,13 +152,16 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         highThreshold: typeof bands.high === 'number' ? bands.high : undefined,
         urgentHighThreshold: typeof bands.urgent_high === 'number' ? bands.urgent_high : undefined,
         instructions: actions.join('\n') || undefined,
+        source: carePlan.source ?? undefined,
+        effectiveFrom: carePlan.effective_from,
+        effectiveTo: carePlan.effective_to ?? undefined,
         clinicianVerified: carePlan.clinician_verified,
         updatedAt: carePlan.created_at,
       };
-      await db.runAsync(`INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, clinician_verified, updated_at)
-        VALUES ('default', ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET low_threshold = excluded.low_threshold, urgent_low_threshold = excluded.urgent_low_threshold, high_threshold = excluded.high_threshold, urgent_high_threshold = excluded.urgent_high_threshold, instructions = excluded.instructions, clinician_verified = excluded.clinician_verified, updated_at = excluded.updated_at`,
-        localPlan.lowThreshold ?? null, localPlan.urgentLowThreshold ?? null, localPlan.highThreshold ?? null, localPlan.urgentHighThreshold ?? null, localPlan.instructions ?? null, localPlan.clinicianVerified ? 1 : 0, localPlan.updatedAt);
+      await db.runAsync(`INSERT INTO care_plan (id, low_threshold, urgent_low_threshold, high_threshold, urgent_high_threshold, instructions, source, effective_from, effective_to, clinician_verified, updated_at)
+        VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET low_threshold = excluded.low_threshold, urgent_low_threshold = excluded.urgent_low_threshold, high_threshold = excluded.high_threshold, urgent_high_threshold = excluded.urgent_high_threshold, instructions = excluded.instructions, source = excluded.source, effective_from = excluded.effective_from, effective_to = excluded.effective_to, clinician_verified = excluded.clinician_verified, updated_at = excluded.updated_at`,
+        localPlan.lowThreshold ?? null, localPlan.urgentLowThreshold ?? null, localPlan.highThreshold ?? null, localPlan.urgentHighThreshold ?? null, localPlan.instructions ?? null, localPlan.source ?? null, localPlan.effectiveFrom ?? null, localPlan.effectiveTo ?? null, localPlan.clinicianVerified ? 1 : 0, localPlan.updatedAt);
       downloaded += 1;
       }
     }

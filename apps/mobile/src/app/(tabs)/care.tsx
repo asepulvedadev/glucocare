@@ -11,6 +11,7 @@ import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrenc
 import { measurementOccurrenceStatusLabel } from '../../types/measurementOccurrences';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { availableAppointmentTransitions } from '../../domain/appointmentState';
+import { isCarePlanExpired } from '../../domain/glucoseRisk';
 import { colors, spacing } from '../../theme/tokens';
 
 function formatTime(hour: number, minute: number) {
@@ -83,7 +84,7 @@ export default function CareScreen() {
           <Caption>PLAN CLÍNICO</Caption>
           <PrimaryButton label={carePlan ? 'Editar' : 'Configurar'} tone="quiet" onPress={() => router.push('/care-plan')} />
         </View>
-        {carePlan ? <><Text style={styles.title}>{carePlan.clinicianVerified ? 'Instrucciones confirmadas por ti' : 'Valores guardados en este dispositivo'}</Text><Body>{carePlan.instructions ?? 'Hay umbrales configurados para clasificar lecturas; revisa siempre las instrucciones de tu equipo.'}</Body></> : <Body>Guarda los umbrales e instrucciones que te haya dado tu equipo de salud para clasificar tus lecturas sin inventar objetivos.</Body>}
+        {carePlan ? <><Text style={styles.title}>{isCarePlanExpired(carePlan) ? 'Plan vencido: requiere revisión' : carePlan.clinicianVerified ? 'Instrucciones confirmadas por ti' : 'Valores guardados en este dispositivo'}</Text><Body>{isCarePlanExpired(carePlan) ? 'Las nuevas lecturas quedarán sin clasificación automática hasta que actualices la vigencia con tu equipo de salud.' : carePlan.instructions ?? 'Hay umbrales configurados para clasificar lecturas; revisa siempre las instrucciones de tu equipo.'}</Body>{carePlan.effectiveTo ? <Caption>Vigente hasta {new Date(carePlan.effectiveTo).toLocaleDateString('es-CO')}</Caption> : null}</> : <Body>Guarda los umbrales e instrucciones que te haya dado tu equipo de salud para clasificar tus lecturas sin inventar objetivos.</Body>}
       </Panel>
       <Panel>
         <View style={styles.sectionHeader}>

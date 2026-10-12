@@ -9,8 +9,14 @@ export function validateCarePlanThresholds(plan: Pick<CarePlan, 'lowThreshold' |
   return values.every((value, index) => index === 0 || value > values[index - 1]);
 }
 
+export function isCarePlanExpired(plan: Pick<CarePlan, 'effectiveTo'> | null, now = new Date()) {
+  if (!plan?.effectiveTo) return false;
+  const expiry = Date.parse(plan.effectiveTo);
+  return Number.isFinite(expiry) && expiry <= now.getTime();
+}
+
 export function classifyGlucose(value: number, unit: GlucoseUnit, plan: CarePlan | null): GlucoseRiskClassification {
-  if (!plan || !validateCarePlanThresholds(plan)) return 'unclassified';
+  if (!plan || isCarePlanExpired(plan) || !validateCarePlanThresholds(plan)) return 'unclassified';
   const valueMgDl = unit === 'mmol/L' ? value * MG_DL_PER_MMOL_L : value;
   if (plan.urgentLowThreshold !== undefined && valueMgDl <= plan.urgentLowThreshold) return 'urgent_low';
   if (plan.lowThreshold !== undefined && valueMgDl <= plan.lowThreshold) return 'low';

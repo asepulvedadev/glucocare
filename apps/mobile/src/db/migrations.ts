@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 16;
+const DATABASE_VERSION = 17;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -262,6 +262,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       );
     `);
     currentVersion = 16;
+  }
+
+  if (currentVersion < 17) {
+    const carePlanColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(care_plan)');
+    if (!carePlanColumns.some((column) => column.name === 'source')) await db.execAsync('ALTER TABLE care_plan ADD COLUMN source TEXT');
+    if (!carePlanColumns.some((column) => column.name === 'effective_from')) await db.execAsync('ALTER TABLE care_plan ADD COLUMN effective_from TEXT');
+    if (!carePlanColumns.some((column) => column.name === 'effective_to')) await db.execAsync('ALTER TABLE care_plan ADD COLUMN effective_to TEXT');
+    currentVersion = 17;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

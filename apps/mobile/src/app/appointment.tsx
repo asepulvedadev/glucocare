@@ -61,7 +61,7 @@ export default function AppointmentScreen() {
       </Panel>
       <Panel>
         <Caption>ESTADO INICIAL</Caption>
-        <Body>La cita se guardará como “Por autorizar”. Después podrás avanzar por las etapas válidas desde Cuidado.</Body>
+        <Body>La cita se guardará como “Por solicitar”. Después podrás pasarla a “Por autorizar” y avanzar por las etapas válidas desde Cuidado.</Body>
       </Panel>
       <Panel>
         <Caption>OPCIONAL</Caption>
