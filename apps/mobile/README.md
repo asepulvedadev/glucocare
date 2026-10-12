@@ -12,6 +12,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Optional clinician-provided glucose thresholds with deterministic, non-diagnostic risk labels and urgent foreground guidance.
 - Urgent clinician-configured glucose risks also surface a privacy-preserving local notification when notification permission is already granted; saving a reading never requires notification permission.
 - Local history persisted across app restarts.
+- History includes meals, medication occurrences, appointments, and help events alongside glucose readings.
 - Emergency help flow that opens the local emergency number and states delivery limitations.
 - Medication records with clinician-provided dose text, route, one to three daily times, prescriber, instructions, validity dates, and local reminder state.
 - Daily medication occurrence ledger with taken/omitted actions and replayable sync events.

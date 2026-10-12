@@ -17,6 +17,7 @@ import { summarizeGlucose } from '../../domain/glucoseSummary';
 import { listMedicationHistory, type MedicationHistoryItem } from '../../db/medicationOccurrenceRepository';
 import { listHelpEvents, type HelpEvent } from '../../db/helpRepository';
 import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
+import { appointmentStatusLabel } from '../../types/appointments';
 
 const filters: { value: 'all' | GlucoseContext; label: string }[] = [
   { value: 'all', label: 'Todas' },
@@ -32,7 +33,7 @@ const trendLabel = { higher: 'Más alto que al inicio', lower: 'Más bajo que al
 export default function HistoryScreen() {
   const db = useSQLiteContext();
   const { readings, isLoading } = useGlucose();
-  const { mealEvents } = useCare();
+  const { mealEvents, appointments } = useCare();
   const [medicationHistory, setMedicationHistory] = useState<MedicationHistoryItem[]>([]);
   const [helpHistory, setHelpHistory] = useState<HelpEvent[]>([]);
   useEffect(() => {
@@ -98,6 +99,10 @@ export default function HistoryScreen() {
       <Panel>
         <Caption>HISTORIAL DE MEDICAMENTOS</Caption>
         {medicationHistory.length === 0 ? <Body>Aún no hay tomas registradas.</Body> : medicationHistory.slice(0, 12).map((occurrence) => <View key={occurrence.id} style={styles.historyRow} accessible accessibilityLabel={`${occurrence.medicationName}, ${medicationOccurrenceStatusLabel[occurrence.status]}, ${new Date(occurrence.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{occurrence.medicationName}</Text><Caption>{occurrence.doseText} · {medicationOccurrenceStatusLabel[occurrence.status]}</Caption></View><Caption>{new Date(occurrence.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
+      </Panel>
+      <Panel>
+        <Caption>HISTORIAL DE CITAS</Caption>
+        {appointments.length === 0 ? <Body>Aún no hay citas registradas.</Body> : appointments.slice().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)).slice(0, 12).map((appointment) => <View key={appointment.id} style={styles.historyRow} accessible accessibilityLabel={`${appointment.title}, ${appointmentStatusLabel[appointment.status]}, ${new Date(appointment.scheduledAt).toLocaleString('es-CO')}`}><View><Text style={styles.mealTitle}>{appointment.title}</Text><Caption>{appointment.provider} · {appointmentStatusLabel[appointment.status]}</Caption></View><Caption>{new Date(appointment.scheduledAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}</Caption></View>)}
       </Panel>
       <Panel>
         <Caption>HISTORIAL DE AYUDA</Caption>
