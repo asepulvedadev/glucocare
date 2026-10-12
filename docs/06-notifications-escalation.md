@@ -61,6 +61,8 @@ No action defaults to `not_recorded`, never `skipped`.
 
 ### Measurement
 
+- Future windows remain `planned` and become `due` only at or after their
+  scheduled instant; an early reading cannot silently close a future window.
 - Record now
 - Snooze
 - Skip this check

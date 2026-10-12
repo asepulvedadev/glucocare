@@ -1,7 +1,7 @@
 import type { MeasurementOccurrenceStatus } from '../types/measurementOccurrences';
 
 const transitions: Record<MeasurementOccurrenceStatus, MeasurementOccurrenceStatus[]> = {
-  planned: ['due', 'completed', 'skipped', 'expired'],
+  planned: ['due', 'expired'],
   due: ['completed', 'skipped', 'expired'],
   completed: [],
   skipped: [],

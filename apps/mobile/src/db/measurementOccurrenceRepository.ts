@@ -188,17 +188,24 @@ export async function completeNearestMeasurementOccurrence(db: SQLiteDatabase, r
   const start = startOfLocalDay(readingDate).toISOString();
   const end = new Date(startOfLocalDay(readingDate).getTime() + 24 * 60 * 60 * 1000).toISOString();
   const occurrence = await db.getFirstAsync<MeasurementOccurrenceRow>(
-    `SELECT * FROM measurement_occurrences WHERE status IN ('planned', 'due')
+    `SELECT * FROM measurement_occurrences WHERE status IN ('planned', 'due') AND scheduled_at <= ?
      AND scheduled_at >= ? AND scheduled_at < ?
      ORDER BY ABS(julianday(scheduled_at) - julianday(?)) ASC LIMIT 1`,
-    start, end, recordedAt,
+    recordedAt, start, end, recordedAt,
   );
   if (!occurrence) return;
   const distance = Math.abs(new Date(occurrence.scheduled_at).getTime() - readingTime);
   if (!Number.isFinite(distance) || distance > 3 * 60 * 60 * 1000) return;
   const current = mapRow(occurrence);
-  const next = { ...current, status: 'completed' as const, completedReadingId: readingId, completedAt: new Date().toISOString() };
+  const completedAt = new Date().toISOString();
+  const next = { ...current, status: 'completed' as const, completedReadingId: readingId, completedAt };
   await db.withTransactionAsync(async () => {
+    if (current.status === 'planned') {
+      transitionMeasurementOccurrence(current.status, 'due');
+      await db.runAsync("UPDATE measurement_occurrences SET status = 'due' WHERE id = ?", occurrence.id);
+      await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: occurrence.id, eventType: 'measurement_occurrence.due.v1', payload: { ...current, status: 'due' } });
+    }
+    transitionMeasurementOccurrence(current.status === 'planned' ? 'due' : current.status, 'completed');
     await db.runAsync('UPDATE measurement_occurrences SET status = ?, completed_reading_id = ?, completed_at = ? WHERE id = ?', 'completed', readingId, next.completedAt, occurrence.id);
     await enqueueOutbox(db, { id: newId(), entityType: 'measurement_occurrence', entityId: occurrence.id, eventType: 'measurement_occurrence.completed.v1', payload: next });
   });

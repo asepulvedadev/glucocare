@@ -126,6 +126,7 @@ export default function CareScreen() {
                     <PrimaryButton label="Omitir" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'skipped')} />
                     {occurrence.status === 'due' ? <PrimaryButton label="Posponer 10 min" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void snoozeOccurrence(occurrence.id)} /> : null}
                     <PrimaryButton label="No registrada" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'not_recorded')} />
+                    <PrimaryButton label="No estoy seguro" tone="quiet" onPress={() => Alert.alert('Consulta a tu equipo', 'No adivines una dosis ni tomes una dosis adicional. Revisa las instrucciones guardadas y contacta a tu equipo de salud para saber qué hacer.')} />
                   </View> : null}
                 </View>;
               })}
@@ -167,7 +168,7 @@ export default function CareScreen() {
           <View style={styles.measurementList}>
             {measurementOccurrences.map((occurrence, occurrenceIndex) => {
               const status = occurrence.status;
-              const actionable = status === 'planned' || status === 'due';
+              const actionable = status === 'due';
               return <View key={occurrence.id} style={styles.measurementRow}>
                 <View style={styles.measurementCopy}>
                   <View><Text style={styles.measurementTime}>{new Date(occurrence.scheduledAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</Text><Caption>{(() => { const window = legacyMeasurementWindows(measurementPlan)[occurrence.windowIndex ?? occurrenceIndex]; return window?.kind === 'meal_relative' ? `${window.offsetMinutes >= 0 ? '+' : ''}${window.offsetMinutes} min después de ${mealTypeLabel[window.meal]}` : measurementTimingLabel[window?.timing ?? 'other']; })()}</Caption></View>

@@ -106,6 +106,10 @@ Occurrence statuses:
 
 `planned | due | completed | skipped | expired`
 
+Measurement windows remain `planned` until their scheduled instant. A reading
+or skip can only complete a `due` window; future windows cannot be acknowledged
+early.
+
 ### Meal event
 
 An explicit patient-entered meal timestamp (`breakfast`, `lunch`, `dinner`, or `snack`) with an optional note. Meal events are only anchors for relative measurement windows; they never imply nutrition, dosing, or a clinical interpretation.

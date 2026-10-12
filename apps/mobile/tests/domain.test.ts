@@ -175,7 +175,13 @@ describe('shared native notification budget', () => {
 describe('measurement occurrence state machine', () => {
   it('moves a planned measurement to due or completed', () => {
     expect(canTransitionMeasurementOccurrence('planned', 'due')).toBe(true);
-    expect(transitionMeasurementOccurrence('planned', 'completed')).toBe('completed');
+    expect(canTransitionMeasurementOccurrence('planned', 'completed')).toBe(false);
+    expect(transitionMeasurementOccurrence('due', 'completed')).toBe('completed');
+  });
+
+  it('does not allow acknowledging a future measurement window early', () => {
+    expect(canTransitionMeasurementOccurrence('planned', 'skipped')).toBe(false);
+    expect(() => transitionMeasurementOccurrence('planned', 'skipped')).toThrow('Invalid measurement occurrence transition');
   });
 
   it('expires planned and due measurements when their window is no longer valid', () => {

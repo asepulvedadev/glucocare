@@ -24,7 +24,7 @@ export default function TodayScreen() {
   const { consent } = usePrivacy();
   const latest = readings[0];
   const latestTime = latest ? new Date(latest.recordedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : null;
-  const dueMeasurement = measurementOccurrences.find((occurrence) => occurrence.status === 'due' || occurrence.status === 'planned');
+  const dueMeasurement = measurementOccurrences.find((occurrence) => occurrence.status === 'due');
   const dueMedicationOccurrence = medicationOccurrences.find((occurrence) => occurrence.status === 'due');
   const dueMedication = dueMedicationOccurrence ? medications.find((medication) => medication.id === dueMedicationOccurrence.medicationId) : undefined;
 
