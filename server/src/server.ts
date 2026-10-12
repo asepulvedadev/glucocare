@@ -338,12 +338,15 @@ async function acceptSyncEvent(user: AuthUser, body: JsonObject, response: Serve
     }
     if (inserted.rowCount) {
       await client.query(
-        `INSERT INTO health_records (patient_id, entity_type, entity_id, payload, updated_at, deleted_at)
-         VALUES ($1, $2, $3, $4::jsonb, $5, NULL)
+        `INSERT INTO health_records (patient_id, entity_type, entity_id, payload, updated_at, projection_event_id, deleted_at)
+         VALUES ($1, $2, $3, $4::jsonb, $5, $6, NULL)
          ON CONFLICT (patient_id, entity_type, entity_id)
-         DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at, deleted_at = NULL
-         WHERE health_records.updated_at <= excluded.updated_at`,
-        [user.id, entityType, entityId, JSON.stringify(payload), occurredAt],
+         DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at,
+           projection_event_id = excluded.projection_event_id, deleted_at = NULL
+         WHERE health_records.updated_at < excluded.updated_at
+            OR (health_records.updated_at = excluded.updated_at
+              AND COALESCE(health_records.projection_event_id::text, '') < COALESCE(excluded.projection_event_id::text, ''))`,
+        [user.id, entityType, entityId, JSON.stringify(payload), occurredAt, eventId],
       );
       // A local contact edit/removal or consent event carries a revocation
       // marker. Revoke the server-side invitation in the same transaction so

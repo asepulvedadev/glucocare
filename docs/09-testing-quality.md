@@ -43,8 +43,9 @@ Use table-driven boundary tests and property-based tests for conversions/schedul
 The PostgreSQL CI job runs `server/scripts/smoke-api.mjs` with two sessions for
 the same synthetic patient, an anonymous request, and a different patient. It
 proves that same-patient devices converge on the newest timestamped projection,
-stale events cannot regress it, anonymous pulls are rejected, and a different
-patient cannot read the record.
+equal-timestamp events use a deterministic event-id tie-breaker, stale events
+cannot regress it, anonymous pulls are rejected, and a different patient cannot
+read the record.
 
 It also runs `server/scripts/smoke-provider-retry.mjs` with a
 synthetic local provider. It returns one transient HTTP 500, verifies the

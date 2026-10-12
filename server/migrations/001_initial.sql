@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS health_records (
   entity_id text NOT NULL,
   payload jsonb NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now(),
+  projection_event_id uuid,
   deleted_at timestamptz,
   PRIMARY KEY (patient_id, entity_type, entity_id)
 );

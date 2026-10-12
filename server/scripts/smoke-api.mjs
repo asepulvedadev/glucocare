@@ -105,6 +105,20 @@ const secondDeviceReading = secondDeviceView.records.find((record) => record.ent
 if (secondDeviceReading?.payload.value !== 125) throw new Error('second device did not converge on the newest projection');
 const other = await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${second.session.accessToken}` } });
 if (other.records.some((record) => record.entity_id === entityId)) throw new Error('cross-patient record leaked');
+const equalTimestampEntityId = crypto.randomUUID();
+const equalTimestamp = new Date(Date.now() - 100).toISOString();
+const tieBreakEventOne = '00000000-0000-4000-8000-000000000001';
+const tieBreakEventTwo = '00000000-0000-4000-8000-000000000002';
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: tieBreakEventOne, eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId: equalTimestampEntityId,
+  payload: { id: equalTimestampEntityId, value: 101, unit: 'mg/dL', recordedAt: equalTimestamp, updatedAt: equalTimestamp, context: 'other' },
+}) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${firstDeviceTwo.session.accessToken}` }, body: JSON.stringify({
+  eventId: tieBreakEventTwo, eventType: 'glucose.reading.corrected.v1', entityType: 'glucose_reading', entityId: equalTimestampEntityId,
+  payload: { id: equalTimestampEntityId, value: 102, unit: 'mg/dL', recordedAt: equalTimestamp, updatedAt: equalTimestamp, context: 'other' },
+}) });
+const equalTimestampRecord = (await call('/v1/sync?since=1970-01-01T00:00:00.000Z', { headers: { authorization: `Bearer ${first.session.accessToken}` } })).records.find((record) => record.entity_id === equalTimestampEntityId);
+if (equalTimestampRecord?.payload.value !== 102) throw new Error('equal-timestamp projections did not follow the deterministic event-id tie-breaker');
 const syncIncidentId = crypto.randomUUID();
 const incidentCreatedAt = new Date(Date.now() - 3_000).toISOString();
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
