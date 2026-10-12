@@ -14,20 +14,20 @@ Build one Expo/React Native TypeScript application with a feature-first modular 
 
 Expo Router provides file-based routing across Android, iOS, and web, typed routes, deep links, and production lazy evaluation according to the [official Expo Router documentation](https://docs.expo.dev/router/introduction/).
 
-## Proposed stack
+## Implemented stack
 
 | Concern | Choice | Reason / tradeoff |
 |---|---|---|
-| Runtime | Latest stable Expo SDK at implementation kickoff | Broad platform APIs and managed native builds; requires development builds for real push testing. |
+| Runtime | Expo SDK 57, React Native 0.86, TypeScript strict mode | Pinned in `apps/mobile/package.json` and checked by Expo Doctor; native notification behavior still requires development/release builds. |
 | Language | TypeScript, strict mode | Safer domain values and API contracts. |
 | Navigation | Expo Router | Universal deep links and route-level organization. |
 | Local database | `expo-sqlite` with migrations; SQLCipher on native builds | Durable relational data and offline transactions; web support is treated separately because Expo SQLite web support may be unstable. |
 | Secret storage | `expo-secure-store` | Store tokens and database-key material, never the full clinical record. |
 | Server | Node.js/TypeScript API + PostgreSQL 16 on the AutoKing VPS | Keeps health data and operations under project control; requires the team to own patching, backups, TLS, sessions, and authorization. |
 | Notifications | `expo-notifications` + server provider adapters | Local reminders and remote alerts; OS delivery is not guaranteed. |
-| Validation | Zod at I/O boundaries | Runtime validation for persisted/synced payloads. |
-| State | React Query for server state; focused local stores for transient UI | Avoid one global mutable store. SQLite remains the local source of truth. |
-| Tests | Vitest/Jest-compatible unit layer + React Native Testing Library + Maestro/Detox choice at kickoff | Layered safety verification on real devices. |
+| Validation | Typed domain constructors and explicit API boundary validation | Avoids persisting untrusted JSON; the VPS API rejects malformed events and the mobile repositories validate domain values before writes. |
+| State | React context providers plus SQLite repositories and a replayable outbox | No React Query dependency in the MVP; SQLite remains the local source of truth and cloud sync is additive. |
+| Tests | Vitest domain/migration tests, Expo Doctor, typecheck/lint, API/worker smoke tests | Physical-device, screen-reader, and native notification evidence remain release gates. |
 
 `expo-sqlite` persists data across app restarts and supports WAL and prepared statements; its documentation recommends WAL for general performance and prepared statements for user input. Native builds call SQLCipher `PRAGMA key` before migrations, using a random device-bound key held in `expo-secure-store`; web intentionally uses the separate WASM SQLite path. Losing the native key makes the local database unrecoverable, so export must be offered before device reset or uninstall. See [Expo SQLite](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/) and [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/).
 
@@ -47,33 +47,17 @@ adapters (SQLite, VPS API, Expo APIs, export files)
 
 Dependency direction points inward. Domain code has no Expo, React, API transport, or SQL imports.
 
-## Feature structure
+## Feature structure (current repository)
 
 ```text
-app/                       # Expo Router composition only
-src/
-  features/
-    glucose/
-      domain/
-      application/
-      infrastructure/
-      ui/
-    medication/
-    appointments/
-    emergency/
-    care-plan/
-    contacts/
-    reports/
-  shared/
-    accessibility/
-    database/
-    notifications/
-    security/
-    sync/
-    ui/
-server/
-  src/
-  migrations/
+apps/mobile/src/app/          # Expo Router screens and navigation composition
+apps/mobile/src/components/   # Accessible visual primitives
+apps/mobile/src/domain/       # Pure rules, state machines, schedules, summaries
+apps/mobile/src/db/           # SQLite migrations and repositories
+apps/mobile/src/*Context.tsx  # Feature state orchestration around repositories
+apps/mobile/src/notifications.ts, sync.ts, cloudApi.ts
+server/src/                   # Node.js API, auth, providers, alert worker
+server/migrations/            # Idempotent PostgreSQL migrations
 ```
 
 Routes compose features; they do not contain business rules or SQL.
@@ -91,8 +75,12 @@ Never block a local glucose or incident record on network success.
 
 ## Synchronization policy
 
-- IDs are UUIDv7/ULID-style sortable unique identifiers generated locally.
-- Every mutable record has `version`, `updated_at`, `updated_by`, and tombstone support.
+- IDs are random UUIDs generated locally; ordering uses explicit timestamps and
+  cursor fields rather than assuming IDs are sortable.
+- Local records preserve sync state and audit metadata; the VPS projection uses
+  `(patient_id, entity_type, entity_id, updated_at)` and rejects stale events.
+  Full tombstone retention remains a follow-up when remote record deletion is
+  introduced.
 - Append-only events (readings, adherence, incidents) are not silently overwritten.
 - Profile fields use last-write-wins only where clinically harmless.
 - Care plans, medication schedules, and emergency contacts require explicit revision/conflict resolution.
