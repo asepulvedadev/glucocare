@@ -7,9 +7,11 @@ for script in \
   "$root/deploy/vps/glucocare-deploy" \
   "$root/deploy/vps/glucocare-healthcheck" \
   "$root/deploy/vps/glucocare-db-backup" \
+  "$root/deploy/vps/glucocare-db-backup-healthcheck" \
   "$root/deploy/vps/glucocare-db-restore-check" \
   "$root/deploy/vps/glucocare-rollback" \
   "$root/scripts/smoke-backup-gpg.sh" \
+  "$root/scripts/smoke-backup-healthcheck.sh" \
   "$root/scripts/validate-production-config.sh" \
   "$root/scripts/deploy-vps-direct.sh"; do
   bash -n "$script"
@@ -17,6 +19,7 @@ for script in \
 done
 
 bash "$root/scripts/smoke-backup-gpg.sh"
+bash "$root/scripts/smoke-backup-healthcheck.sh"
 
 # Exercise the production handoff validator with synthetic values. The real
 # VPS environment is intentionally never copied into CI or this repository.
@@ -46,6 +49,8 @@ test -f "$root/server/migrations/002_alert_delivery_worker.sql"
 test -f "$root/server/migrations/003_account_deletion_audit.sql"
 test -f "$root/deploy/vps/glucocare-db-backup.service"
 test -f "$root/deploy/vps/glucocare-db-backup.timer"
+test -f "$root/deploy/vps/glucocare-db-backup-healthcheck.service"
+test -f "$root/deploy/vps/glucocare-db-backup-healthcheck.timer"
 test -f "$root/deploy/vps/glucocare-db-restore-check.service"
 test -f "$root/deploy/vps/glucocare-db-restore-check.timer"
 

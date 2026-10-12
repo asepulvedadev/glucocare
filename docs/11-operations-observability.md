@@ -138,6 +138,12 @@ the first day of each month with a random delay; operators must still record a
 quarterly reviewed result and keep an off-host encrypted copy. It does not
 replace a reviewed disaster-recovery runbook.
 
+The direct deployment command also installs
+`glucocare-db-backup-healthcheck.timer`. Its root-only check reads only backup
+file metadata, requires a mode-600 dump newer than
+`GLUCOCARE_BACKUP_MAX_AGE_HOURS` (30 hours by default), and requires the
+encrypted `.dump.gpg` extension whenever a production GPG recipient is set.
+
 ## Release strategy
 
 - Internal dogfood with synthetic data.

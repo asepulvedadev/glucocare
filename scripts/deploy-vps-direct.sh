@@ -73,6 +73,12 @@ sshpass -e ssh \
   -o StrictHostKeyChecking=no \
   -p "$vps_port" "$vps_user@$vps_host" \
   'set -euo pipefail
+   install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-backup-healthcheck /usr/local/sbin/glucocare-db-backup-healthcheck
+   install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup-healthcheck.service /etc/systemd/system/glucocare-db-backup-healthcheck.service
+   install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup-healthcheck.timer /etc/systemd/system/glucocare-db-backup-healthcheck.timer
+   systemctl daemon-reload
+   systemctl enable --now glucocare-db-backup-healthcheck.timer
+   systemctl start glucocare-db-backup-healthcheck.service
    systemctl start glucocare-healthcheck.service
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-web-1)" = healthy
    test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-docs)" = healthy

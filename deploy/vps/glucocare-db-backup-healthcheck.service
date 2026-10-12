@@ -1,0 +1,17 @@
+[Unit]
+Description=Verify GlucoCare PostgreSQL backup freshness
+After=glucocare-db-backup.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/glucocare-db-backup-healthcheck
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/glucocare/.env /srv/glucocare/backups
+
+[Install]
+WantedBy=multi-user.target

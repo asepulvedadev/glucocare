@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Payload-free freshness check for the PostgreSQL backup timer. It reads only
+# file metadata and the public configuration flag; it never opens a dump.
+base="${GLUCOCARE_BASE:-/srv/glucocare}"
+env_file="$base/.env"
+backup_dir="$base/backups"
+
+test -r "$env_file"
+test "$(stat -c '%a' "$env_file")" = 600
+set -a
+. "$env_file"
+set +a
+
+max_age_hours="${GLUCOCARE_BACKUP_MAX_AGE_HOURS:-30}"
+[[ "$max_age_hours" =~ ^[0-9]+$ ]] && [ "$max_age_hours" -ge 1 ] && [ "$max_age_hours" -le 720 ]
+recipient="${GLUCOCARE_BACKUP_GPG_RECIPIENT:-}"
+if [ -n "$recipient" ]; then
+  pattern='glucocare-*.dump.gpg'
+else
+  pattern='glucocare-*.dump'
+fi
+
+latest=$(find "$backup_dir" -maxdepth 1 -type f -name "$pattern" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-)
+test -n "${latest:-}"
+test "$(stat -c '%a' "$latest")" = 600
+now=$(date +%s)
+mtime=$(stat -c '%Y' "$latest")
+age=$((now - mtime))
+max_age_seconds=$((max_age_hours * 3600))
+if [ "$age" -lt 0 ] || [ "$age" -gt "$max_age_seconds" ]; then
+  printf 'glucocare-db-backup-healthcheck: newest backup is stale (age_seconds=%s max=%s)\n' "$age" "$max_age_seconds" >&2
+  exit 1
+fi
+
+printf 'glucocare-db-backup-healthcheck: passed age_seconds=%s encrypted=%s\n' "$age" "$([ -n "$recipient" ] && printf true || printf false)"
