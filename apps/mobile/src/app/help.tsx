@@ -16,6 +16,7 @@ import { syncPendingData } from '../sync';
 import { getEmergencyAlertDeliveries, queueEmergencyAlert, type EmergencyDelivery } from '../alerts';
 import { getEmergencyConfig } from '../config';
 import { usePrivacy } from '../privacyContext';
+import { newId } from '../ids';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
@@ -44,10 +45,14 @@ export default function HelpScreen() {
   async function registerAndContact() {
     setProcessing(true);
     try {
-      const incidentId = await recordHelpEvent(db, 'user_requested_help');
-      setHelpEvents(await listHelpEvents(db));
+      const canRecordLocally = Boolean(consent?.localDataConsent);
+      const incidentId = newId();
+      if (canRecordLocally) {
+        await recordHelpEvent(db, 'user_requested_help', incidentId);
+        setHelpEvents(await listHelpEvents(db));
+      }
       let remoteQueued = false;
-      if (session && isCloudConfigured && consent?.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
+      if (session && isCloudConfigured && consent?.localDataConsent && consent.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
         try {
           await syncPendingData(db, session);
           const consentedContacts = trustedContacts.filter((contact) => contact.consentGranted);
@@ -64,21 +69,27 @@ export default function HelpScreen() {
         }
       }
       if (!primaryContact?.phone) {
-        await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'queued_local');
-        setHelpEvents(await listHelpEvents(db));
-        Alert.alert('Alerta registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.');
+        if (canRecordLocally) {
+          await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'queued_local');
+          setHelpEvents(await listHelpEvents(db));
+        }
+        Alert.alert('Ayuda registrada', remoteQueued ? 'El aviso remoto quedó encolado. No hay un número consentido para abrir una llamada.' : canRecordLocally ? 'Guardamos el evento en este dispositivo, pero no hay un número consentido para contactar.' : 'No guardamos el evento porque falta consentimiento local. Usa el número de emergencias si necesitas ayuda inmediata.');
         return;
       }
       const url = `tel:${primaryContact.phone}`;
       const supported = await Linking.canOpenURL(url);
       if (supported) {
-        await updateHelpEventState(db, incidentId, 'call_opened');
-        setHelpEvents(await listHelpEvents(db));
+        if (canRecordLocally) {
+          await updateHelpEventState(db, incidentId, 'call_opened');
+          setHelpEvents(await listHelpEvents(db));
+        }
         await Linking.openURL(url);
       } else {
-        await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'call_unavailable');
-        setHelpEvents(await listHelpEvents(db));
-        Alert.alert('Alerta registrada', 'Guardamos el evento, pero no pudimos abrir el marcador.');
+        if (canRecordLocally) {
+          await updateHelpEventState(db, incidentId, remoteQueued ? 'remote_queued' : 'call_unavailable');
+          setHelpEvents(await listHelpEvents(db));
+        }
+        Alert.alert('No se pudo abrir el marcador', canRecordLocally ? 'Guardamos el evento, pero no pudimos abrir el marcador.' : 'No guardamos el evento porque falta consentimiento local. Usa el número de emergencias configurado.');
       }
     } finally {
       setProcessing(false);
@@ -86,11 +97,22 @@ export default function HelpScreen() {
   }
 
   function confirmContact() {
-    if (!consent?.localDataConsent || !consent.emergencySharingConsent) {
-      Alert.alert('Revisa el consentimiento', 'Activa el consentimiento de avisos de ayuda desde Perfil antes de contactar a una persona de apoyo.');
+    const continueAction = () => void registerAndContact();
+    if (!consent?.localDataConsent) {
+      Alert.alert('Consentimiento pendiente', 'Puedes llamar a tu contacto de apoyo sin guardar el evento en este dispositivo. Si estás en peligro inmediato, llama a emergencias.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Continuar con la llamada', onPress: continueAction },
+      ]);
       return;
     }
-    const confirm = () => void registerAndContact();
+    if (!consent.emergencySharingConsent) {
+      Alert.alert('Aviso remoto desactivado', 'Puedes registrar el evento local y llamar a tu contacto. No se enviará un aviso remoto hasta activar ese consentimiento.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Registrar y llamar', onPress: continueAction },
+      ]);
+      return;
+    }
+    const confirm = continueAction;
     if (Platform.OS === 'web') {
       if (globalThis.confirm?.('¿Necesitas ayuda ahora? Esto registra un evento local y puede abrir una llamada al contacto consentido.')) confirm();
       return;

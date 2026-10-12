@@ -11,8 +11,7 @@ export type HelpEvent = {
 
 export type HelpEventState = 'queued_local' | 'remote_queued' | 'call_opened' | 'call_unavailable';
 
-export async function recordHelpEvent(db: SQLiteDatabase, reason: string) {
-  const id = newId();
+export async function recordHelpEvent(db: SQLiteDatabase, reason: string, id = newId()) {
   const createdAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync('INSERT INTO help_events (id, created_at, reason, contact_state) VALUES (?, ?, ?, ?)', id, createdAt, reason, 'queued_local');
