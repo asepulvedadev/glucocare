@@ -12,6 +12,12 @@ import { migrateDbIfNeeded } from '../db/migrations';
 import { colors, isLightTheme } from '../theme/tokens';
 import { PrivacyProvider } from '../privacyContext';
 import { syncPendingData } from '../sync';
+import { initializeDatabaseEncryption } from '../db/encryption';
+
+async function initializeDatabase(db: Parameters<typeof migrateDbIfNeeded>[0]) {
+  await initializeDatabaseEncryption(db);
+  await migrateDbIfNeeded(db);
+}
 
 /** Replays the local outbox when a cloud session is active or the app resumes. */
 function SyncBridge() {
@@ -59,7 +65,7 @@ function AppNavigator() {
 
 export default function RootLayout() {
   return (
-    <SQLiteProvider databaseName="glucocare.db" onInit={migrateDbIfNeeded}>
+    <SQLiteProvider databaseName="glucocare.db" onInit={initializeDatabase}>
       <GlucoseProvider>
         <PrivacyProvider>
           <AccessibilityProvider>

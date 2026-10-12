@@ -29,7 +29,7 @@ Expo Router provides file-based routing across Android, iOS, and web, typed rout
 | State | React Query for server state; focused local stores for transient UI | Avoid one global mutable store. SQLite remains the local source of truth. |
 | Tests | Vitest/Jest-compatible unit layer + React Native Testing Library + Maestro/Detox choice at kickoff | Layered safety verification on real devices. |
 
-`expo-sqlite` persists data across app restarts and supports WAL and prepared statements; its documentation recommends WAL for general performance and prepared statements for user input. See [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/). `expo-secure-store` uses Android Keystore-backed encryption and iOS Keychain, but Expo explicitly warns not to use it as the sole source of irreplaceable critical data. See [Expo SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/).
+`expo-sqlite` persists data across app restarts and supports WAL and prepared statements; its documentation recommends WAL for general performance and prepared statements for user input. Native builds call SQLCipher `PRAGMA key` before migrations, using a random device-bound key held in `expo-secure-store`; web intentionally uses the separate WASM SQLite path. Losing the native key makes the local database unrecoverable, so export must be offered before device reset or uninstall. See [Expo SQLite](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/) and [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/).
 
 ## Architectural style
 
