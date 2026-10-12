@@ -33,7 +33,7 @@ Functions currently scaffolded:
 
 - `contact-invitation`: creates expiring, single-purpose email/SMS invitations and handles accept/decline/revoke without granting clinical-record access.
 - `emergency-alert`: records an incident and queues consented delivery ledger rows.
-- `process-alert-deliveries`: private worker for consented email/SMS delivery with claim tokens, bounded retries, and truthful provider states. Configure `ALERT_WORKER_SECRET`, `RESEND_*`, and/or `TWILIO_*` only in the hosted function environment.
+- `process-alert-deliveries`: private worker for consented email/SMS delivery with expiring claim leases, bounded retries, and truthful provider states. A crashed worker's queued claims are recovered after 10 minutes. Configure `ALERT_WORKER_SECRET`, `RESEND_*`, and/or `TWILIO_*` only in the hosted function environment.
 - `delete-account`: records a deletion request and removes the authenticated cloud user; local SQLite data remains under explicit user control.
 
 The current mobile sync policy uploads the local outbox before pulling cloud rows through a bounded cursor window. It is intentionally a continuity projection, not a final conflict-resolution UI: deletions, concurrent edits, and conflict review remain release work.

@@ -12,6 +12,7 @@ type DeliveryRow = {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 const MAX_BATCH = 50;
+const CLAIM_LEASE_MS = 10 * 60 * 1000;
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
@@ -79,6 +80,15 @@ Deno.serve(async (request) => {
   if (!supabaseUrl || !serviceRoleKey) return json({ error: { code: "SERVER_NOT_CONFIGURED", message: "Delivery worker is not configured." } }, 500);
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const now = new Date().toISOString();
+  // A crashed worker must not leave a delivery permanently invisible. Claims
+  // are leases, not durable ownership; recover only queued rows whose lease is
+  // older than the bounded timeout and make them eligible immediately.
+  const staleClaimBefore = new Date(Date.now() - CLAIM_LEASE_MS).toISOString();
+  const { error: leaseError } = await admin.from("alert_deliveries")
+    .update({ claimed_at: null, claim_token: null, next_attempt_at: now, failure_code: "WORKER_CLAIM_EXPIRED" })
+    .eq("status", "queued")
+    .lt("claimed_at", staleClaimBefore);
+  if (leaseError) return json({ error: { code: "CLAIM_RECOVERY_FAILED", message: "Delivery claims could not be recovered." } }, 500);
   const { data: queued, error: loadError } = await admin.from("alert_deliveries")
     .select("id,channel,contact_id,attempt_count,trusted_contacts(name,email,phone)")
     .eq("status", "queued").lte("next_attempt_at", now).is("claimed_at", null).limit(MAX_BATCH);
