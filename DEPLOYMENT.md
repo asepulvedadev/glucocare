@@ -2,15 +2,15 @@
 
 ## Current state
 
-This repository contains GlucoCare product/design documentation, the Expo mobile application source, and a static documentation staging image. The VPS workflow currently deploys only the documentation image; the Expo app is not yet published as a native release or public web app.
+This repository contains GlucoCare product/design documentation, the Expo mobile application source, and two localhost-only staging images. The VPS workflow deploys the documentation image and the Expo web companion; native Android/iOS binaries still require EAS and store release steps.
 
 ## VPS target
 
 - Host: AutoKing VPS (`2.24.115.58`), shared with other services.
 - Deployment user: dedicated non-root `glucocare-deploy`.
-- Container: `glucocare-docs`.
+- Containers: `glucocare-docs` and `glucocare-web`.
 - Compose project name: `glucocare` (explicit to avoid collisions with other `deploy` directories on the shared VPS).
-- Host binding: `127.0.0.1:18080` only.
+- Host bindings: `127.0.0.1:18080` (docs) and `127.0.0.1:18082` (Expo web).
 - No nginx public route or new port is opened by this deployment.
 
 The localhost-only binding is intentional because no public domain was supplied and the server is shared. Add a domain and TLS reverse-proxy route only as a separate reviewed change.
@@ -33,10 +33,20 @@ The deploy key is restricted on the VPS and cannot forward agents, ports, X11, o
 
 ```bash
 curl --fail http://127.0.0.1:18080/healthz
-docker ps --filter name=glucocare-docs
+curl --fail http://127.0.0.1:18082/healthz
+docker ps --filter name=glucocare
 docker compose -f /srv/glucocare/release/deploy/compose.yml ps
 ```
 
-## Next deployment boundary
+To inspect either staging surface from a local machine without opening a public port:
 
-Next, add a separate reviewed web-build deployment (if web parity is approved) and EAS workflows for native preview/production builds. Native Android/iOS binaries are distributed through EAS/App Store/Google Play; they are not served by this VPS container.
+```bash
+ssh -N \
+  -L 18080:127.0.0.1:18080 \
+  -L 18082:127.0.0.1:18082 \
+  root@2.24.115.58
+```
+
+Then open `http://127.0.0.1:18080/` for docs or `http://127.0.0.1:18082/` for the Expo web companion.
+
+Native Android/iOS binaries are distributed through EAS/App Store/Google Play; they are not served by this VPS container.

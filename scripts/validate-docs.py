@@ -17,6 +17,7 @@ required = [
     "docs/07-security-privacy-compliance.md",
     "docs/10-roadmap-backlog.md",
     "deploy/compose.yml",
+    "deploy/mobile.Dockerfile",
     "Dockerfile",
 ]
 
@@ -26,7 +27,10 @@ if missing:
     raise SystemExit(1)
 
 errors = []
+ignored_parts = {".git", "node_modules", "dist", ".expo"}
 for path in ROOT.rglob("*.md"):
+    if any(part in ignored_parts for part in path.parts):
+        continue
     for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
         if target.startswith(("http://", "https://", "mailto:", "#")):
             continue

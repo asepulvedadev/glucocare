@@ -92,7 +92,7 @@ jobs:
         run: supabase migration list --local
 
   deploy:
-    name: Deploy documentation staging to AutoKing VPS
+    name: Deploy docs and Expo web staging to AutoKing VPS
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [validate, mobile, database]
     runs-on: ubuntu-24.04
@@ -106,6 +106,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Setup Node 22 for web bundle
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22.13.1
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Build Expo web bundle for VPS staging
+        working-directory: apps/mobile
+        run: |
+          npm ci --legacy-peer-deps
+          npx expo export --platform web
 
       - name: Configure SSH
         shell: bash
