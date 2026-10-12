@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 8;
+const DATABASE_VERSION = 9;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -144,6 +144,23 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       );
     `);
     currentVersion = 8;
+  }
+
+  if (currentVersion < 9) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS medication_occurrences (
+        id TEXT PRIMARY KEY NOT NULL,
+        medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+        scheduled_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'due' CHECK (status IN ('due', 'taken', 'skipped', 'snoozed', 'expired', 'not_recorded')),
+        acted_at TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (medication_id, scheduled_at)
+      );
+      CREATE INDEX IF NOT EXISTS idx_medication_occurrences_scheduled_at ON medication_occurrences(scheduled_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_medication_occurrences_medication ON medication_occurrences(medication_id, scheduled_at DESC);
+    `);
+    currentVersion = 9;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

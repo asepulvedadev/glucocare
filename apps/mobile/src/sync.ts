@@ -55,6 +55,22 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
       if (schedule.error) throw schedule.error;
       return;
     }
+    case 'medication_occurrence': {
+      if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
+      const medicationId = stringValue(payload.medicationId);
+      if (!isUuid(medicationId)) throw new Error('Medication occurrence has no valid medication id.');
+      const schedule = await supabase.from('medication_schedule_revisions').select('id').eq('medication_id', medicationId).order('revision_number', { ascending: false }).limit(1).maybeSingle();
+      if (schedule.error) throw schedule.error;
+      if (!schedule.data) throw new Error('Medication schedule has not synced yet.');
+      const { error } = await supabase.from('medication_occurrences').upsert({
+        id: event.entityId, patient_id: patientId, medication_id: medicationId, schedule_revision_id: schedule.data.id,
+        scheduled_at: stringValue(payload.scheduledAt, new Date().toISOString()),
+        status: stringValue(payload.status, 'due') as 'due' | 'taken' | 'skipped' | 'snoozed' | 'expired' | 'not_recorded',
+        acted_at: payload.actedAt ? String(payload.actedAt) : null,
+      }, { onConflict: 'id' });
+      if (error) throw error;
+      return;
+    }
     case 'appointment': {
       if (!isUuid(event.entityId)) throw new Error('Legacy local id cannot be synced.');
       const scheduledAt = payload.scheduledAt ? String(payload.scheduledAt) : null;
@@ -133,12 +149,16 @@ export async function syncPendingData(db: SQLiteDatabase, session: Session | nul
       });
       if (eventError) throw eventError;
 
-      await db.runAsync(`UPDATE glucose_readings SET sync_state = 'synced' WHERE id = ?`, event.entityId);
+      if (event.entityType === 'glucose_reading') {
+        await db.runAsync(`UPDATE glucose_readings SET sync_state = 'synced' WHERE id = ?`, event.entityId);
+      }
       await markOutboxAcked(db, event.id);
       uploaded += 1;
     } catch {
       await markOutboxFailed(db, event.id, event.attemptCount + 1);
-      await db.runAsync(`UPDATE glucose_readings SET sync_state = 'failed' WHERE id = ?`, event.entityId);
+      if (event.entityType === 'glucose_reading') {
+        await db.runAsync(`UPDATE glucose_readings SET sync_state = 'failed' WHERE id = ?`, event.entityId);
+      }
       failed += 1;
     }
   }

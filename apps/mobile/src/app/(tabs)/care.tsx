@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Body, Caption, Eyebrow, Heading } from '../../components/Typography';
 import { Panel } from '../../components/Panel';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useCare } from '../../careContext';
 import { medicationRouteLabel } from '../../types/care';
+import { medicationOccurrenceStatusLabel } from '../../types/medicationOccurrences';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { colors, spacing } from '../../theme/tokens';
 
@@ -14,7 +16,20 @@ function formatTime(hour: number, minute: number) {
 }
 
 export default function CareScreen() {
-  const { medications, appointments, measurementPlan, isLoading } = useCare();
+  const { medications, medicationOccurrences, appointments, measurementPlan, isLoading, markMedicationOccurrence } = useCare();
+  const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
+
+  async function updateOccurrence(occurrenceId: string, status: 'taken' | 'skipped') {
+    setActingOccurrenceId(occurrenceId);
+    try {
+      await markMedicationOccurrence(occurrenceId, status);
+    } catch {
+      Alert.alert('No se pudo actualizar', 'Conserva la instrucción de tu equipo de salud y vuelve a intentarlo.');
+    } finally {
+      setActingOccurrenceId(null);
+    }
+  }
+
   return (
     <Screen>
       <Eyebrow>Cuidado</Eyebrow>
@@ -33,7 +48,23 @@ export default function CareScreen() {
         ) : medications.map((medication) => (
           <View key={medication.id} style={styles.medicationRow}>
             <View style={styles.timeBox}><Text style={styles.time}>{formatTime(medication.hour, medication.minute)}</Text><Caption>diario</Caption></View>
-            <View style={styles.medicationCopy}><Text style={styles.medicationName}>{medication.name}</Text><Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body><Text style={[styles.reminder, medication.reminderState !== 'scheduled' && styles.reminderMuted]}>{medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text></View>
+            <View style={styles.medicationCopy}>
+              <Text style={styles.medicationName}>{medication.name}</Text>
+              <Body>{medication.doseText} · {medicationRouteLabel[medication.route]}</Body>
+              <Text style={[styles.reminder, medication.reminderState !== 'scheduled' && styles.reminderMuted]}>{medication.reminderState === 'scheduled' ? 'Recordatorio programado en este dispositivo' : 'Recordatorio no habilitado; revisa permisos'}</Text>
+              {(() => {
+                const occurrence = medicationOccurrences.find((item) => item.medicationId === medication.id);
+                if (!occurrence) return null;
+                const acted = occurrence.status !== 'due';
+                return <>
+                  <Text style={styles.occurrenceStatus} accessibilityLabel={`Estado de la toma: ${medicationOccurrenceStatusLabel[occurrence.status]}`}>Toma de hoy: {medicationOccurrenceStatusLabel[occurrence.status]}</Text>
+                  {!acted ? <View style={styles.occurrenceActions}>
+                    <PrimaryButton label="Marcar tomado" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'taken')} />
+                    <PrimaryButton label="Omitir" tone="quiet" disabled={actingOccurrenceId === occurrence.id} onPress={() => void updateOccurrence(occurrence.id, 'skipped')} />
+                  </View> : null}
+                </>;
+              })()}
+            </View>
           </View>
         ))}
       </Panel>
@@ -75,6 +106,8 @@ const styles = StyleSheet.create({
   medicationName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },
   reminder: { color: colors.teal, fontSize: 12, lineHeight: 17 },
   reminderMuted: { color: colors.attention },
+  occurrenceStatus: { color: colors.textPrimary, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
+  occurrenceActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
   appointmentCopy: { flex: 1, gap: 2 },
   status: { color: colors.info, fontSize: 12, lineHeight: 17 },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

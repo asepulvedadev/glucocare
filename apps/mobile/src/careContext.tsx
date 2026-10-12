@@ -3,20 +3,24 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications } from './db/careRepository';
 import { insertAppointment, listAppointments } from './db/appointmentsRepository';
 import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
+import { ensureTodaysMedicationOccurrences, listTodaysMedicationOccurrences, recordMedicationOccurrence } from './db/medicationOccurrenceRepository';
 import { scheduleAppointmentReminder, scheduleMedicationReminder, type ReminderPermission } from './notifications';
 import type { Medication, NewMedication } from './types/care';
 import type { Appointment, NewAppointment } from './types/appointments';
 import type { MeasurementPlan, NewMeasurementPlan } from './types/measurement';
+import type { MedicationOccurrence, MedicationOccurrenceStatus } from './types/medicationOccurrences';
 import { newId } from './ids';
 
 type CareContextValue = {
   medications: Medication[];
+  medicationOccurrences: MedicationOccurrence[];
   appointments: Appointment[];
   measurementPlan: MeasurementPlan | null;
   isLoading: boolean;
   addMedication: (input: NewMedication) => Promise<ReminderPermission>;
   addAppointment: (input: NewAppointment) => Promise<ReminderPermission>;
   saveMeasurementPlan: (input: NewMeasurementPlan) => Promise<void>;
+  markMedicationOccurrence: (occurrenceId: string, status: MedicationOccurrenceStatus) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -25,6 +29,7 @@ const CareContext = createContext<CareContextValue | null>(null);
 export function CareProvider({ children }: PropsWithChildren) {
   const db = useSQLiteContext();
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [medicationOccurrences, setMedicationOccurrences] = useState<MedicationOccurrence[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [measurementPlan, setMeasurementPlan] = useState<MeasurementPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +38,10 @@ export function CareProvider({ children }: PropsWithChildren) {
     setIsLoading(true);
     try {
       const [storedMedications, storedAppointments, storedPlan] = await Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]);
+      await ensureTodaysMedicationOccurrences(db, storedMedications);
+      const storedOccurrences = await listTodaysMedicationOccurrences(db);
       setMedications(storedMedications);
+      setMedicationOccurrences(storedOccurrences);
       setAppointments(storedAppointments);
       setMeasurementPlan(storedPlan);
     } finally { setIsLoading(false); }
@@ -41,9 +49,12 @@ export function CareProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]).then(([storedMedications, storedAppointments, storedPlan]) => {
+    void Promise.all([listMedications(db), listAppointments(db), getMeasurementPlan(db)]).then(async ([storedMedications, storedAppointments, storedPlan]) => {
+      await ensureTodaysMedicationOccurrences(db, storedMedications);
+      const storedOccurrences = await listTodaysMedicationOccurrences(db);
       if (active) {
         setMedications(storedMedications);
+        setMedicationOccurrences(storedOccurrences);
         setAppointments(storedAppointments);
         setMeasurementPlan(storedPlan);
       }
@@ -67,7 +78,9 @@ export function CareProvider({ children }: PropsWithChildren) {
       reminderState: scheduled.state === 'granted' ? 'scheduled' : scheduled.state,
     };
     await insertMedication(db, stored);
+    await ensureTodaysMedicationOccurrences(db, [stored]);
     setMedications((current) => [...current, stored].sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute)));
+    setMedicationOccurrences(await listTodaysMedicationOccurrences(db));
     return scheduled.state;
   }, [db]);
 
@@ -95,7 +108,12 @@ export function CareProvider({ children }: PropsWithChildren) {
     setMeasurementPlan(plan);
   }, [db]);
 
-  const value = useMemo(() => ({ medications, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, refresh }), [medications, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, refresh]);
+  const markMedicationOccurrence = useCallback(async (occurrenceId: string, status: MedicationOccurrenceStatus) => {
+    const updated = await recordMedicationOccurrence(db, occurrenceId, status);
+    setMedicationOccurrences((current) => current.map((occurrence) => occurrence.id === updated.id ? updated : occurrence));
+  }, [db]);
+
+  const value = useMemo(() => ({ medications, medicationOccurrences, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, markMedicationOccurrence, refresh }), [medications, medicationOccurrences, appointments, measurementPlan, isLoading, addMedication, addAppointment, saveMeasurementPlan, markMedicationOccurrence, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 

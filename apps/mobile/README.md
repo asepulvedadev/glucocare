@@ -11,6 +11,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Local history persisted across app restarts.
 - Emergency help flow that opens the local emergency number and states delivery limitations.
 - Medication records with clinician-provided dose text, route, daily time, and local reminder state.
+- Daily medication occurrence ledger with taken/omitted actions and replayable sync events.
 - Native daily reminder scheduling with explicit permission-denied and web-unavailable states.
 - Local emergency card and consented trusted contacts.
 - Help-event recording with an explicit call fallback; alert delivery is never overstated.

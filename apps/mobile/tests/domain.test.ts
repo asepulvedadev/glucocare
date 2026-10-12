@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
 import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
 import { newId } from '../src/ids';
+import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 
 describe('appointment state machine', () => {
   it('allows the requested-to-scheduled path through authorization', () => {
@@ -31,5 +32,18 @@ describe('measurement plan validation', () => {
 describe('local identifiers', () => {
   it('generates UUID-shaped identifiers for cloud idempotency', () => {
     expect(newId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+});
+
+describe('medication occurrence state machine', () => {
+  it('allows a due occurrence to be acknowledged or skipped', () => {
+    expect(canTransitionMedicationOccurrence('due', 'taken')).toBe(true);
+    expect(canTransitionMedicationOccurrence('due', 'skipped')).toBe(true);
+    expect(transitionMedicationOccurrence('due', 'taken')).toBe('taken');
+  });
+
+  it('does not allow a completed occurrence to be changed silently', () => {
+    expect(canTransitionMedicationOccurrence('taken', 'skipped')).toBe(false);
+    expect(() => transitionMedicationOccurrence('taken', 'skipped')).toThrow('Invalid medication occurrence transition');
   });
 });
