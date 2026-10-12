@@ -15,6 +15,7 @@ import { usePrivacy } from '../../privacyContext';
 import { measurementTimingLabel } from '../../types/measurement';
 import { legacyMeasurementWindows } from '../../domain/measurementPlan';
 import { mealTypeLabel } from '../../types/meals';
+import { PlatformCapabilityNotice } from '../../components/PlatformCapabilityNotice';
 
 export default function TodayScreen() {
   const { readings } = useGlucose();
@@ -33,7 +34,8 @@ export default function TodayScreen() {
         <View style={styles.energy} accessible accessibilityLabel="Estado de cuidado en calma" />
         <Eyebrow>Glucocare</Eyebrow>
         <Heading>Tu control, en calma.</Heading>
-        <Body>Registra lo que ocurre y sigue el plan que acordaste con tu equipo de salud.</Body>
+      <Body>Registra lo que ocurre y sigue el plan que acordaste con tu equipo de salud.</Body>
+      <PlatformCapabilityNotice />
       </View>
       {!consent?.localDataConsent ? <Panel tone="urgent">
         <Caption>PRIVACIDAD</Caption>

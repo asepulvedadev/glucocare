@@ -36,6 +36,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - Native and web builds follow the operating-system light/dark appearance with accessible theme tokens; high-contrast text remains available in either scheme.
 - Native builds initialize SQLCipher with a device-bound key stored in SecureStore before migrations run. Losing the device key makes the local database unrecoverable, so export a backup before uninstalling or resetting a device; web uses the separate WASM SQLite path.
 - Native users can optionally enable biometric/device-passcode app lock from Profile. The emergency help route remains available without unlocking; Face ID requires a native development or release build, not Expo Go.
+- The web companion shows an explicit capability notice: it supports recording, review, and export, but does not promise native alarms or delivery while the tab is closed.
 - Optional Supabase Auth session with SecureStore/local web persistence, replayable outbox uploads, and a cursor-based pull projection for the user's cloud records.
 - Cursor sync performs a pull-before-push pass. If a remote edit arrives while a local event is still pending, the local record is preserved and an explicit conflict is stored locally. Profile lets the user either keep the pending local event for retry or explicitly apply a supported remote projection.
 - Cloud account deletion workflow that leaves local data available until the user separately deletes it.

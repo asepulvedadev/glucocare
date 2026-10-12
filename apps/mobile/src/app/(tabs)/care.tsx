@@ -17,6 +17,7 @@ import { isMeasurementPlanActive, legacyMeasurementWindows } from '../../domain/
 import { mealTypeLabel } from '../../types/meals';
 import { isMedicationActive } from '../../domain/medication';
 import { colors, spacing } from '../../theme/tokens';
+import { PlatformCapabilityNotice } from '../../components/PlatformCapabilityNotice';
 
 function formatTime(hour: number, minute: number) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -84,6 +85,7 @@ export default function CareScreen() {
       <Eyebrow>Cuidado</Eyebrow>
       <Heading>Tu rutina</Heading>
       <Body>Aquí verás los medicamentos, mediciones y citas que configures con tu equipo de salud.</Body>
+      <PlatformCapabilityNotice />
       <Panel>
         <View style={styles.sectionHeader}>
           <Caption>PLAN CLÍNICO</Caption>
