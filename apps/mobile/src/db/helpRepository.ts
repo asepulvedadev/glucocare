@@ -29,5 +29,17 @@ export async function listHelpEvents(db: SQLiteDatabase, limit = 20): Promise<He
 }
 
 export async function updateHelpEventState(db: SQLiteDatabase, eventId: string, contactState: HelpEventState) {
-  await db.runAsync('UPDATE help_events SET contact_state = ? WHERE id = ?', contactState, eventId);
+  const existing = await db.getFirstAsync<{ id: string; created_at: string; reason: string }>('SELECT id, created_at, reason FROM help_events WHERE id = ?', eventId);
+  if (!existing) return;
+  const updatedAt = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('UPDATE help_events SET contact_state = ? WHERE id = ?', contactState, eventId);
+    await enqueueOutbox(db, {
+      id: newId(),
+      entityType: 'emergency_incident',
+      entityId: eventId,
+      eventType: 'emergency.incident.status_changed.v1',
+      payload: { id: existing.id, createdAt: existing.created_at, reason: existing.reason, contactState, updatedAt },
+    });
+  });
 }

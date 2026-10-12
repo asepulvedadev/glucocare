@@ -88,6 +88,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   const cardRecords = collect('emergency_card');
   const cardResult = { data: cardRecords.length ? { patient_id: patientId, full_name: cardRecords[0].fullName, birth_date: cardRecords[0].birthDate ?? null, diabetes_type: cardRecords[0].diabetesType ?? null, diagnosis_year: cardRecords[0].diagnosisYear ?? null, insulin_use: cardRecords[0].insulinUse ?? null, allergies: cardRecords[0].allergies ?? null, critical_conditions: cardRecords[0].criticalConditions ?? null, care_provider: cardRecords[0].careProvider ?? null, care_facility: cardRecords[0].careFacility ?? null, insurer: cardRecords[0].insurer ?? null, policy_number: cardRecords[0].policyNumber ?? null, emergency_number: cardRecords[0].emergencyNumber ?? null, emergency_region: cardRecords[0].emergencyRegion ?? null, emergency_notes: cardRecords[0].emergencyNotes ?? null, updated_at: cardRecords[0].updatedAt ?? cardRecords[0].updated_at } : null };
   const contactsResult = { data: collect('trusted_contact').map((record) => ({ id: record.id, name: record.name, relationship: record.relationship ?? null, phone: record.phone ?? null, email: record.email ?? null, consent_status: record.revoked ? 'revoked' : record.consentGranted ? 'accepted' : 'pending', created_at: record.createdAt ?? record.updated_at, updated_at: record.updated_at })) };
+  const incidentResult = { data: collect('emergency_incident').map((record) => ({ id: record.id, created_at: record.createdAt ?? record.updated_at, reason: record.reason ?? 'user_requested_help', contact_state: record.contactState ?? 'queued_local', updated_at: record.updated_at })) };
   const until = snapshot.until;
 
   const pending = await listPendingSyncEntities(db);
@@ -232,6 +233,14 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET name = excluded.name, relationship = excluded.relationship, phone = excluded.phone, email = excluded.email, consent_granted = excluded.consent_granted`,
         contact.id, contact.name, contact.relationship, contact.phone, contact.email, contact.consent_status === 'accepted' ? 1 : 0, contact.created_at);
+      downloaded += 1;
+    }
+    for (const incident of incidentResult.data ?? []) {
+      if (await preserveLocalChange('emergency_incident', incident.id, incident as unknown as Record<string, unknown>)) continue;
+      await db.runAsync(`INSERT INTO help_events (id, created_at, reason, contact_state)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET created_at = excluded.created_at, reason = excluded.reason, contact_state = excluded.contact_state`,
+        incident.id, incident.created_at, incident.reason, incident.contact_state);
       downloaded += 1;
     }
   });
