@@ -177,3 +177,11 @@ jobs:
             | ssh -i "$HOME/.ssh/id_ed25519" \
                 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
                 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST"
+
+      - name: Verify VPS health after deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'set -euo pipefail; test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-glucocare-web-1)" = healthy; test "$(docker inspect --format "{{.State.Health.Status}}" glucocare-docs)" = healthy; curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null'

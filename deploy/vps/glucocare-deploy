@@ -17,6 +17,27 @@ rm -rf "$previous"
 if [ -d "$release" ]; then mv "$release" "$previous"; fi
 mv "$incoming" "$release"
 
+rollback() {
+  rm -rf "$release"
+  if [ -d "$previous" ]; then
+    mv "$previous" "$release"
+    /usr/bin/docker compose --project-name glucocare \
+      -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
+  fi
+}
+
+wait_for_health() {
+  for _ in $(seq 1 30); do
+    web_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-glucocare-web-1 2>/dev/null || true)
+    docs_status=$(/usr/bin/docker inspect --format '{{.State.Health.Status}}' glucocare-docs 2>/dev/null || true)
+    if [ "$web_status" = healthy ] && [ "$docs_status" = healthy ] && /usr/bin/curl --fail --silent --head http://127.0.0.1:18082/ >/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
 # Older deployments used the generic Compose project name "deploy" and an
 # explicit container name. Remove only this app's old container before adopting
 # the explicit "glucocare" project name; other VPS services are untouched.
@@ -24,12 +45,12 @@ mv "$incoming" "$release"
 
 if ! /usr/bin/docker compose --project-name glucocare \
     -f "$release/deploy/compose.yml" up -d --build --remove-orphans; then
-  rm -rf "$release"
-  if [ -d "$previous" ]; then
-    mv "$previous" "$release"
-    /usr/bin/docker compose --project-name glucocare \
-      -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
-  fi
+  rollback
+  exit 1
+fi
+
+if ! wait_for_health; then
+  rollback
   exit 1
 fi
 
