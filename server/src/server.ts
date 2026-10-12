@@ -63,7 +63,7 @@ function requestAddress(request: IncomingMessage) {
   return request.socket.remoteAddress ?? 'unknown';
 }
 
-async function readJson(request: IncomingMessage): Promise<JsonObject> {
+async function readRawBody(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of request) {
@@ -72,8 +72,13 @@ async function readJson(request: IncomingMessage): Promise<JsonObject> {
     if (total > maxBodyBytes) throw new Error('BODY_TOO_LARGE');
     chunks.push(buffer);
   }
-  if (!chunks.length) return {};
-  const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return Buffer.concat(chunks);
+}
+
+async function readJson(request: IncomingMessage): Promise<JsonObject> {
+  const raw = await readRawBody(request);
+  if (!raw.length) return {};
+  const parsed: unknown = JSON.parse(raw.toString('utf8'));
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('INVALID_JSON');
   return parsed as JsonObject;
 }
@@ -429,9 +434,13 @@ async function route(request: AuthenticatedRequest, response: ServerResponse) {
     if (!limit.allowed) { rateLimited(response, limit.retryAfterSeconds); return; }
     let token = url.searchParams.get('token');
     if (request.method === 'POST') {
-      const chunks: Buffer[] = [];
-      for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-      const raw = Buffer.concat(chunks).toString('utf8');
+      let raw: string;
+      try {
+        raw = (await readRawBody(request)).toString('utf8');
+      } catch (error) {
+        fail(response, error instanceof Error && error.message === 'BODY_TOO_LARGE' ? 413 : 400, 'INVALID_INVITATION_TOKEN', 'El enlace de invitación no es válido.');
+        return;
+      }
       if ((request.headers['content-type'] ?? '').includes('application/json')) {
         try {
           const body = JSON.parse(raw) as JsonObject;
