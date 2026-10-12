@@ -83,6 +83,12 @@ jobs:
       - name: Export web bundle
         run: npx expo export --platform web
 
+      - name: Enforce lightweight web bundle budget
+        run: |
+          bytes=$(du -sb dist | cut -f1)
+          test "$bytes" -le 5242880
+          echo "Web bundle size: ${bytes} bytes (budget: 5242880)"
+
   database:
     name: Validate Supabase schema and RLS foundation
     runs-on: ubuntu-24.04

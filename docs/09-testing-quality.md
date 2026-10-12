@@ -106,6 +106,10 @@ Measure on representative hardware, release build, and realistic history size.
 | Scroll list | Visually stable at 60 fps target |
 | Crash-free sessions | ≥ 99.8% |
 
+The staging web bundle is kept under a 5 MiB compressed-on-disk budget in CI;
+native release size and startup targets still require measurements on physical
+devices.
+
 Targets are product goals and may be revised with measured evidence.
 
 ## CI quality gates
