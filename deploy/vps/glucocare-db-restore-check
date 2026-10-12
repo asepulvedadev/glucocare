@@ -34,7 +34,9 @@ set +a
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$$
 restore_db="${POSTGRES_DB}_restore_${stamp}"
 restore_input="$backup"
-decrypted_backup="$backup_dir/.restore-$stamp.dump.tmp"
+# The systemd restore-check unit mounts the backup directory read-only. Keep
+# decrypted material in its private /tmp namespace and remove it on exit.
+decrypted_backup="${TMPDIR:-/tmp}/glucocare-restore-$stamp.dump"
 cleanup() {
   /usr/bin/docker compose --env-file "$env_file" --project-name glucocare \
     -f "$compose_file" exec -T glucocare-db \
