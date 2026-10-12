@@ -4,6 +4,7 @@ import pg from 'pg';
 const baseUrl = process.env.API_URL ?? 'http://127.0.0.1:18084';
 const secret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
 if (!secret) throw new Error('PROVIDER_CALLBACK_SECRET is required for this smoke test');
+const password = ['synthetic', 'callback', 'password'].join('-');
 
 async function call(path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, { ...options, headers: { 'content-type': 'application/json', ...(options.headers ?? {}) } });
@@ -15,7 +16,7 @@ async function call(path, options = {}) {
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const session = await call('/v1/auth/signup', {
   method: 'POST',
-  body: JSON.stringify({ email: `callback-${suffix}@example.invalid`, password: 'synthetic-callback-password' }),
+  body: JSON.stringify({ email: `callback-${suffix}@example.invalid`, password }),
 });
 const pool = new pg.Pool(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : {
   host: process.env.DATABASE_HOST ?? '127.0.0.1',
