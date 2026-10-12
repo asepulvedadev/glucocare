@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { Screen } from './Screen';
 import { Body, Caption, Heading } from './Typography';
 import { PrimaryButton } from './PrimaryButton';
-import { colors, spacing } from '../theme/tokens';
+import { spacing } from '../theme/tokens';
 import { useAccessibility } from '../accessibilityContext';
 
 async function authenticate() {
@@ -91,5 +91,4 @@ export function AppLockGate({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   lockPanel: { flex: 1, justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.xxl },
-  urgent: { color: colors.urgent },
 });
