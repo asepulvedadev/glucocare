@@ -1,0 +1,19 @@
+services:
+  glucocare-docs:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: glucocare-docs:latest
+    container_name: glucocare-docs
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:8080"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /var/cache/nginx:rw,noexec,nosuid,size=16m
+      - /var/run:rw,noexec,nosuid,size=1m
+      - /tmp:rw,noexec,nosuid,size=4m

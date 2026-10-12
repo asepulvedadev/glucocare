@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>GlucoCare — Blueprint</title>
+    <style>
+      :root { color-scheme: dark; --bg:#0b0d0f; --surface:#14181b; --line:rgba(255,247,232,.14); --text:#fff7e8; --muted:#b8b2a7; --amber:#ffbe55; --teal:#38d39f; }
+      * { box-sizing:border-box; }
+      body { margin:0; min-height:100vh; font-family:Inter,ui-sans-serif,system-ui,sans-serif; color:var(--text); background:radial-gradient(ellipse at 50% -10%, rgba(245,166,35,.20), transparent 46%), var(--bg); }
+      main { width:min(960px,100%); margin:0 auto; padding:24px 20px 64px; }
+      header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 0 40px; }
+      .brand { display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:-.02em; }
+      .mark { width:32px; height:32px; border-radius:10px; background:linear-gradient(150deg,#ffbe55,#f5a623); box-shadow:0 0 26px rgba(255,190,85,.24); }
+      .badge { border:1px solid var(--line); border-radius:999px; padding:8px 12px; color:var(--muted); font-size:12px; }
+      .hero { position:relative; overflow:hidden; border:1px solid var(--line); border-radius:24px; padding:34px 28px; background:linear-gradient(130deg,rgba(20,24,27,.98),rgba(20,24,27,.75)), radial-gradient(ellipse at 74% 0%,rgba(255,190,85,.22),transparent 42%); box-shadow:0 28px 80px rgba(0,0,0,.30); }
+      .hero:after { content:""; position:absolute; top:-20%; right:16%; width:2px; height:160%; background:linear-gradient(180deg,transparent,var(--amber),transparent); opacity:.45; transform:rotate(10deg); }
+      h1 { position:relative; max-width:620px; margin:0 0 16px; font-size:clamp(38px,8vw,72px); line-height:.98; letter-spacing:-.06em; z-index:1; }
+      .hero p { position:relative; max-width:560px; color:var(--muted); font-size:17px; line-height:1.55; z-index:1; }
+      .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:20px; }
+      .card { border:1px solid var(--line); border-radius:18px; padding:20px; background:rgba(20,24,27,.88); }
+      .card h2 { margin:0 0 8px; font-size:17px; }
+      .card p { margin:0; color:var(--muted); font-size:14px; line-height:1.55; }
+      a { color:var(--amber); text-decoration:none; }
+      a:hover, a:focus-visible { text-decoration:underline; }
+      footer { margin-top:28px; color:var(--muted); font-size:12px; line-height:1.6; }
+      @media (max-width:420px) { main{padding-inline:16px;} .hero{padding:28px 20px;} header{padding-bottom:28px;} }
+      @media (prefers-reduced-motion:reduce) { .hero:after{display:none;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><div class="brand"><span class="mark" aria-hidden="true"></span><span>GlucoCare</span></div><span class="badge">Staging · documentación</span></header>
+      <section class="hero" aria-labelledby="title">
+        <h1 id="title">Tu control, en calma.</h1>
+        <p>Blueprint del acompañante accesible para el autocontrol de diabetes. Esta versión publica la documentación de producto y diseño; la aplicación Expo todavía no está implementada.</p>
+      </section>
+      <section class="grid" aria-label="Documentación principal">
+        <article class="card"><h2>Producto</h2><p><a href="project.md">Visión y alcance</a><br /><a href="docs/01-product-requirements.md">Requisitos</a><br /><a href="docs/10-roadmap-backlog.md">Roadmap</a></p></article>
+        <article class="card"><h2>Diseño</h2><p><a href="design.md">Sistema mobile-first</a><br /><a href="docs/03-ux-accessibility.md">Accesibilidad</a><br /><a href="docs/RELEASE_CHECKLIST.md">Checklist de release</a></p></article>
+        <article class="card"><h2>Seguridad</h2><p><a href="docs/02-clinical-safety.md">Seguridad clínica</a><br /><a href="docs/07-security-privacy-compliance.md">Privacidad y regulación</a><br /><a href="docs/12-risk-register.md">Registro de riesgos</a></p></article>
+      </section>
+      <footer>GlucoCare no diagnostica, prescribe ni sustituye los servicios de emergencia. Verifica siempre la información con un profesional de la salud.</footer>
+    </main>
+  </body>
+</html>
