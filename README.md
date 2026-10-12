@@ -32,6 +32,7 @@ GlucoCare is a lightweight, accessible Expo application for people living with d
 | Product vocabulary | [Glossary](docs/GLOSSARY.md) |
 | Architecture decisions | [ADR index](docs/adr/README.md) |
 | Legal drafts checklist | [Legal index](docs/legal/README.md) |
+| Security reporting | [Security policy](SECURITY.md) |
 
 ## Proposed delivery target
 
