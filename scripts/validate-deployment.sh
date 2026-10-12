@@ -20,6 +20,8 @@ test -f "$root/server/migrations/002_alert_delivery_worker.sql"
 test -f "$root/server/migrations/003_account_deletion_audit.sql"
 test -f "$root/deploy/vps/glucocare-db-backup.service"
 test -f "$root/deploy/vps/glucocare-db-backup.timer"
+test -f "$root/deploy/vps/glucocare-db-restore-check.service"
+test -f "$root/deploy/vps/glucocare-db-restore-check.timer"
 
 docker compose --env-file "$root/deploy/.env.example" -f "$root/deploy/compose.yml" config >/dev/null
 

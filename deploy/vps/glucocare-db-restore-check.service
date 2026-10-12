@@ -1,0 +1,15 @@
+[Unit]
+Description=Verify the newest GlucoCare PostgreSQL backup in a disposable database
+After=docker.service glucocare-db-backup.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/glucocare-db-restore-check
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/glucocare/release /srv/glucocare/.env /srv/glucocare/backups

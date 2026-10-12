@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the quarterly GlucoCare PostgreSQL restore drill
+
+[Timer]
+OnCalendar=*-*-01 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

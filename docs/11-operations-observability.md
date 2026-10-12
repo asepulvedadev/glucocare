@@ -128,8 +128,10 @@ logs database credentials or clinical payloads.
 
 `deploy/vps/glucocare-db-restore-check` exercises the newest dump in a
 disposable database, verifies the migration table, and drops the temporary
-database. It is safe for scheduled restore drills but does not replace a
-reviewed disaster-recovery runbook.
+database. The checked-in `glucocare-db-restore-check.timer` runs this drill on
+the first day of each month with a random delay; operators must still record a
+quarterly reviewed result and keep an off-host encrypted copy. It does not
+replace a reviewed disaster-recovery runbook.
 
 ## Release strategy
 

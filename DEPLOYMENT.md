@@ -82,11 +82,15 @@ install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-b
 install -o root -g root -m 0755 /srv/glucocare/release/deploy/vps/glucocare-db-restore-check /usr/local/sbin/glucocare-db-restore-check
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.service /etc/systemd/system/glucocare-db-backup.service
 install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-backup.timer /etc/systemd/system/glucocare-db-backup.timer
+install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-restore-check.service /etc/systemd/system/glucocare-db-restore-check.service
+install -o root -g root -m 0644 /srv/glucocare/release/deploy/vps/glucocare-db-restore-check.timer /etc/systemd/system/glucocare-db-restore-check.timer
 install -o root -g root -m 0700 -d /srv/glucocare/backups
 systemctl daemon-reload
 systemctl enable --now glucocare-db-backup.timer
 systemctl start glucocare-db-backup.service
+systemctl enable --now glucocare-db-restore-check.timer
 systemctl status glucocare-db-backup.timer --no-pager
+systemctl status glucocare-db-restore-check.timer --no-pager
 ls -lh /srv/glucocare/backups
 ```
 
