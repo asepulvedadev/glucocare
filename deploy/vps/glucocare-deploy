@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Installed as /usr/local/sbin/glucocare-deploy on the VPS and referenced by the
+# forced-command deploy key. The wrapper accepts a gzipped repository archive on
+# stdin and never grants the GitHub Actions key an interactive shell.
+base=/srv/glucocare
+incoming="$base/.incoming"
+release="$base/release"
+previous="$base/release.previous"
+
+rm -rf "$incoming"
+install -d -o glucocare-deploy -g glucocare-deploy -m 0750 "$incoming"
+tar --extract --gzip --file=- --directory="$incoming"
+
+rm -rf "$previous"
+if [ -d "$release" ]; then mv "$release" "$previous"; fi
+mv "$incoming" "$release"
+
+# Older deployments used the generic Compose project name "deploy" and an
+# explicit container name. Remove only this app's old container before adopting
+# the explicit "glucocare" project name; other VPS services are untouched.
+/usr/bin/docker rm --force glucocare-docs >/dev/null 2>&1 || true
+
+if ! /usr/bin/docker compose --project-name glucocare \
+    -f "$release/deploy/compose.yml" up -d --build --remove-orphans; then
+  rm -rf "$release"
+  if [ -d "$previous" ]; then
+    mv "$previous" "$release"
+    /usr/bin/docker compose --project-name glucocare \
+      -f "$release/deploy/compose.yml" up -d --build --remove-orphans || true
+  fi
+  exit 1
+fi
+
+rm -rf "$previous"
+/usr/bin/docker image prune --force --filter "until=168h" >/dev/null || true
