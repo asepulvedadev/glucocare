@@ -10,6 +10,7 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -58,7 +59,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (signOutError) { setError(signOutError.message); throw signOutError; }
   }, []);
 
-  const value = useMemo(() => ({ session, isLoading, isConfigured: isCloudConfigured, error, signIn, signUp, signOut }), [session, isLoading, error, signIn, signUp, signOut]);
+  const deleteAccount = useCallback(async () => {
+    const client = requireClient();
+    setError(null);
+    const { error: functionError } = await client.functions.invoke('delete-account', { body: { confirm: true } });
+    if (functionError) { setError(functionError.message); throw functionError; }
+    setSession(null);
+    await client.auth.signOut().catch(() => undefined);
+  }, []);
+
+  const value = useMemo(() => ({ session, isLoading, isConfigured: isCloudConfigured, error, signIn, signUp, signOut, deleteAccount }), [session, isLoading, error, signIn, signUp, signOut, deleteAccount]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

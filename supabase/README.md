@@ -24,3 +24,8 @@ supabase db push --linked
 ```
 
 The `patients.id = auth.uid()` convention provisions owner access through a private trigger. Delegated access is relationship-based through `patient_access`; it must not use editable user metadata for authorization.
+
+Functions currently scaffolded:
+
+- `emergency-alert`: records an incident and queues consented delivery ledger rows.
+- `delete-account`: records a deletion request and removes the authenticated cloud user; local SQLite data remains under explicit user control.

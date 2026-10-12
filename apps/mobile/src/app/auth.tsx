@@ -9,7 +9,7 @@ import { useAuth } from '../authContext';
 import { colors, radii, spacing } from '../theme/tokens';
 
 export default function AuthScreen() {
-  const { isConfigured, isLoading, session, error, signIn, signUp, signOut } = useAuth();
+  const { isConfigured, isLoading, session, error, signIn, signUp, signOut, deleteAccount } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,13 +41,20 @@ export default function AuthScreen() {
     try { await signOut(); router.back(); } catch { Alert.alert('No se pudo cerrar sesión', 'Vuelve a intentarlo.'); } finally { setSaving(false); }
   }
 
+  function requestDeleteAccount() {
+    Alert.alert('Borrar cuenta cloud', 'Esta acción elimina la cuenta y los registros sincronizados. Los datos locales de este dispositivo no se borran automáticamente; expórtalos o bórralos desde Perfil.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar cuenta', style: 'destructive', onPress: () => void (async () => { setSaving(true); try { await deleteAccount(); Alert.alert('Cuenta eliminada', 'La cuenta cloud y sus registros sincronizados fueron eliminados.'); router.back(); } catch { Alert.alert('No se pudo borrar', 'La información no se modificó. Vuelve a intentarlo.'); } finally { setSaving(false); } })() },
+    ]);
+  }
+
   return (
     <Screen>
       <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
       <Eyebrow>Sincronización opcional</Eyebrow>
       <Heading>Protege tu continuidad</Heading>
       <Body>El registro local funciona sin cuenta. La sincronización solo se activa cuando tú la eliges.</Body>
-      {!isConfigured ? <Panel tone="urgent"><Caption>CONFIGURACIÓN PENDIENTE</Caption><Text style={styles.title}>La nube aún no está conectada</Text><Body>Este build necesita EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY para habilitar cuentas. Tus datos locales siguen disponibles.</Body></Panel> : session ? <Panel><Caption>SESIÓN ACTIVA</Caption><Text style={styles.title}>{session.user.email ?? 'Cuenta GlucoCare'}</Text><Body>La sincronización puede pausarse desde la configuración del dispositivo.</Body><PrimaryButton label={saving ? 'Cerrando…' : 'Cerrar sesión'} tone="urgent" onPress={() => void logout()} disabled={saving} /></Panel> : <>
+      {!isConfigured ? <Panel tone="urgent"><Caption>CONFIGURACIÓN PENDIENTE</Caption><Text style={styles.title}>La nube aún no está conectada</Text><Body>Este build necesita EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY para habilitar cuentas. Tus datos locales siguen disponibles.</Body></Panel> : session ? <Panel><Caption>SESIÓN ACTIVA</Caption><Text style={styles.title}>{session.user.email ?? 'Cuenta GlucoCare'}</Text><Body>La sincronización puede pausarse desde la configuración del dispositivo. Exporta tus datos antes de borrar la cuenta.</Body><PrimaryButton label={saving ? 'Cerrando…' : 'Cerrar sesión'} tone="urgent" onPress={() => void logout()} disabled={saving} /><PrimaryButton label="Borrar cuenta cloud" tone="urgent" onPress={requestDeleteAccount} disabled={saving} /></Panel> : <>
         <Panel>
           <Caption>{mode === 'signIn' ? 'INICIAR SESIÓN' : 'CREAR CUENTA'}</Caption>
           <TextInput accessibilityLabel="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="correo@ejemplo.com" placeholderTextColor={colors.textDisabled} style={styles.input} />
