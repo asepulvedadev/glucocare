@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 5;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -60,6 +60,44 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_appointments_scheduled_at ON appointments(scheduled_at ASC);
     `);
     currentVersion = 3;
+  }
+
+  if (currentVersion < 4) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS emergency_card (
+        id TEXT PRIMARY KEY NOT NULL,
+        full_name TEXT NOT NULL,
+        birth_date TEXT,
+        diabetes_type TEXT,
+        allergies TEXT,
+        care_provider TEXT,
+        emergency_notes TEXT,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS trusted_contacts (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        relationship TEXT,
+        phone TEXT,
+        email TEXT,
+        consent_granted INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+    `);
+    currentVersion = 4;
+  }
+
+  if (currentVersion < 5) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS help_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        created_at TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        contact_state TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_help_events_created_at ON help_events(created_at DESC);
+    `);
+    currentVersion = 5;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
