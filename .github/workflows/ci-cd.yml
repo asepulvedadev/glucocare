@@ -94,6 +94,9 @@ jobs:
       - name: Smoke-test cursor timestamp triggers
         run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-sync-timestamps.sql
 
+      - name: Smoke-test owner-only RLS writes
+        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-rls-owner-writes.sql
+
       - name: Smoke-test private alert delivery worker
         run: |
           set -euo pipefail

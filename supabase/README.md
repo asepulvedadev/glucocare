@@ -12,6 +12,8 @@ supabase gen types --local --lang typescript > apps/mobile/src/types/supabase.ts
 
 The migration creates patient-scoped tables and enables RLS on every public table. The client must use only the publishable key. Service-role/secret keys belong only in private Edge Functions or CI secrets.
 
+The owner-write policy migration keeps delegated `patient_access` roles read-oriented in the MVP. The authenticated owner can create or change health records; alert-delivery and audit rows are read-only to the client and are written by private functions.
+
 `20261012063455_sync_occurrence_timestamps.sql` adds `updated_at` and server-side update triggers to mutable records, including medication and measurement occurrences. This is required by the mobile cursor pull so a status change made on another device is observable without trusting client clocks.
 
 ## Linking a hosted project
