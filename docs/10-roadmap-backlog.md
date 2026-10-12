@@ -110,7 +110,7 @@ Critical end-to-end journeys pass on physical Android/iOS with network on/off an
 ### P2 — after evidence
 
 - SMS/WhatsApp provider channels.
-- Inventory/refill reminders.
+- Inventory/refill reference with an informational low-stock cue (implemented; no automatic deduction or treatment recommendation).
 - HealthKit/Health Connect.
 - CGM/glucometer imports.
 - Caregiver or clinician portal.

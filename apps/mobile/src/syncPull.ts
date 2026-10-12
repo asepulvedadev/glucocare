@@ -75,6 +75,7 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   const medicationsResult = { data: medicationRecords.map((record) => ({
     id: record.id, name: record.name, presentation: record.presentation ?? null, dose_text: record.doseText, route: record.route, prescriber_name: record.prescriberName ?? null,
     instructions: record.instructions ?? null, start_date: record.startDate ?? null, end_date: record.endDate ?? null,
+    inventory_quantity: typeof record.inventoryQuantity === 'number' ? record.inventoryQuantity : null, inventory_unit: record.inventoryUnit ?? null, refill_threshold: typeof record.refillThreshold === 'number' ? record.refillThreshold : null,
     enabled: record.enabled !== false, created_at: record.createdAt ?? record.updated_at,
   })) };
   const schedulesResult = { data: medicationRecords.map((record) => ({ medication_id: record.id, times_json: record.times ?? [], schedule: record.schedule ?? null, revision_number: 1 })) };
@@ -145,10 +146,10 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
     for (const medication of medicationsResult.data ?? []) {
       const time = schedules.get(medication.id) ?? { hour: 8, minute: 0, times: ['08:00'], schedule: null };
       if (await preserveLocalChange('medication', medication.id, { ...(medication as unknown as Record<string, unknown>), times: time.times, schedule: time.schedule })) continue;
-      await db.runAsync(`INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, hour, minute, times_json, schedule_json, enabled, reminder_state, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
-        ON CONFLICT(id) DO UPDATE SET name = excluded.name, presentation = excluded.presentation, dose_text = excluded.dose_text, route = excluded.route, prescriber_name = excluded.prescriber_name, instructions = excluded.instructions, start_date = excluded.start_date, end_date = excluded.end_date, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, schedule_json = excluded.schedule_json, enabled = excluded.enabled`,
-        medication.id, medication.name, medication.presentation, medication.dose_text, localRoute(medication.route), medication.prescriber_name, medication.instructions, medication.start_date, medication.end_date, time.hour, time.minute, JSON.stringify(time.times), JSON.stringify(time.schedule ?? { kind: 'fixed', times: time.times }), medication.enabled ? 1 : 0, medication.created_at);
+      await db.runAsync(`INSERT INTO medications (id, name, presentation, dose_text, route, prescriber_name, instructions, inventory_quantity, inventory_unit, refill_threshold, start_date, end_date, hour, minute, times_json, schedule_json, enabled, reminder_state, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
+        ON CONFLICT(id) DO UPDATE SET name = excluded.name, presentation = excluded.presentation, dose_text = excluded.dose_text, route = excluded.route, prescriber_name = excluded.prescriber_name, instructions = excluded.instructions, inventory_quantity = excluded.inventory_quantity, inventory_unit = excluded.inventory_unit, refill_threshold = excluded.refill_threshold, start_date = excluded.start_date, end_date = excluded.end_date, hour = excluded.hour, minute = excluded.minute, times_json = excluded.times_json, schedule_json = excluded.schedule_json, enabled = excluded.enabled`,
+        medication.id, medication.name, medication.presentation, medication.dose_text, localRoute(medication.route), medication.prescriber_name, medication.instructions, medication.inventory_quantity, medication.inventory_unit, medication.refill_threshold, medication.start_date, medication.end_date, time.hour, time.minute, JSON.stringify(time.times), JSON.stringify(time.schedule ?? { kind: 'fixed', times: time.times }), medication.enabled ? 1 : 0, medication.created_at);
       downloaded += 1;
     }
     const plan = planResult.data;

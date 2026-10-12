@@ -45,6 +45,18 @@ const invalidMedication = await fetch(`${baseUrl}/v1/sync/events`, { method: 'PO
   payload: { id: crypto.randomUUID(), name: 'Invalid', schedule: { kind: 'interval', anchorTime: '25:00', intervalHours: 0 } },
 }) });
 if (invalidMedication.status !== 400) throw new Error(`invalid medication schedule returned ${invalidMedication.status}`);
+const invalidMedicationInventoryId = crypto.randomUUID();
+const invalidMedicationInventory = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'medication.updated.v1', entityType: 'medication', entityId: invalidMedicationInventoryId,
+  payload: { id: invalidMedicationInventoryId, name: 'Invalid inventory', inventoryQuantity: -1, inventoryUnit: 'tablets' },
+}) });
+if (invalidMedicationInventory.status !== 400) throw new Error(`invalid medication inventory returned ${invalidMedicationInventory.status}`);
+const validMedicationInventoryId = crypto.randomUUID();
+const acceptedMedicationInventory = await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'medication.updated.v1', entityType: 'medication', entityId: validMedicationInventoryId,
+  payload: { id: validMedicationInventoryId, name: 'Inventory reference', inventoryQuantity: 0, inventoryUnit: 'tablets', refillThreshold: 2 },
+}) });
+if (acceptedMedicationInventory.status !== 'accepted') throw new Error('valid medication inventory was rejected');
 const invalidMeasurementPlan = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'measurement.plan.updated.v1', entityType: 'measurement_plan', entityId: 'default',
   payload: { id: 'default', readingsPerDay: 2, times: ['08:00', '25:00'], timings: ['fasting', 'after_meal'], windows: [{ kind: 'fixed', time: '08:00', timing: 'fasting' }, { kind: 'fixed', time: '25:00', timing: 'after_meal' }], weekdays: [1, 1], updatedAt: new Date().toISOString() },

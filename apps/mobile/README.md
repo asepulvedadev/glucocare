@@ -23,6 +23,7 @@ Expo SDK 57 mobile-first application for the GlucoCare self-management companion
 - History includes meals, medication occurrences, appointments, and help events alongside glucose readings.
 - Emergency help flow that opens the local emergency number and states delivery limitations.
 - Medication records with clinician-provided dose text, route, one to three daily times, prescriber, instructions, validity dates, and local reminder state.
+- Optional user-entered medication inventory quantity, unit, and refill threshold with an informational low-stock cue; stock is never deducted automatically and never changes treatment.
 - Daily medication occurrence ledger with planned/due/taken/omitted actions and replayable sync events; future doses cannot be acknowledged before their scheduled time.
 - Occurrence reconciliation marks past due/snoozed medication and measurement windows as expired with a sync event instead of silently dropping them.
 - Medication occurrences also support a ten-minute snooze with a one-shot native reminder, plus an explicit not-recorded state; the app never invents a missed-dose instruction.

@@ -223,6 +223,15 @@ function validateGlucosePayload(payload: JsonObject) {
   return null;
 }
 
+function validateMedicationInventory(payload: JsonObject) {
+  for (const field of ['inventoryQuantity', 'refillThreshold'] as const) {
+    if (field in payload && payload[field] !== null && (typeof payload[field] !== 'number' || !Number.isFinite(payload[field]) || payload[field] < 0 || payload[field] > 1_000_000_000)) return 'INVALID_MEDICATION_INVENTORY';
+  }
+  if ('inventoryUnit' in payload && payload.inventoryUnit !== null && !isBoundedString(payload.inventoryUnit, 64)) return 'INVALID_MEDICATION_INVENTORY';
+  if (payload.inventoryQuantity !== undefined && payload.inventoryQuantity !== null && (typeof payload.inventoryUnit !== 'string' || payload.inventoryUnit.length === 0 || payload.inventoryUnit.length > 64)) return 'INVALID_MEDICATION_INVENTORY';
+  return null;
+}
+
 function validateSyncEvent(entityType: string, entityId: string, eventType: string, payload: JsonObject) {
   if (!/^[a-z][a-z0-9_.-]{2,127}$/.test(eventType)) return 'INVALID_EVENT_TYPE';
   if (!/^[0-9a-f-]{36}$/i.test(entityId) && !(entityId === 'default' && (entityType === 'care_plan' || entityType === 'measurement_plan' || entityType === 'emergency_card' || entityType === 'privacy_consent'))) return 'INVALID_ENTITY_ID';
@@ -250,7 +259,11 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
       }
     }
   }
-  if (entityType === 'medication' && payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
+  if (entityType === 'medication') {
+    if (payload.schedule !== undefined && payload.schedule !== null && !isValidMedicationSchedule(payload.schedule)) return 'INVALID_MEDICATION_SCHEDULE';
+    const inventoryError = validateMedicationInventory(payload);
+    if (inventoryError) return inventoryError;
+  }
   if (entityType === 'measurement_plan') {
     const measurementError = validateMeasurementPlanPayload(payload);
     if (measurementError) return measurementError;

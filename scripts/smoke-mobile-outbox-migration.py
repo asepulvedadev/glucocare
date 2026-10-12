@@ -130,6 +130,14 @@ def migration_sql(version: int) -> str:
             COMMIT;
             """
         )
+    elif version == 44:
+        return textwrap.dedent(
+            """
+            ALTER TABLE medications ADD COLUMN inventory_quantity REAL;
+            ALTER TABLE medications ADD COLUMN inventory_unit TEXT;
+            ALTER TABLE medications ADD COLUMN refill_threshold REAL;
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -305,7 +313,16 @@ def main() -> int:
         constraint_error = error
     if constraint_error is not None:
         raise SystemExit(f"Nine-window measurement plan was rejected: {constraint_error}")
-    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, emergency card legal fields v41, consent metadata v42, and nine-window measurement plan v43 migrations passed.")
+    db.executescript(migration_sql(44))
+    inventory_columns = {row[1] for row in db.execute("PRAGMA table_info(medications)").fetchall()}
+    expected_inventory_columns = {"inventory_quantity", "inventory_unit", "refill_threshold"}
+    if not expected_inventory_columns.issubset(inventory_columns):
+        raise SystemExit(f"Unexpected medication inventory migration columns: {inventory_columns!r}")
+    db.execute("INSERT INTO medications (id, inventory_quantity, inventory_unit, refill_threshold) VALUES (?, ?, ?, ?)", ('inventory-medication', 12, 'tabletas', 3))
+    inventory = db.execute("SELECT inventory_quantity, inventory_unit, refill_threshold FROM medications WHERE id = 'inventory-medication'").fetchone()
+    if inventory != (12.0, 'tabletas', 3.0):
+        raise SystemExit(f"Unexpected medication inventory migration result: {inventory!r}")
+    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, emergency card legal fields v41, consent metadata v42, nine-window measurement plan v43, and medication inventory v44 migrations passed.")
     return 0
 
 

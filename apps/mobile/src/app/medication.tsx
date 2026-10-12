@@ -44,6 +44,9 @@ function MedicationForm({ existing }: { existing?: Medication }) {
   const [doseText, setDoseText] = useState(existing?.doseText ?? '');
   const [prescriberName, setPrescriberName] = useState(existing?.prescriberName ?? '');
   const [instructions, setInstructions] = useState(existing?.instructions ?? '');
+  const [inventoryQuantity, setInventoryQuantity] = useState(existing?.inventoryQuantity === undefined ? '' : String(existing.inventoryQuantity));
+  const [inventoryUnit, setInventoryUnit] = useState(existing?.inventoryUnit ?? '');
+  const [refillThreshold, setRefillThreshold] = useState(existing?.refillThreshold === undefined ? '' : String(existing.refillThreshold));
   const [startDate, setStartDate] = useState(existing?.startDate ?? '');
   const [endDate, setEndDate] = useState(existing?.endDate ?? '');
   const [route, setRoute] = useState<MedicationRoute>(existing?.route ?? 'oral');
@@ -75,6 +78,19 @@ function MedicationForm({ existing }: { existing?: Medication }) {
     }
     const validTimes = parsedTimes.filter((value): value is { hour: number; minute: number } => Boolean(value));
     const timeValues = validTimes.map((value) => `${String(value.hour).padStart(2, '0')}:${String(value.minute).padStart(2, '0')}`);
+    const normalizedInventoryQuantity = inventoryQuantity.trim();
+    const normalizedInventoryUnit = inventoryUnit.trim();
+    const normalizedRefillThreshold = refillThreshold.trim();
+    const quantity = normalizedInventoryQuantity ? Number(normalizedInventoryQuantity.replace(',', '.')) : undefined;
+    const threshold = normalizedRefillThreshold ? Number(normalizedRefillThreshold.replace(',', '.')) : undefined;
+    const inventoryIsValid = (quantity === undefined || (Number.isFinite(quantity) && quantity >= 0 && quantity <= 1_000_000_000))
+      && (threshold === undefined || (Number.isFinite(threshold) && threshold >= 0 && threshold <= 1_000_000_000))
+      && (!normalizedInventoryQuantity || Boolean(normalizedInventoryUnit))
+      && (!normalizedInventoryUnit || normalizedInventoryUnit.length <= 64);
+    if (!inventoryIsValid) {
+      Alert.alert('Revisa el inventario', 'La cantidad y el umbral deben ser números no negativos; la unidad es obligatoria si registras existencias.');
+      return;
+    }
     const schedule = scheduleKind === 'fixed'
       ? { kind: 'fixed' as const, times: [...new Set(timeValues)].sort(), weekdays }
       : scheduleKind === 'interval'
@@ -87,7 +103,7 @@ function MedicationForm({ existing }: { existing?: Medication }) {
     setSaving(true);
     try {
       const compatibilityTime = validTimes[0] ?? { hour: 0, minute: 0 };
-      const input = { name: name.trim(), presentation: presentation.trim() || undefined, doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: compatibilityTime.hour, minute: compatibilityTime.minute, times: schedule.kind === 'fixed' ? schedule.times : [schedule.anchorTime], schedule, enabled };
+      const input = { name: name.trim(), presentation: presentation.trim() || undefined, doseText: doseText.trim(), prescriberName: prescriberName.trim() || undefined, instructions: instructions.trim() || undefined, inventoryQuantity: quantity, inventoryUnit: normalizedInventoryUnit || undefined, refillThreshold: threshold, startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined, route, hour: compatibilityTime.hour, minute: compatibilityTime.minute, times: schedule.kind === 'fixed' ? schedule.times : [schedule.anchorTime], schedule, enabled };
       const state = existing ? await updateMedication(existing.id, input) : await addMedication(input);
       if (state === 'permission_denied') {
         Alert.alert('Medicamento guardado', 'El registro quedó guardado, pero las notificaciones están deshabilitadas.', [
@@ -120,6 +136,13 @@ function MedicationForm({ existing }: { existing?: Medication }) {
         <TextInput accessibilityLabel="Dosis indicada" value={doseText} onChangeText={setDoseText} placeholder="Ej. 500 mg" placeholderTextColor={colors.textDisabled} style={styles.input} />
         <Caption>QUIÉN LO INDICÓ (OPCIONAL)</Caption>
         <TextInput accessibilityLabel="Profesional que indicó el medicamento" value={prescriberName} onChangeText={setPrescriberName} placeholder="Ej. Dra. Pérez" placeholderTextColor={colors.textDisabled} style={styles.input} />
+      </Panel>
+      <Panel>
+        <Caption>INVENTARIO OPCIONAL</Caption>
+        <TextInput accessibilityLabel="Cantidad disponible del medicamento" value={inventoryQuantity} onChangeText={setInventoryQuantity} keyboardType="decimal-pad" placeholder="Cantidad disponible" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Unidad del inventario" value={inventoryUnit} onChangeText={setInventoryUnit} placeholder="Ej. tabletas, frascos o unidades" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Umbral para recordar reposición" value={refillThreshold} onChangeText={setRefillThreshold} keyboardType="decimal-pad" placeholder="Avisar al llegar a (opcional)" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Body>Es una referencia escrita por ti. GlucoCare no descuenta existencias ni recomienda cambiar el tratamiento.</Body>
       </Panel>
       {existing ? <Panel>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: enabled }} onPress={() => setEnabled((value) => !value)} style={styles.enableRow}>

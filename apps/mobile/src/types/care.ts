@@ -25,6 +25,10 @@ export type Medication = {
   route: MedicationRoute;
   prescriberName?: string;
   instructions?: string;
+  /** Optional user-entered stock reference; the app never deducts or prescribes. */
+  inventoryQuantity?: number;
+  inventoryUnit?: string;
+  refillThreshold?: number;
   startDate?: string;
   endDate?: string;
   hour: number;
