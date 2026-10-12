@@ -53,6 +53,7 @@ export async function listAppointments(db: SQLiteDatabase): Promise<Appointment[
 }
 
 export async function insertAppointment(db: SQLiteDatabase, appointment: Appointment) {
+  const updatedAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO appointments (id, title, provider, specialty, insurer, authorization_number, facility, scheduled_at, requested_at, status, location, virtual_url, preparation_notes, notes, reminder_state, notification_id, created_at)
@@ -61,7 +62,7 @@ export async function insertAppointment(db: SQLiteDatabase, appointment: Appoint
       appointment.location ?? null, appointment.virtualUrl ?? null, appointment.preparationNotes ?? null, appointment.notes ?? null, appointment.reminderState, appointment.notificationId ?? null, appointment.createdAt,
     );
     await insertChangeAuditEvent(db, { entityType: 'appointment', entityId: appointment.id, action: 'created', after: appointment });
-    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.created.v1', payload: appointment });
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.created.v1', payload: { ...appointment, updatedAt } });
   });
 }
 
@@ -69,6 +70,7 @@ export async function updateAppointment(db: SQLiteDatabase, appointment: Appoint
   const previousRow = await db.getFirstAsync<AppointmentRow>('SELECT * FROM appointments WHERE id = ?', appointment.id);
   if (!previousRow) throw new Error('Appointment not found.');
   const previous = mapRow(previousRow);
+  const updatedAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `UPDATE appointments SET title = ?, provider = ?, specialty = ?, insurer = ?, authorization_number = ?, facility = ?, scheduled_at = ?, requested_at = ?, status = ?, location = ?, virtual_url = ?, preparation_notes = ?, notes = ?, reminder_state = ?, notification_id = ? WHERE id = ?`,
@@ -90,7 +92,7 @@ export async function updateAppointment(db: SQLiteDatabase, appointment: Appoint
       appointment.id,
     );
     await insertChangeAuditEvent(db, { entityType: 'appointment', entityId: appointment.id, action: 'updated', before: previous, after: appointment });
-    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.updated.v1', payload: appointment });
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.updated.v1', payload: { ...appointment, updatedAt } });
   });
 }
 
@@ -101,10 +103,11 @@ export async function updateAppointmentStatus(db: SQLiteDatabase, appointmentId:
   transitionAppointment(current.status, status);
   const terminal = isTerminalAppointmentStatus(status);
   const updated = { ...current, status, reminderState: terminal ? 'unavailable' as const : current.reminderState };
+  const updatedAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
     await db.runAsync('UPDATE appointments SET status = ?, reminder_state = ? WHERE id = ?', status, updated.reminderState, appointmentId);
     await insertChangeAuditEvent(db, { entityType: 'appointment', entityId: appointmentId, action: `status:${status}`, before: current, after: updated });
-    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointmentId, eventType: `appointment.${status}.v1`, payload: updated });
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointmentId, eventType: `appointment.${status}.v1`, payload: { ...updated, updatedAt } });
   });
   return updated;
 }
