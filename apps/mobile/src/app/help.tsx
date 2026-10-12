@@ -18,6 +18,7 @@ import { getEmergencyConfig } from '../config';
 import { usePrivacy } from '../privacyContext';
 import { newId } from '../ids';
 import { selectPrimaryTrustedContact } from '../domain/trustedContactSelection';
+import { canQueueRemoteEmergencyAlert } from '../domain/helpFlow';
 
 export default function HelpScreen() {
   const db = useSQLiteContext();
@@ -57,7 +58,14 @@ export default function HelpScreen() {
         setHelpEvents(await listHelpEvents(db));
       }
       let remoteQueued = false;
-      if (session && isCloudConfigured && consent?.localDataConsent && consent.cloudSyncConsent && consent.emergencySharingConsent && primaryContact) {
+      if (canQueueRemoteEmergencyAlert({
+        authenticated: Boolean(session),
+        cloudConfigured: isCloudConfigured,
+        localDataConsent: Boolean(consent?.localDataConsent),
+        cloudSyncConsent: Boolean(consent?.cloudSyncConsent),
+        emergencySharingConsent: Boolean(consent?.emergencySharingConsent),
+        consentedContactCount: consentedContacts.length,
+      }) && session && primaryContact) {
         try {
           await syncPendingData(db, session);
           const channels = [...new Set(consentedContacts.flatMap((contact) => [contact.email ? 'email' as const : null, contact.phone ? 'sms' as const : null].filter((channel): channel is 'email' | 'sms' => channel !== null)))];

@@ -16,6 +16,7 @@ import { MAX_PENDING_LOCAL_REMINDERS, selectNotificationCandidates } from '../sr
 import { exportRangeSince } from '../src/domain/exportRange';
 import { ketoneResultLabel } from '../src/types/domain';
 import { selectPrimaryTrustedContact } from '../src/domain/trustedContactSelection';
+import { canQueueRemoteEmergencyAlert } from '../src/domain/helpFlow';
 
 describe('trusted contact selection', () => {
   it('prefers a consented phone contact for the immediate call fallback', () => {
@@ -271,6 +272,27 @@ describe('emergency configuration', () => {
     const config = getEmergencyConfig({ emergencyNumber: '  ', emergencyRegion: '' });
     expect(config.number).toBeTruthy();
     expect(config.region).toBeTruthy();
+  });
+});
+
+describe('emergency remote-alert consent gate', () => {
+  const eligible = {
+    authenticated: true,
+    cloudConfigured: true,
+    localDataConsent: true,
+    cloudSyncConsent: true,
+    emergencySharingConsent: true,
+    consentedContactCount: 1,
+  };
+
+  it('allows a remote alert only when every prerequisite is present', () => {
+    expect(canQueueRemoteEmergencyAlert(eligible)).toBe(true);
+  });
+
+  it('keeps direct emergency help available when cloud consent or contacts are missing', () => {
+    expect(canQueueRemoteEmergencyAlert({ ...eligible, emergencySharingConsent: false })).toBe(false);
+    expect(canQueueRemoteEmergencyAlert({ ...eligible, consentedContactCount: 0 })).toBe(false);
+    expect(canQueueRemoteEmergencyAlert({ ...eligible, authenticated: false })).toBe(false);
   });
 });
 
