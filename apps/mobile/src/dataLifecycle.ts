@@ -22,7 +22,7 @@ export async function printClinicianReport(db: SQLiteDatabase, range: ExportRang
   const rangeClause = (field: string) => since ? ` WHERE ${field} >= ?` : '';
   const rangeParams = since ? [since] : [];
   const [card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, auditEvents] = await Promise.all([
-    db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
+    db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_number, emergency_region, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>(`SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, ketone_result, risk_classification FROM glucose_readings${rangeClause('recorded_at')} ORDER BY recorded_at DESC LIMIT 200`, ...rangeParams),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>(`SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments${rangeClause('scheduled_at')} ORDER BY scheduled_at ASC LIMIT 100`, ...rangeParams),
