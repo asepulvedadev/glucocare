@@ -1,7 +1,7 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { insertMedication, listMedications, updateMedication as updateStoredMedication, updateMedicationReminder } from './db/careRepository';
-import { insertAppointment, listAppointments, updateAppointmentReminder, updateAppointmentStatus as updateStoredAppointmentStatus } from './db/appointmentsRepository';
+import { insertAppointment, listAppointments, updateAppointment as updateStoredAppointment, updateAppointmentReminder, updateAppointmentStatus as updateStoredAppointmentStatus } from './db/appointmentsRepository';
 import { getMeasurementPlan, upsertMeasurementPlan } from './db/measurementRepository';
 import { getCarePlan, upsertCarePlan } from './db/carePlanRepository';
 import { ensureTodaysMedicationOccurrences, listTodaysMedicationOccurrences, recordMedicationOccurrence } from './db/medicationOccurrenceRepository';
@@ -29,6 +29,7 @@ type CareContextValue = {
   addMedication: (input: NewMedication) => Promise<ReminderPermission>;
   updateMedication: (medicationId: string, input: NewMedication) => Promise<ReminderPermission>;
   addAppointment: (input: NewAppointment) => Promise<ReminderPermission>;
+  updateAppointment: (appointmentId: string, input: NewAppointment) => Promise<ReminderPermission>;
   saveMeasurementPlan: (input: NewMeasurementPlan) => Promise<void>;
   saveCarePlan: (input: NewCarePlan) => Promise<void>;
   addMealEvent: (input: NewMealEvent) => Promise<void>;
@@ -171,6 +172,29 @@ export function CareProvider({ children }: PropsWithChildren) {
     return scheduled.state;
   }, [db]);
 
+  const updateAppointment = useCallback(async (appointmentId: string, input: NewAppointment) => {
+    const current = appointments.find((item) => item.id === appointmentId);
+    if (!current) throw new Error('Appointment not found.');
+    await cancelReminder(current.notificationId);
+    const appointment: Appointment = {
+      ...input,
+      id: current.id,
+      createdAt: current.createdAt,
+      reminderState: 'unavailable',
+    };
+    const scheduled = appointment.status === 'completed' || appointment.status === 'cancelled'
+      ? { state: 'unavailable' as const, notificationId: undefined }
+      : await scheduleAppointmentReminder(appointment);
+    const stored: Appointment = {
+      ...appointment,
+      notificationId: scheduled.notificationId,
+      reminderState: scheduled.state === 'granted' ? 'scheduled' : scheduled.state,
+    };
+    await updateStoredAppointment(db, stored);
+    setAppointments((items) => items.map((item) => item.id === stored.id ? stored : item).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)));
+    return scheduled.state;
+  }, [appointments, db]);
+
   const saveMeasurementPlan = useCallback(async (input: NewMeasurementPlan) => {
     const plan: MeasurementPlan = { id: 'default', ...input, updatedAt: new Date().toISOString() };
     await upsertMeasurementPlan(db, plan);
@@ -220,7 +244,7 @@ export function CareProvider({ children }: PropsWithChildren) {
     setAppointments((current) => current.map((appointment) => appointment.id === updated.id ? updated : appointment));
   }, [db]);
 
-  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);
+  const value = useMemo(() => ({ medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, updateAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh }), [medications, medicationOccurrences, measurementOccurrences, appointments, measurementPlan, carePlan, mealEvents, isLoading, addMedication, updateMedication, addAppointment, updateAppointment, saveMeasurementPlan, saveCarePlan, addMealEvent, markMedicationOccurrence, snoozeMedicationOccurrence, markMeasurementOccurrence, updateAppointmentStatus, refresh]);
   return <CareContext.Provider value={value}>{children}</CareContext.Provider>;
 }
 

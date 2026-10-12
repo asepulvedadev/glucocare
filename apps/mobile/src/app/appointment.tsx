@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput } from 'react-native';
 import { Screen } from '../components/Screen';
@@ -7,6 +7,7 @@ import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useCare } from '../careContext';
 import { openNotificationSettings } from '../notifications';
+import type { Appointment } from '../types/appointments';
 import { colors, radii, spacing } from '../theme/tokens';
 
 function parseDateTime(raw: string) {
@@ -15,19 +16,36 @@ function parseDateTime(raw: string) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+function localDateTime(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function AppointmentScreen() {
-  const { addAppointment } = useCare();
-  const [title, setTitle] = useState('');
-  const [provider, setProvider] = useState('');
-  const [specialty, setSpecialty] = useState('');
-  const [insurer, setInsurer] = useState('');
-  const [authorizationNumber, setAuthorizationNumber] = useState('');
-  const [facility, setFacility] = useState('');
-  const [dateTime, setDateTime] = useState('');
-  const [location, setLocation] = useState('');
-  const [virtualUrl, setVirtualUrl] = useState('');
-  const [preparationNotes, setPreparationNotes] = useState('');
-  const [notes, setNotes] = useState('');
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { appointments, isLoading } = useCare();
+  const existing = typeof id === 'string' ? appointments.find((item) => item.id === id) : undefined;
+  if (id && !existing && isLoading) return <Screen><Body>Cargando cita…</Body></Screen>;
+  if (id && !existing) return <Screen><PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} /><Body>No encontramos esa cita en este dispositivo.</Body></Screen>;
+  return <AppointmentForm existing={existing} />;
+}
+
+function AppointmentForm({ existing }: { existing?: Appointment }) {
+  const { addAppointment, updateAppointment } = useCare();
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [provider, setProvider] = useState(existing?.provider ?? '');
+  const [specialty, setSpecialty] = useState(existing?.specialty ?? '');
+  const [insurer, setInsurer] = useState(existing?.insurer ?? '');
+  const [authorizationNumber, setAuthorizationNumber] = useState(existing?.authorizationNumber ?? '');
+  const [facility, setFacility] = useState(existing?.facility ?? '');
+  const [dateTime, setDateTime] = useState(localDateTime(existing?.scheduledAt));
+  const [location, setLocation] = useState(existing?.location ?? '');
+  const [virtualUrl, setVirtualUrl] = useState(existing?.virtualUrl ?? '');
+  const [preparationNotes, setPreparationNotes] = useState(existing?.preparationNotes ?? '');
+  const [notes, setNotes] = useState(existing?.notes ?? '');
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -38,7 +56,22 @@ export default function AppointmentScreen() {
     }
     setSaving(true);
     try {
-      const reminderState = await addAppointment({ title: title.trim(), provider: provider.trim(), specialty: specialty.trim() || undefined, insurer: insurer.trim() || undefined, authorizationNumber: authorizationNumber.trim() || undefined, facility: facility.trim() || undefined, requestedAt: new Date().toISOString(), scheduledAt: parsed.toISOString(), status: 'requested', location: location.trim() || undefined, virtualUrl: virtualUrl.trim() || undefined, preparationNotes: preparationNotes.trim() || undefined, notes: notes.trim() || undefined });
+      const input = {
+        title: title.trim(),
+        provider: provider.trim(),
+        specialty: specialty.trim() || undefined,
+        insurer: insurer.trim() || undefined,
+        authorizationNumber: authorizationNumber.trim() || undefined,
+        facility: facility.trim() || undefined,
+        requestedAt: existing?.requestedAt ?? new Date().toISOString(),
+        scheduledAt: parsed.toISOString(),
+        status: existing?.status ?? 'requested',
+        location: location.trim() || undefined,
+        virtualUrl: virtualUrl.trim() || undefined,
+        preparationNotes: preparationNotes.trim() || undefined,
+        notes: notes.trim() || undefined,
+      } as const;
+      const reminderState = existing ? await updateAppointment(existing.id, input) : await addAppointment(input);
       if (reminderState === 'permission_denied') Alert.alert('Cita guardada', 'La cita quedó guardada, pero las notificaciones están deshabilitadas.', [
         { text: 'Ahora no', style: 'cancel' },
         { text: 'Abrir ajustes', onPress: () => void openNotificationSettings() },
@@ -51,8 +84,8 @@ export default function AppointmentScreen() {
   return (
     <Screen>
       <PrimaryButton label="Volver" tone="quiet" onPress={() => router.back()} />
-      <Eyebrow>Nueva cita</Eyebrow>
-      <Heading>Guarda los detalles</Heading>
+      <Eyebrow>{existing ? 'Editar cita' : 'Nueva cita'}</Eyebrow>
+      <Heading>{existing ? 'Actualiza los detalles' : 'Guarda los detalles'}</Heading>
       <Body>El estado ayuda a organizar el proceso administrativo. No confirma una atención médica.</Body>
       <Panel>
         <Caption>MOTIVO</Caption>
@@ -65,12 +98,9 @@ export default function AppointmentScreen() {
       <Panel>
         <Caption>FECHA Y HORA</Caption>
         <TextInput accessibilityLabel="Fecha y hora de la cita" value={dateTime} onChangeText={setDateTime} placeholder="2026-10-20 09:00" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.dateInput]} />
-        <Body>Usa la hora local del dispositivo. El recordatorio intenta avisar un día antes.</Body>
+        <Body>Usa la hora local del dispositivo. Al cambiarla, el recordatorio anterior se cancela y se programa uno nuevo cuando sea posible.</Body>
       </Panel>
-      <Panel>
-        <Caption>ESTADO INICIAL</Caption>
-        <Body>La cita se guardará como “Por solicitar”. Después podrás pasarla a “Por autorizar” y avanzar por las etapas válidas desde Cuidado.</Body>
-      </Panel>
+      {existing ? <Panel><Caption>ESTADO ACTUAL</Caption><Body>La cita conserva su estado actual. Puedes cambiarlo desde Cuidado.</Body></Panel> : <Panel><Caption>ESTADO INICIAL</Caption><Body>La cita se guardará como “Por solicitar”. Después podrás pasarla por las etapas válidas desde Cuidado.</Body></Panel>}
       <Panel>
         <Caption>OPCIONAL</Caption>
         <TextInput accessibilityLabel="EPS o asegurador" value={insurer} onChangeText={setInsurer} placeholder="EPS o asegurador" placeholderTextColor={colors.textDisabled} style={styles.input} />
@@ -80,7 +110,7 @@ export default function AppointmentScreen() {
         <TextInput accessibilityLabel="Preparación para la cita" value={preparationNotes} onChangeText={setPreparationNotes} placeholder="Preparación o documentos" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
         <TextInput accessibilityLabel="Notas de la cita" value={notes} onChangeText={setNotes} placeholder="Notas" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.multiline]} multiline />
       </Panel>
-      <PrimaryButton label={saving ? 'Guardando…' : 'Guardar cita'} onPress={() => void save()} disabled={saving} />
+      <PrimaryButton label={saving ? 'Guardando…' : existing ? 'Actualizar cita' : 'Guardar cita'} onPress={() => void save()} disabled={saving} />
       <Text style={styles.disclaimer}>Los recordatorios son una ayuda y no garantizan la asistencia ni la entrega de una notificación.</Text>
     </Screen>
   );

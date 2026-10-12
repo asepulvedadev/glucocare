@@ -63,6 +63,31 @@ export async function insertAppointment(db: SQLiteDatabase, appointment: Appoint
   });
 }
 
+export async function updateAppointment(db: SQLiteDatabase, appointment: Appointment) {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE appointments SET title = ?, provider = ?, specialty = ?, insurer = ?, authorization_number = ?, facility = ?, scheduled_at = ?, requested_at = ?, status = ?, location = ?, virtual_url = ?, preparation_notes = ?, notes = ?, reminder_state = ?, notification_id = ? WHERE id = ?`,
+      appointment.title,
+      appointment.provider,
+      appointment.specialty ?? null,
+      appointment.insurer ?? null,
+      appointment.authorizationNumber ?? null,
+      appointment.facility ?? null,
+      appointment.scheduledAt,
+      appointment.requestedAt ?? appointment.createdAt,
+      appointment.status,
+      appointment.location ?? null,
+      appointment.virtualUrl ?? null,
+      appointment.preparationNotes ?? null,
+      appointment.notes ?? null,
+      appointment.reminderState,
+      appointment.notificationId ?? null,
+      appointment.id,
+    );
+    await enqueueOutbox(db, { id: newId(), entityType: 'appointment', entityId: appointment.id, eventType: 'appointment.updated.v1', payload: appointment });
+  });
+}
+
 export async function updateAppointmentStatus(db: SQLiteDatabase, appointmentId: string, status: AppointmentStatus) {
   const row = await db.getFirstAsync<AppointmentRow>('SELECT * FROM appointments WHERE id = ?', appointmentId);
   if (!row) throw new Error('Appointment not found.');

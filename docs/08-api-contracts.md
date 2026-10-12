@@ -92,6 +92,7 @@ Server returns per-event acceptance/rejection and an opaque next cursor. One inv
 | `glucose.reading.corrected.v1` | References original and audit reason. |
 | `care_plan.revision.activated.v1` | Immutable revision and effective time. |
 | `medication.occurrence.responded.v1` | Taken/skipped/snoozed with user time. |
+| `appointment.updated.v1` | Replaces editable appointment details and reschedules the local reminder. |
 | `appointment.status_changed.v1` | Enforces legal transition. |
 | `contact.consent_changed.v1` | Accepted/revoked and scopes. |
 | `emergency.incident.started.v1` | Minimal incident record. |
