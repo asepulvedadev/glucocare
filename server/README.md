@@ -46,8 +46,9 @@ lectura. PostgreSQL solo está en la red interna de Compose.
 
 `dist/alertWorker.js` se ejecuta como `glucocare-alert-worker` sin puerto
 publicado. Reclama entregas con `SKIP LOCKED`, reintenta errores transitorios
-con backoff y solo cambia a `provider_accepted` cuando el proveedor devuelve un
-identificador. No convierte esa aceptación en `delivered`: los callbacks de
-entrega requieren una integración y una revisión operacional. Sin credenciales
-o sin un dato de contacto válido, la entrega queda explícitamente en
-`not_configured`.
+con backoff y recupera automáticamente una entrega cuyo lease expiró después
+de una caída del proceso. Solo cambia a `provider_accepted` cuando el proveedor
+devuelve un identificador. No convierte esa aceptación en `delivered`: los
+callbacks de entrega requieren una integración y una revisión operacional. Sin
+credenciales o sin un dato de contacto válido, la entrega queda explícitamente
+en `not_configured`.

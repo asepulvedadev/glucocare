@@ -28,9 +28,12 @@ async function claimBatch() {
     `WITH candidates AS (
        SELECT d.id
        FROM alert_deliveries d
-       WHERE d.status = 'queued'
-         AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= now())
-         AND (d.lease_until IS NULL OR d.lease_until < now())
+       WHERE (
+         (d.status = 'queued'
+           AND (d.next_attempt_at IS NULL OR d.next_attempt_at <= now())
+           AND (d.lease_until IS NULL OR d.lease_until < now()))
+         OR (d.status = 'processing' AND d.lease_until < now())
+       )
        ORDER BY d.queued_at ASC
        FOR UPDATE SKIP LOCKED
        LIMIT $1

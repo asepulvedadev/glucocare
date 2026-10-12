@@ -115,6 +115,10 @@ delivery is claimed and the mobile app shows the queued/unavailable state.
 The worker writes a heartbeat only after a complete database/provider polling
 tick; its container health check becomes unhealthy when that heartbeat is older
 than two minutes, instead of treating a merely running process as healthy.
+If the worker stops after claiming a delivery, the two-minute lease expires and
+the next tick reclaims that delivery. This prevents a crashed process from
+leaving an alert permanently stuck in `processing`; the worker smoke test
+exercises this recovery path.
 
 The checked-in `deploy/vps/glucocare-db-backup` command creates a mode-600
 PostgreSQL custom-format dump under `/srv/glucocare/backups`. Its daily systemd
