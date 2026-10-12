@@ -28,8 +28,13 @@ const noPrivacyInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { m
 if (noPrivacyInvitation.status !== 403) throw new Error('invitation bypassed patient privacy consent');
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
   eventId: crypto.randomUUID(), eventType: 'privacy.consent.updated.v1', entityType: 'privacy_consent', entityId: 'default',
-  payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true, updatedAt: new Date().toISOString() },
+  payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', locale: 'es-CO', purposes: ['local_record', 'cloud_sync', 'trusted_contact_alerts'], dataCategories: ['health_records', 'trusted_contacts'], recipients: ['patient_account', 'trusted_contacts'], evidenceMethod: 'in_app_checkbox', localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true, updatedAt: new Date().toISOString() },
 }) });
+const invalidPrivacyMetadata = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'privacy.consent.updated.v1', entityType: 'privacy_consent', entityId: 'default',
+  payload: { id: 'default', policyVersion: 'synthetic-privacy-v1', purposes: [123], localDataConsent: true, cloudSyncConsent: true, emergencySharingConsent: true, updatedAt: new Date().toISOString() },
+}) });
+if (invalidPrivacyMetadata.status !== 400) throw new Error(`invalid privacy metadata returned ${invalidPrivacyMetadata.status}`);
 const anonymousSync = await fetch(`${baseUrl}/v1/sync?since=1970-01-01T00:00:00.000Z`);
 if (anonymousSync.status !== 401) throw new Error(`anonymous sync returned ${anonymousSync.status}`);
 const invalidMedication = await fetch(`${baseUrl}/v1/sync/events`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({

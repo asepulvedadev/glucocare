@@ -6,7 +6,7 @@ import type { NewPrivacyConsent, PrivacyConsent } from './types/privacy';
 type PrivacyContextValue = {
   consent: PrivacyConsent | null;
   isLoading: boolean;
-  saveConsent: (input: Omit<NewPrivacyConsent, 'policyVersion' | 'acceptedAt'>) => Promise<void>;
+  saveConsent: (input: Pick<NewPrivacyConsent, 'localDataConsent' | 'cloudSyncConsent' | 'emergencySharingConsent'>) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -35,7 +35,7 @@ export function PrivacyProvider({ children }: PropsWithChildren) {
     return () => { active = false; };
   }, [db]);
 
-  const save = useCallback(async (input: Omit<NewPrivacyConsent, 'policyVersion' | 'acceptedAt'>) => {
+  const save = useCallback(async (input: Pick<NewPrivacyConsent, 'localDataConsent' | 'cloudSyncConsent' | 'emergencySharingConsent'>) => {
     const acceptedAt = input.localDataConsent ? new Date().toISOString() : undefined;
     const saved = await savePrivacyConsent(db, { ...input, policyVersion: POLICY_VERSION, acceptedAt });
     setConsent(saved);

@@ -6,6 +6,7 @@ import { Body, Caption, Eyebrow, Heading } from '../components/Typography';
 import { Panel } from '../components/Panel';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { usePrivacy } from '../privacyContext';
+import { POLICY_VERSION } from '../db/privacyRepository';
 import { useSafety } from '../safetyContext';
 import { useAuth } from '../authContext';
 import { cloudApi } from '../cloudApi';
@@ -58,6 +59,12 @@ export default function PrivacyConsentScreen() {
     <Eyebrow>Privacidad y consentimiento</Eyebrow>
     <Heading>Tú decides qué se comparte</Heading>
     <Body>GlucoCare funciona localmente. Estas preferencias controlan los servicios opcionales y pueden cambiarse en cualquier momento.</Body>
+    <Panel tone="teal">
+      <Caption>AVISO DE PRIVACIDAD · VERSIÓN {consent?.policyVersion ?? POLICY_VERSION}</Caption>
+      <Body>La app puede guardar registros de salud, medicamentos, citas, tarjeta de emergencia y contactos de apoyo. Los datos locales se usan para mostrar tu historial, recordatorios, plan de cuidado y exportaciones.</Body>
+      <Body>La sincronización cloud es opcional. Los avisos a contactos solo se procesan cuando activas ese permiso y el contacto acepta la invitación. Un contacto no obtiene acceso a tu historial.</Body>
+      <Caption>Este resumen técnico no reemplaza el texto legal final, que debe ser revisado y aprobado antes de producción.</Caption>
+    </Panel>
     <Panel>
       <Caption>NECESARIO PARA USAR EL REGISTRO</Caption>
       <ConsentRow label="Autorizo guardar mis registros de salud en este dispositivo." checked={localDataConsent} onPress={() => setLocalDataConsent((value) => !value)} />

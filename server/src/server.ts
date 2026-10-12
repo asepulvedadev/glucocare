@@ -209,6 +209,12 @@ function validateSyncEvent(entityType: string, entityId: string, eventType: stri
     if (entityId !== 'default') return 'INVALID_ENTITY_ID';
     if (typeof payload.localDataConsent !== 'boolean' || typeof payload.cloudSyncConsent !== 'boolean' || typeof payload.emergencySharingConsent !== 'boolean') return 'INVALID_PRIVACY_CONSENT';
     if (!isBoundedString(payload.policyVersion, 128)) return 'INVALID_PRIVACY_POLICY';
+    if (payload.locale !== undefined && !isBoundedString(payload.locale, 16)) return 'INVALID_PRIVACY_LOCALE';
+    for (const field of ['purposes', 'dataCategories', 'recipients'] as const) {
+      const values = payload[field];
+      if (values !== undefined && (!Array.isArray(values) || values.length > 32 || values.some((item) => !isBoundedString(item, 64)))) return 'INVALID_PRIVACY_METADATA';
+    }
+    if (payload.evidenceMethod !== undefined && payload.evidenceMethod !== 'in_app_checkbox') return 'INVALID_PRIVACY_EVIDENCE';
   }
   return null;
 }

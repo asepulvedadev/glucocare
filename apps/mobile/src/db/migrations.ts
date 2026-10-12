@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 41;
+const DATABASE_VERSION = 42;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -529,6 +529,16 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!emergencyColumns.some((column) => column.name === 'rh_factor')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN rh_factor TEXT');
     if (!emergencyColumns.some((column) => column.name === 'care_address')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN care_address TEXT');
     currentVersion = 41;
+  }
+
+  if (currentVersion < 42) {
+    const privacyColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(privacy_consents)');
+    if (!privacyColumns.some((column) => column.name === 'locale')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN locale TEXT NOT NULL DEFAULT 'es-CO'");
+    if (!privacyColumns.some((column) => column.name === 'purposes_json')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN purposes_json TEXT NOT NULL DEFAULT '[]'");
+    if (!privacyColumns.some((column) => column.name === 'data_categories_json')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN data_categories_json TEXT NOT NULL DEFAULT '[]'");
+    if (!privacyColumns.some((column) => column.name === 'recipients_json')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN recipients_json TEXT NOT NULL DEFAULT '[]'");
+    if (!privacyColumns.some((column) => column.name === 'evidence_method')) await db.execAsync("ALTER TABLE privacy_consents ADD COLUMN evidence_method TEXT NOT NULL DEFAULT 'in_app_checkbox'");
+    currentVersion = 42;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

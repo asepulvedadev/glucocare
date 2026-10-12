@@ -96,6 +96,16 @@ def migration_sql(version: int) -> str:
             ALTER TABLE emergency_card ADD COLUMN care_address TEXT;
             """
         )
+    elif version == 42:
+        return textwrap.dedent(
+            """
+            ALTER TABLE privacy_consents ADD COLUMN locale TEXT NOT NULL DEFAULT 'es-CO';
+            ALTER TABLE privacy_consents ADD COLUMN purposes_json TEXT NOT NULL DEFAULT '[]';
+            ALTER TABLE privacy_consents ADD COLUMN data_categories_json TEXT NOT NULL DEFAULT '[]';
+            ALTER TABLE privacy_consents ADD COLUMN recipients_json TEXT NOT NULL DEFAULT '[]';
+            ALTER TABLE privacy_consents ADD COLUMN evidence_method TEXT NOT NULL DEFAULT 'in_app_checkbox';
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -149,6 +159,15 @@ def main() -> int:
         INSERT INTO glucose_readings (id, value, unit) VALUES ('reading-1', 10, 'mmol/L');
         CREATE TABLE accessibility_preferences (
           id TEXT PRIMARY KEY NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE TABLE privacy_consents (
+          id TEXT PRIMARY KEY NOT NULL,
+          policy_version TEXT NOT NULL,
+          local_data_consent INTEGER NOT NULL DEFAULT 0,
+          cloud_sync_consent INTEGER NOT NULL DEFAULT 0,
+          emergency_sharing_consent INTEGER NOT NULL DEFAULT 0,
+          accepted_at TEXT,
           updated_at TEXT NOT NULL
         );
         """
@@ -229,7 +248,12 @@ def main() -> int:
     expected_emergency_columns = {"document_type", "document_number", "blood_type", "rh_factor", "care_address"}
     if not expected_emergency_columns.issubset(emergency_columns):
         raise SystemExit(f"Unexpected emergency card migration columns: {emergency_columns!r}")
-    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, and emergency card legal fields v41 migrations passed.")
+    db.executescript(migration_sql(42))
+    privacy_columns = {row[1] for row in db.execute("PRAGMA table_info(privacy_consents)").fetchall()}
+    expected_privacy_columns = {"locale", "purposes_json", "data_categories_json", "recipients_json", "evidence_method"}
+    if not expected_privacy_columns.issubset(privacy_columns):
+        raise SystemExit(f"Unexpected privacy consent migration columns: {privacy_columns!r}")
+    print("Mobile SQLite foreign keys, outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, risk provenance v40, emergency card legal fields v41, and consent metadata v42 migrations passed.")
     return 0
 
 

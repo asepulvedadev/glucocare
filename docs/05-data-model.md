@@ -172,6 +172,14 @@ One current card plus revision history. Fields are described in the PRD. The on-
 
 Append-only record of actor, action, entity, entity ID, timestamp, device/session, reason when required, and structured before/after diff. Never store secrets or full notification payloads in audit logs.
 
+### Privacy consent
+
+The local consent projection stores the policy version, locale, explicit purpose
+and data-category lists, intended recipients, evidence method, and granted or
+withdrawn flags. Optional cloud/contact purposes are never inferred from a
+general health-data checkbox. The in-app summary is a technical disclosure and
+must be replaced or approved by Colombian counsel before production.
+
 ### Outbox event
 
 | Field | Notes |
