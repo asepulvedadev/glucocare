@@ -79,6 +79,13 @@ def migration_sql(version: int) -> str:
         return "ALTER TABLE medications ADD COLUMN presentation TEXT;"
     elif version == 39:
         return "ALTER TABLE medications ADD COLUMN schedule_json TEXT NOT NULL DEFAULT '{}';"
+    elif version == 40:
+        return textwrap.dedent(
+            """
+            ALTER TABLE glucose_readings ADD COLUMN risk_rule_id TEXT;
+            ALTER TABLE glucose_readings ADD COLUMN risk_plan_updated_at TEXT;
+            """
+        )
     else:
         raise ValueError(f"unsupported migration version {version}")
     match = re.search(
@@ -196,7 +203,11 @@ def main() -> int:
     schedule = db.execute("SELECT schedule_json FROM medications WHERE id = 'medication-2'").fetchone()
     if schedule != ("{}",):
         raise SystemExit(f"Unexpected medication schedule migration result: {schedule!r}")
-    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, and medication schedule v39 migrations passed.")
+    db.executescript(migration_sql(40))
+    risk_columns = {row[1] for row in db.execute("PRAGMA table_info(glucose_readings)").fetchall()}
+    if not {"risk_rule_id", "risk_plan_updated_at"}.issubset(risk_columns):
+        raise SystemExit(f"Unexpected risk provenance migration columns: {risk_columns!r}")
+    print("Mobile SQLite outbox v31, glucose canonical v32, unit preference v33, planned medication v34, change audit v35, ketone v36, touch feedback v37, medication presentation v38, medication schedule v39, and risk provenance v40 migrations passed.")
     return 0
 
 

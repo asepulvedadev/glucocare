@@ -23,7 +23,7 @@ export async function printClinicianReport(db: SQLiteDatabase, range: ExportRang
   const rangeParams = since ? [since] : [];
   const [card, readings, medications, appointments, meals, medicationOccurrences, helpEvents, auditEvents] = await Promise.all([
     db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_number, emergency_region, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
-    db.getAllAsync<ClinicianReportReading>(`SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, ketone_result, risk_classification FROM glucose_readings${rangeClause('recorded_at')} ORDER BY recorded_at DESC LIMIT 200`, ...rangeParams),
+    db.getAllAsync<ClinicianReportReading>(`SELECT value, unit, context, source, meal_offset_minutes, recorded_at, symptoms, note, ketone_result, risk_classification, risk_rule_id, risk_plan_updated_at FROM glucose_readings${rangeClause('recorded_at')} ORDER BY recorded_at DESC LIMIT 200`, ...rangeParams),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, presentation, dose_text, route, prescriber_name, instructions, start_date, end_date, times_json, schedule_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>(`SELECT title, provider, specialty, insurer, authorization_number, facility, scheduled_at, status, location, virtual_url, preparation_notes FROM appointments${rangeClause('scheduled_at')} ORDER BY scheduled_at ASC LIMIT 100`, ...rangeParams),
     db.getAllAsync<ClinicianReportMeal>(`SELECT meal_type, occurred_at, note FROM meal_events${rangeClause('occurred_at')} ORDER BY occurred_at DESC LIMIT 200`, ...rangeParams),
@@ -289,10 +289,10 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
       if (value === null || value <= 0) throw new Error('Invalid value.');
       const mealOffsetMinutes = row.meal_offset_minutes === undefined || row.meal_offset_minutes === null || row.meal_offset_minutes === '' ? null : integer(row, 'meal_offset_minutes', 0, 1440);
       await db.runAsync(
-        `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, ketone_result, sync_state, risk_classification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?)`,
+        `INSERT INTO glucose_readings (id, value, unit, value_mg_dl, conversion_version, context, source, meal_offset_minutes, recorded_at, timezone, utc_offset_minutes, time_edited, symptoms, note, ketone_result, sync_state, risk_classification, risk_rule_id, risk_plan_updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'local', ?, ?, ?)`,
         requiredString(row, 'id'), value, unit, toCanonicalMgDl(value, unit), conversionVersionForUnit(unit), context, source, mealOffsetMinutes,
-        requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), ketoneResult, optionalString(row, 'risk_classification'),
+        requiredString(row, 'recorded_at'), optionalString(row, 'timezone'), row.utc_offset_minutes === undefined || row.utc_offset_minutes === null || row.utc_offset_minutes === '' ? null : integer(row, 'utc_offset_minutes', -840, 840), booleanFlag(row, 'time_edited'), optionalString(row, 'symptoms'), optionalString(row, 'note'), ketoneResult, optionalString(row, 'risk_classification'), optionalString(row, 'risk_rule_id'), optionalString(row, 'risk_plan_updated_at'),
       );
     }
 

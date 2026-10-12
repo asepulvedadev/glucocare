@@ -3,7 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { insertGlucoseReading, listGlucoseReadings, updateGlucoseReading, type NewGlucoseReading } from './db/glucoseRepository';
 import type { GlucoseReading } from './types/domain';
 import { getCarePlan } from './db/carePlanRepository';
-import { classifyGlucose } from './domain/glucoseRisk';
+import { assessGlucose } from './domain/glucoseRisk';
 import { notifyUrgentGlucoseRisk } from './notifications';
 
 type GlucoseContextValue = {
@@ -38,7 +38,8 @@ export function GlucoseProvider({ children }: PropsWithChildren) {
 
   const addReading = useCallback(async (reading: NewGlucoseReading) => {
     const carePlan = await getCarePlan(db);
-    const saved = await insertGlucoseReading(db, { ...reading, riskClassification: classifyGlucose(reading.value, reading.unit, carePlan) });
+    const assessment = assessGlucose(reading.value, reading.unit, carePlan);
+    const saved = await insertGlucoseReading(db, { ...reading, riskClassification: assessment.classification, riskRuleId: assessment.ruleId, riskPlanUpdatedAt: assessment.carePlanUpdatedAt });
     setReadings((current) => [saved, ...current]);
     if (saved.riskClassification === 'urgent_low' || saved.riskClassification === 'urgent_high') void notifyUrgentGlucoseRisk(saved.riskClassification);
     return saved;
@@ -48,11 +49,14 @@ export function GlucoseProvider({ children }: PropsWithChildren) {
     const before = readings.find((item) => item.id === readingId);
     if (!before) throw new Error('Glucose reading not found.');
     const carePlan = await getCarePlan(db);
+    const assessment = assessGlucose(reading.value, reading.unit, carePlan);
     const next: GlucoseReading = {
       ...reading,
       id: before.id,
       syncState: 'pending',
-      riskClassification: classifyGlucose(reading.value, reading.unit, carePlan),
+      riskClassification: assessment.classification,
+      riskRuleId: assessment.ruleId,
+      riskPlanUpdatedAt: assessment.carePlanUpdatedAt,
     };
     const saved = await updateGlucoseReading(db, before, next);
     setReadings((current) => current.map((item) => item.id === saved.id ? saved : item).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)));

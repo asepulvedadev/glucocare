@@ -22,6 +22,8 @@ export type GlucoseReading = {
   note?: string;
   ketoneResult?: KetoneResult;
   riskClassification?: GlucoseRiskClassification;
+  riskRuleId?: string;
+  riskPlanUpdatedAt?: string;
   syncState: 'local' | 'pending' | 'synced' | 'failed';
 };
 

@@ -61,7 +61,7 @@ Outputs:
 - `urgent`: care plan or symptom rule requires prompt action.
 - `emergency`: severe symptoms or emergency rule; show emergency actions first.
 
-Every output includes rule ID, plan version, plain-language explanation, and action content ID. Never output a probabilistic diagnosis.
+Every output includes rule ID, plan version, plain-language explanation, and action content ID. The mobile reading projection persists the deterministic rule ID and care-plan `updatedAt` revision timestamp with each classification so historical records do not silently change when a plan is edited. Never output a probabilistic diagnosis.
 
 ## Emergency flow
 

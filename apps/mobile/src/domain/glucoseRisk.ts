@@ -1,4 +1,4 @@
-import type { CarePlan, GlucoseRiskClassification } from '../types/carePlan';
+import type { CarePlan, GlucoseRiskAssessment, GlucoseRiskClassification } from '../types/carePlan';
 import type { GlucoseUnit } from '../types/domain';
 import { toMgDl } from './glucoseSummary';
 
@@ -15,11 +15,18 @@ export function isCarePlanExpired(plan: Pick<CarePlan, 'effectiveTo'> | null, no
 }
 
 export function classifyGlucose(value: number, unit: GlucoseUnit, plan: CarePlan | null): GlucoseRiskClassification {
-  if (!plan || isCarePlanExpired(plan) || !validateCarePlanThresholds(plan)) return 'unclassified';
+  return assessGlucose(value, unit, plan).classification;
+}
+
+/** Returns the classification plus the exact rule and plan revision used. */
+export function assessGlucose(value: number, unit: GlucoseUnit, plan: CarePlan | null): GlucoseRiskAssessment {
+  if (!plan) return { classification: 'unclassified', ruleId: 'no-care-plan' };
+  if (isCarePlanExpired(plan)) return { classification: 'unclassified', ruleId: 'care-plan-expired', carePlanUpdatedAt: plan.updatedAt };
+  if (!validateCarePlanThresholds(plan)) return { classification: 'unclassified', ruleId: 'care-plan-invalid', carePlanUpdatedAt: plan.updatedAt };
   const valueMgDl = toMgDl(value, unit);
-  if (plan.urgentLowThreshold !== undefined && valueMgDl <= plan.urgentLowThreshold) return 'urgent_low';
-  if (plan.lowThreshold !== undefined && valueMgDl <= plan.lowThreshold) return 'low';
-  if (plan.urgentHighThreshold !== undefined && valueMgDl >= plan.urgentHighThreshold) return 'urgent_high';
-  if (plan.highThreshold !== undefined && valueMgDl >= plan.highThreshold) return 'high';
-  return 'in_range';
+  if (plan.urgentLowThreshold !== undefined && valueMgDl <= plan.urgentLowThreshold) return { classification: 'urgent_low', ruleId: 'care-plan.urgent-low', carePlanUpdatedAt: plan.updatedAt };
+  if (plan.lowThreshold !== undefined && valueMgDl <= plan.lowThreshold) return { classification: 'low', ruleId: 'care-plan.low', carePlanUpdatedAt: plan.updatedAt };
+  if (plan.urgentHighThreshold !== undefined && valueMgDl >= plan.urgentHighThreshold) return { classification: 'urgent_high', ruleId: 'care-plan.urgent-high', carePlanUpdatedAt: plan.updatedAt };
+  if (plan.highThreshold !== undefined && valueMgDl >= plan.highThreshold) return { classification: 'high', ruleId: 'care-plan.high', carePlanUpdatedAt: plan.updatedAt };
+  return { classification: 'in_range', ruleId: 'care-plan.in-range', carePlanUpdatedAt: plan.updatedAt };
 }

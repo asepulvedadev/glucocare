@@ -12,6 +12,8 @@ export type ClinicianReportReading = {
   note: string | null;
   ketone_result?: string | null;
   risk_classification: string | null;
+  risk_rule_id?: string | null;
+  risk_plan_updated_at?: string | null;
 };
 export type ClinicianReportMedication = { name: string; presentation?: string | null; dose_text: string; route: string; prescriber_name?: string | null; instructions?: string | null; start_date?: string | null; end_date?: string | null; times_json: string | null; schedule_json?: string | null; enabled: number };
 export type ClinicianReportAppointment = { title: string; provider: string; specialty?: string | null; insurer?: string | null; authorization_number?: string | null; facility?: string | null; scheduled_at: string; status: string; location: string | null; virtual_url?: string | null; preparation_notes?: string | null };
@@ -50,7 +52,10 @@ export function buildClinicianReportHtml(input: {
   corrections?: ClinicianReportCorrection[];
 }) {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
-  const readingRows = input.readings.length ? input.readings.map((reading) => `<tr><td>${reportDate(reading.recorded_at)}</td><td><strong>${escapeHtml(reading.value)} ${escapeHtml(reading.unit)}</strong></td><td>${escapeHtml(reading.context)}${reading.meal_offset_minutes !== null && reading.meal_offset_minutes !== undefined ? `<br>${escapeHtml(reading.meal_offset_minutes)} min después` : ''}</td><td>${escapeHtml(reading.source || 'manual')}</td><td>${escapeHtml(reading.risk_classification || 'Sin clasificación')}</td><td>${escapeHtml(reading.ketone_result && reading.ketone_result in ketoneResultLabel ? ketoneResultLabel[reading.ketone_result as keyof typeof ketoneResultLabel] : 'No revisadas')}</td><td>${escapeHtml(reading.symptoms || reading.note || '—')}</td></tr>`).join('') : '<tr><td colspan="7" class="muted">Sin lecturas registradas.</td></tr>';
+  const readingRows = input.readings.length ? input.readings.map((reading) => {
+    const provenance = [reading.risk_rule_id ? `Regla: ${escapeHtml(reading.risk_rule_id)}` : '', reading.risk_plan_updated_at ? `Plan: ${escapeHtml(reportDate(reading.risk_plan_updated_at))}` : ''].filter(Boolean).join('<br>');
+    return `<tr><td>${reportDate(reading.recorded_at)}</td><td><strong>${escapeHtml(reading.value)} ${escapeHtml(reading.unit)}</strong></td><td>${escapeHtml(reading.context)}${reading.meal_offset_minutes !== null && reading.meal_offset_minutes !== undefined ? `<br>${escapeHtml(reading.meal_offset_minutes)} min después` : ''}</td><td>${escapeHtml(reading.source || 'manual')}</td><td>${escapeHtml(reading.risk_classification || 'Sin clasificación')}${provenance ? `<br><span class="meta">${provenance}</span>` : ''}</td><td>${escapeHtml(reading.ketone_result && reading.ketone_result in ketoneResultLabel ? ketoneResultLabel[reading.ketone_result as keyof typeof ketoneResultLabel] : 'No revisadas')}</td><td>${escapeHtml(reading.symptoms || reading.note || '—')}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="muted">Sin lecturas registradas.</td></tr>';
   const medicationRows = input.medications.length ? input.medications.map((medication) => {
     let times = '—';
     try {

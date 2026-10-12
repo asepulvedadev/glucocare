@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 39;
+const DATABASE_VERSION = 40;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -512,6 +512,13 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     const medicationColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(medications)');
     if (!medicationColumns.some((column) => column.name === 'schedule_json')) await db.execAsync("ALTER TABLE medications ADD COLUMN schedule_json TEXT NOT NULL DEFAULT '{}'");
     currentVersion = 39;
+  }
+
+  if (currentVersion < 40) {
+    const glucoseColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(glucose_readings)');
+    if (!glucoseColumns.some((column) => column.name === 'risk_rule_id')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN risk_rule_id TEXT');
+    if (!glucoseColumns.some((column) => column.name === 'risk_plan_updated_at')) await db.execAsync('ALTER TABLE glucose_readings ADD COLUMN risk_plan_updated_at TEXT');
+    currentVersion = 40;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

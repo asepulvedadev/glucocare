@@ -1,5 +1,12 @@
 export type GlucoseRiskClassification = 'unclassified' | 'in_range' | 'low' | 'urgent_low' | 'high' | 'urgent_high';
 
+/** Immutable explanation metadata stored with each classification. */
+export type GlucoseRiskAssessment = {
+  classification: GlucoseRiskClassification;
+  ruleId: string;
+  carePlanUpdatedAt?: string;
+};
+
 export type CarePlan = {
   id: 'default';
   lowThreshold?: number;

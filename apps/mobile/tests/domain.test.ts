@@ -5,7 +5,7 @@ import { isMedicationActive, isValidMedicationDate } from '../src/domain/medicat
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
-import { classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
+import { assessGlucose, classifyGlucose, isCarePlanExpired, validateCarePlanThresholds } from '../src/domain/glucoseRisk';
 import { conversionVersionForUnit, summarizeGlucose, toCanonicalMgDl, toMgDl } from '../src/domain/glucoseSummary';
 import { hasUrgentSymptoms, isImplausibleGlucoseValue, URGENT_SYMPTOM_NOTICE } from '../src/domain/glucoseSafety';
 import { getEmergencyConfig } from '../src/config';
@@ -266,6 +266,24 @@ describe('clinician-provided glucose risk plan', () => {
     const expired = { id: 'default' as const, ...plan, clinicianVerified: true, updatedAt: '2026-01-01T00:00:00.000Z', effectiveTo: '2026-01-31T23:59:59.000Z' };
     expect(isCarePlanExpired(expired, new Date('2026-02-01T00:00:00.000Z'))).toBe(true);
     expect(classifyGlucose(50, 'mg/dL', expired)).toBe('unclassified');
+  });
+
+  it('records the deterministic rule used even when no plan is available', () => {
+    expect(assessGlucose(100, 'mg/dL', null)).toEqual({ classification: 'unclassified', ruleId: 'no-care-plan' });
+  });
+
+  it('preserves the care-plan revision alongside a personalized classification', () => {
+    const updatedAt = '2026-10-12T12:00:00.000Z';
+    expect(assessGlucose(50, 'mg/dL', { id: 'default', ...plan, clinicianVerified: true, updatedAt })).toEqual({
+      classification: 'urgent_low',
+      ruleId: 'care-plan.urgent-low',
+      carePlanUpdatedAt: updatedAt,
+    });
+  });
+
+  it('marks expired plans as unclassified with an explicit rule id', () => {
+    const expired = { id: 'default' as const, ...plan, clinicianVerified: true, updatedAt: '2026-01-01T00:00:00.000Z', effectiveTo: '2026-01-31T23:59:59.000Z' };
+    expect(assessGlucose(50, 'mg/dL', expired)).toEqual({ classification: 'unclassified', ruleId: 'care-plan-expired', carePlanUpdatedAt: expired.updatedAt });
   });
 });
 

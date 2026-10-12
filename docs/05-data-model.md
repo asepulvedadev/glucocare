@@ -72,7 +72,8 @@ Relationship-based authorization for `owner`, `caregiver`, `clinician`, or `supp
 | `symptoms` | text[]/join table | Controlled vocabulary + other. |
 | `ketone_result` | enum nullable | User-entered strip result; not interpreted by the app. |
 | `care_plan_revision_id` | UUID nullable | Rule set used. |
-| `classification` / `rule_id` | enum/text | Explainable result. |
+| `classification` / `rule_id` | enum/text | Explainable result; the mobile projection stores these as `risk_classification` and `risk_rule_id`. |
+| `risk_plan_updated_at` | timestamptz nullable | Care-plan revision timestamp used for the classification; retained with the reading for historical auditability. |
 
 Edits create an audit event containing before/after values; deletion uses tombstone plus retention policy.
 
