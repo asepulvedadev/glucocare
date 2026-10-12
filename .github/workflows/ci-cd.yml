@@ -91,6 +91,9 @@ jobs:
       - name: Verify migration history
         run: supabase migration list --local
 
+      - name: Smoke-test cursor timestamp triggers
+        run: PGPASSWORD=postgres psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f scripts/smoke-sync-timestamps.sql
+
       - name: Smoke-test private alert delivery worker
         run: |
           set -euo pipefail

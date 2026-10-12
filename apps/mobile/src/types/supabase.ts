@@ -520,6 +520,7 @@ export type Database = {
           plan_revision_id: string
           scheduled_at: string
           status: string
+          updated_at: string
         }
         Insert: {
           completed_at?: string | null
@@ -530,6 +531,7 @@ export type Database = {
           plan_revision_id: string
           scheduled_at: string
           status?: string
+          updated_at?: string
         }
         Update: {
           completed_at?: string | null
@@ -540,6 +542,7 @@ export type Database = {
           plan_revision_id?: string
           scheduled_at?: string
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -625,6 +628,7 @@ export type Database = {
           schedule_revision_id: string
           scheduled_at: string
           status: string
+          updated_at: string
         }
         Insert: {
           acted_at?: string | null
@@ -635,6 +639,7 @@ export type Database = {
           schedule_revision_id: string
           scheduled_at: string
           status?: string
+          updated_at?: string
         }
         Update: {
           acted_at?: string | null
@@ -645,6 +650,7 @@ export type Database = {
           schedule_revision_id?: string
           scheduled_at?: string
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {

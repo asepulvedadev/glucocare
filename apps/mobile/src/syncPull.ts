@@ -39,17 +39,19 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
   // Freeze the pull window before querying so records committed while this pull
   // is in flight are picked up by the next run instead of being skipped.
   const until = new Date().toISOString();
-  const [glucoseResult, medicationsResult, schedulesResult, appointmentsResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
+  const [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult] = await Promise.all([
     supabase.from('glucose_readings').select('id,value_original,unit_original,measured_at,context,symptoms,note,classification,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medications').select('id,name,dose_text,route,enabled,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('medication_schedule_revisions').select('medication_id,times_json,revision_number').eq('patient_id', patientId).order('revision_number', { ascending: false }),
+    supabase.from('medication_occurrences').select('id,medication_id,scheduled_at,status,acted_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('appointments').select('id,title,provider,scheduled_at,status,location,preparation_notes,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
+    supabase.from('measurement_occurrences').select('id,plan_revision_id,scheduled_at,status,completed_reading_id,completed_at,created_at,updated_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
     supabase.from('measurement_plan_revisions').select('revision_number,readings_per_day,times_json,instructions,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('care_plan_revisions').select('revision_number,target_bands,symptom_actions,clinician_verified,created_at').eq('patient_id', patientId).order('revision_number', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('emergency_cards').select('patient_id,full_name,birth_date,diabetes_type,allergies,care_provider,emergency_notes,updated_at').eq('patient_id', patientId).maybeSingle(),
     supabase.from('trusted_contacts').select('id,name,relationship,phone,email,consent_status,created_at').eq('patient_id', patientId).gte('updated_at', since).lte('updated_at', until),
   ]);
-  const errors = [glucoseResult, medicationsResult, schedulesResult, appointmentsResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
+  const errors = [glucoseResult, medicationsResult, schedulesResult, medicationOccurrencesResult, appointmentsResult, measurementOccurrencesResult, planResult, carePlanResult, cardResult, contactsResult].filter((result) => result.error);
   if (errors.length) throw errors[0].error;
 
   const schedules = new Map<string, { hour: number; minute: number }>();
@@ -77,6 +79,21 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         medication.id, medication.name, medication.dose_text, localRoute(medication.route), time.hour, time.minute, medication.enabled ? 1 : 0, medication.created_at);
       downloaded += 1;
     }
+    const plan = planResult.data;
+    if (plan) {
+      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, instructions, updated_at)
+        VALUES ('default', ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), plan.instructions, plan.created_at);
+      downloaded += 1;
+    }
+    for (const occurrence of medicationOccurrencesResult.data ?? []) {
+      await db.runAsync(`INSERT INTO medication_occurrences (id, medication_id, scheduled_at, status, acted_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, status = excluded.status, acted_at = excluded.acted_at`,
+        occurrence.id, occurrence.medication_id, occurrence.scheduled_at, occurrence.status, occurrence.acted_at, occurrence.created_at);
+      downloaded += 1;
+    }
     for (const appointment of appointmentsResult.data ?? []) {
       await db.runAsync(`INSERT INTO appointments (id, title, provider, scheduled_at, status, location, notes, reminder_state, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'unavailable', ?)
@@ -84,12 +101,11 @@ export async function pullCloudData(db: SQLiteDatabase, patientId: string, since
         appointment.id, appointment.title, appointment.provider, appointment.scheduled_at ?? new Date().toISOString(), localAppointmentStatus(appointment.status), appointment.location, appointment.preparation_notes, appointment.created_at);
       downloaded += 1;
     }
-    const plan = planResult.data;
-    if (plan) {
-      await db.runAsync(`INSERT INTO measurement_plans (id, readings_per_day, times_json, instructions, updated_at)
-        VALUES ('default', ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-        plan.readings_per_day, JSON.stringify(jsonArray(plan.times_json)), plan.instructions, plan.created_at);
+    for (const occurrence of measurementOccurrencesResult.data ?? []) {
+      await db.runAsync(`INSERT INTO measurement_occurrences (id, plan_id, scheduled_at, status, completed_reading_id, completed_at, created_at)
+        VALUES (?, 'default', ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, status = excluded.status, completed_reading_id = excluded.completed_reading_id, completed_at = excluded.completed_at`,
+        occurrence.id, occurrence.scheduled_at, occurrence.status, occurrence.completed_reading_id, occurrence.completed_at, occurrence.created_at);
       downloaded += 1;
     }
     const carePlan = carePlanResult.data;
