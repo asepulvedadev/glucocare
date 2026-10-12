@@ -86,7 +86,7 @@ jobs:
         run: supabase db lint --local --level warning --fail-on error
 
       - name: Verify migration history
-        run: supabase migration list
+        run: supabase migration list --local
 
   deploy:
     name: Deploy documentation staging to AutoKing VPS
