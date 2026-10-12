@@ -11,7 +11,7 @@ import { useSafety } from '../safetyContext';
 import { listHelpEvents, recordHelpEvent, updateHelpEventState, type HelpEvent } from '../db/helpRepository';
 import { useAuth } from '../authContext';
 import { syncPendingData } from '../sync';
-import { queueEmergencyAlert } from '../alerts';
+import { getEmergencyAlertDeliveries, queueEmergencyAlert, type EmergencyDelivery } from '../alerts';
 import { emergencyConfig } from '../config';
 import { usePrivacy } from '../privacyContext';
 
@@ -23,6 +23,7 @@ export default function HelpScreen() {
   const primaryContact = trustedContacts.find((contact) => contact.consentGranted);
   const [processing, setProcessing] = useState(false);
   const [helpEvents, setHelpEvents] = useState<HelpEvent[]>([]);
+  const [deliveryStatuses, setDeliveryStatuses] = useState<EmergencyDelivery[]>([]);
   useEffect(() => {
     let active = true;
     void listHelpEvents(db).then((events) => { if (active) setHelpEvents(events); });
@@ -45,7 +46,10 @@ export default function HelpScreen() {
         try {
           await syncPendingData(db, session);
           const channel = primaryContact.email ? 'email' : primaryContact.phone ? 'sms' : null;
-          if (channel) remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
+          if (channel) {
+            remoteQueued = Boolean(await queueEmergencyAlert({ incidentId, contactIds: trustedContacts.filter((contact) => contact.consentGranted).map((contact) => contact.id), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', channels: [channel] }));
+            if (remoteQueued) setDeliveryStatuses(await getEmergencyAlertDeliveries(incidentId));
+          }
         } catch {
           // Local event and direct-call fallback remain available if the cloud path fails.
         }
@@ -117,6 +121,11 @@ export default function HelpScreen() {
         ))}
         <Body>Este historial solo indica que se registró una solicitud; no confirma que alguien haya respondido.</Body>
       </Panel>
+      {deliveryStatuses.length > 0 ? <Panel>
+        <Caption>ESTADO DEL AVISO REMOTO</Caption>
+        {deliveryStatuses.map((delivery) => <Text key={delivery.id} style={styles.event}>{delivery.channel}: {delivery.status === 'queued' ? 'Encolado' : delivery.status === 'provider_accepted' ? 'Proveedor aceptó' : delivery.status === 'delivered' ? 'Entregado' : delivery.status === 'failed' ? 'Falló' : delivery.status === 'unknown' ? 'Estado desconocido' : delivery.status}{delivery.failureCode ? ` · ${delivery.failureCode}` : ''}</Text>)}
+        <Body>Estos estados dependen del proveedor y no sustituyen una llamada a emergencias.</Body>
+      </Panel> : null}
       <Text style={styles.disclaimer}>Si estás inconsciente, confundido o no puedes mantenerte a salvo, no esperes una notificación de la app.</Text>
     </Screen>
   );
