@@ -50,7 +50,12 @@ async function claimBatch() {
        (SELECT a.patient_id FROM emergency_alerts a WHERE a.id = d.alert_id) AS patient_id,
        EXISTS (SELECT 1 FROM contact_invitations i
          JOIN emergency_alerts a ON a.patient_id = i.patient_id
-         WHERE a.id = d.alert_id AND i.contact_id = d.contact_id AND i.status = 'accepted') AS consent_accepted,
+         JOIN health_records consent_record
+           ON consent_record.patient_id = a.patient_id
+          AND consent_record.entity_type = 'trusted_contact'
+          AND consent_record.entity_id = i.contact_id
+         WHERE a.id = d.alert_id AND i.contact_id = d.contact_id AND i.status = 'accepted'
+           AND (consent_record.payload->>'consentGranted' = 'true' OR consent_record.payload->>'consent_status' = 'accepted')) AS consent_accepted,
        COALESCE((SELECT r.payload FROM health_records r
          JOIN emergency_alerts a ON a.patient_id = r.patient_id
          WHERE a.id = d.alert_id AND r.entity_type = 'trusted_contact' AND r.entity_id = d.contact_id), '{}'::jsonb) AS contact`,

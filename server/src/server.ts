@@ -216,6 +216,15 @@ function hashJson(value: unknown) {
   return createHash('sha256').update(JSON.stringify(canonicalJson(value))).digest('hex');
 }
 
+/**
+ * Consent is a server-side authorization boundary, not only a mobile UI
+ * affordance. Accept both the current camelCase projection and the older
+ * snake_case status projection, but never treat a missing field as consent.
+ */
+function contactConsentGranted(payload: JsonObject) {
+  return payload.consentGranted === true || payload.consent_status === 'accepted';
+}
+
 function callbackSignature(rawBody: Buffer) {
   const secret = process.env.PROVIDER_CALLBACK_SECRET?.trim();
   if (!secret) return null;
@@ -382,6 +391,10 @@ async function createInvitation(user: AuthUser, body: JsonObject, response: Serv
   );
   if (!contact.rows[0]) { fail(response, 404, 'CONTACT_NOT_FOUND', 'El contacto no existe.'); return; }
   const contactPayload = contact.rows[0].payload;
+  if (!contactConsentGranted(contactPayload)) {
+    fail(response, 403, 'CONTACT_CONSENT_REQUIRED', 'Confirma el consentimiento de esta persona antes de enviarle una invitación.');
+    return;
+  }
   const destination = channel === 'email' ? contactPayload.email : contactPayload.phone;
   if (typeof destination !== 'string' || !destination.trim()) {
     fail(response, 400, 'INVITATION_CHANNEL_UNAVAILABLE', 'El contacto no tiene un dato válido para el canal seleccionado.');
@@ -464,6 +477,7 @@ async function emergencyAlert(user: AuthUser, body: JsonObject, response: Server
   const contacts = await pool.query<{ entity_id: string; payload: JsonObject }>(
     `SELECT r.entity_id, r.payload FROM health_records r
      WHERE r.patient_id = $1 AND r.entity_type = 'trusted_contact' AND r.entity_id = ANY($2::text[])
+       AND (r.payload->>'consentGranted' = 'true' OR r.payload->>'consent_status' = 'accepted')
        AND EXISTS (
          SELECT 1 FROM contact_invitations i
          WHERE i.patient_id = r.patient_id AND i.contact_id = r.entity_id

@@ -131,7 +131,7 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
   eventType: 'trusted_contact.created.v1',
   entityType: 'trusted_contact',
   entityId: contactId,
-  payload: { id: contactId, name: 'Synthetic contact', phone: '+10000000000', updatedAt: new Date().toISOString() },
+  payload: { id: contactId, name: 'Synthetic contact', phone: '+10000000000', consentGranted: false, updatedAt: new Date().toISOString() },
 }) });
 const emailContactId = crypto.randomUUID();
 await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
@@ -139,13 +139,24 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
   eventType: 'trusted_contact.created.v1',
   entityType: 'trusted_contact',
   entityId: emailContactId,
-  payload: { id: emailContactId, name: 'Email contact', email: 'email-contact@example.invalid', updatedAt: new Date().toISOString() },
+  payload: { id: emailContactId, name: 'Email contact', email: 'email-contact@example.invalid', consentGranted: false, updatedAt: new Date().toISOString() },
 }) });
 const incidentId = crypto.randomUUID();
 const blockedAlert = await fetch(`${baseUrl}/v1/emergency-alerts`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ incidentId, contactIds: [contactId, emailContactId], channels: ['sms', 'email'] }) });
 if (blockedAlert.status !== 400) throw new Error('unaccepted contact was allowed to receive an alert');
 const unavailableInvitation = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
-if (unavailableInvitation.status !== 400) throw new Error('invitation allowed a channel without a contact address');
+if (unavailableInvitation.status !== 403) throw new Error('invitation allowed a contact without explicit consent');
+const contactConsentUpdatedAt = new Date().toISOString();
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'contact.consent.updated.v1', entityType: 'trusted_contact', entityId: contactId,
+  payload: { id: contactId, name: 'Synthetic contact', phone: '+10000000000', consentGranted: true, updatedAt: contactConsentUpdatedAt },
+}) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'contact.consent.updated.v1', entityType: 'trusted_contact', entityId: emailContactId,
+  payload: { id: emailContactId, name: 'Email contact', email: 'email-contact@example.invalid', consentGranted: true, updatedAt: new Date().toISOString() },
+}) });
+const unavailableChannel = await fetch(`${baseUrl}/v1/contact-invitations`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'email' }) });
+if (unavailableChannel.status !== 400) throw new Error('invitation allowed a channel without a contact address');
 const invitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId, channel: 'sms' }) });
 if (invitation.deliveryStatus !== expectedSmsInvitationStatus) throw new Error(`unexpected SMS invitation delivery state: ${invitation.deliveryStatus}`);
 const acceptedInvitation = new URL(invitation.acceptUrl);
@@ -178,7 +189,11 @@ await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Beare
   eventType: 'trusted_contact.created.v1',
   entityType: 'trusted_contact',
   entityId: revokedContactId,
-  payload: { id: revokedContactId, name: 'Revoked contact', phone: '+10000000001', updatedAt: new Date().toISOString() },
+  payload: { id: revokedContactId, name: 'Revoked contact', phone: '+10000000001', consentGranted: false, updatedAt: new Date().toISOString() },
+}) });
+await call('/v1/sync/events', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({
+  eventId: crypto.randomUUID(), eventType: 'contact.consent.updated.v1', entityType: 'trusted_contact', entityId: revokedContactId,
+  payload: { id: revokedContactId, name: 'Revoked contact', phone: '+10000000001', consentGranted: true, updatedAt: new Date().toISOString() },
 }) });
 const revokedInvitation = await call('/v1/contact-invitations', { method: 'POST', headers: { authorization: `Bearer ${first.session.accessToken}` }, body: JSON.stringify({ contactId: revokedContactId, channel: 'sms' }) });
 const revokedInvitationUrl = new URL(revokedInvitation.acceptUrl);

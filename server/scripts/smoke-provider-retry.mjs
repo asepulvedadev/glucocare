@@ -67,7 +67,7 @@ try {
   await client.query(
     `INSERT INTO health_records (patient_id, entity_type, entity_id, payload)
      VALUES ($1, 'trusted_contact', $2, $3::jsonb)`,
-    [patientId, contactId, JSON.stringify({ id: contactId, name: 'Synthetic contact', email: 'contact@example.invalid' })],
+    [patientId, contactId, JSON.stringify({ id: contactId, name: 'Synthetic contact', email: 'contact@example.invalid', consentGranted: true })],
   );
   await client.query(
     `INSERT INTO contact_invitations (id, patient_id, contact_id, channel, token_hash, status, expires_at)
