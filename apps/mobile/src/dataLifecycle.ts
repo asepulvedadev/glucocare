@@ -16,7 +16,7 @@ const MAX_ROWS_PER_TABLE = 25_000;
 
 export async function printClinicianReport(db: SQLiteDatabase): Promise<{ shared: boolean }> {
   const [card, readings, medications, appointments] = await Promise.all([
-    db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
+    db.getFirstAsync<ClinicianReportCard>('SELECT full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_notes FROM emergency_card ORDER BY updated_at DESC LIMIT 1'),
     db.getAllAsync<ClinicianReportReading>('SELECT value, unit, context, recorded_at, symptoms, note, risk_classification FROM glucose_readings ORDER BY recorded_at DESC LIMIT 200'),
     db.getAllAsync<ClinicianReportMedication>('SELECT name, dose_text, route, times_json, enabled FROM medications ORDER BY name ASC'),
     db.getAllAsync<ClinicianReportAppointment>('SELECT title, provider, scheduled_at, status, location FROM appointments ORDER BY scheduled_at ASC LIMIT 100'),
@@ -260,9 +260,9 @@ export async function restoreFromExportContent(db: SQLiteDatabase, content: stri
 
     for (const row of emergencyCard) {
       await db.runAsync(
-        `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, allergies, care_provider, care_facility, emergency_number, emergency_region, emergency_notes, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        requiredString(row, 'id'), requiredString(row, 'full_name'), optionalString(row, 'birth_date'), optionalString(row, 'diabetes_type'), optionalString(row, 'allergies'), optionalString(row, 'care_provider'), optionalString(row, 'care_facility'), optionalString(row, 'emergency_number'), optionalString(row, 'emergency_region'), optionalString(row, 'emergency_notes'), requiredString(row, 'updated_at'),
+        `INSERT INTO emergency_card (id, full_name, birth_date, diabetes_type, diagnosis_year, insulin_use, allergies, critical_conditions, care_provider, care_facility, insurer, policy_number, emergency_number, emergency_region, emergency_notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        requiredString(row, 'id'), requiredString(row, 'full_name'), optionalString(row, 'birth_date'), optionalString(row, 'diabetes_type'), optionalString(row, 'diagnosis_year'), row.insulin_use === undefined || row.insulin_use === null || row.insulin_use === '' ? null : enumValue(row, 'insulin_use', ['yes', 'no', 'unknown'] as const), optionalString(row, 'allergies'), optionalString(row, 'critical_conditions'), optionalString(row, 'care_provider'), optionalString(row, 'care_facility'), optionalString(row, 'insurer'), optionalString(row, 'policy_number'), optionalString(row, 'emergency_number'), optionalString(row, 'emergency_region'), optionalString(row, 'emergency_notes'), requiredString(row, 'updated_at'),
       );
     }
 

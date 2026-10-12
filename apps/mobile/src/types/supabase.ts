@@ -398,13 +398,18 @@ export type Database = {
           birth_date: string | null
           care_facility: string | null
           care_provider: string | null
+          critical_conditions: string | null
           deleted_at: string | null
           diabetes_type: string | null
+          diagnosis_year: string | null
           emergency_notes: string | null
           emergency_number: string | null
           emergency_region: string | null
           full_name: string
+          insulin_use: string | null
+          insurer: string | null
           patient_id: string
+          policy_number: string | null
           updated_at: string
         }
         Insert: {
@@ -412,13 +417,18 @@ export type Database = {
           birth_date?: string | null
           care_facility?: string | null
           care_provider?: string | null
+          critical_conditions?: string | null
           deleted_at?: string | null
           diabetes_type?: string | null
+          diagnosis_year?: string | null
           emergency_notes?: string | null
           emergency_number?: string | null
           emergency_region?: string | null
           full_name: string
+          insulin_use?: string | null
+          insurer?: string | null
           patient_id: string
+          policy_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -426,13 +436,18 @@ export type Database = {
           birth_date?: string | null
           care_facility?: string | null
           care_provider?: string | null
+          critical_conditions?: string | null
           deleted_at?: string | null
           diabetes_type?: string | null
+          diagnosis_year?: string | null
           emergency_notes?: string | null
           emergency_number?: string | null
           emergency_region?: string | null
           full_name?: string
+          insulin_use?: string | null
+          insurer?: string | null
           patient_id?: string
+          policy_number?: string | null
           updated_at?: string
         }
         Relationships: [

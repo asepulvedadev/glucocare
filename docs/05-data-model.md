@@ -149,7 +149,7 @@ denied -> requested
 
 ### Emergency card
 
-The local emergency card includes the patient's preferred care facility plus an optional verified emergency number and region. If those fields are empty, the build's reviewed launch fallback is shown explicitly; the app never claims that the fallback is correct for every municipality.
+The local emergency card includes diabetes history, allergies/critical conditions, insurer/affiliation data, the patient's preferred care facility, and an optional verified emergency number and region. If the number fields are empty, the build's reviewed launch fallback is shown explicitly; the app never claims that the fallback is correct for every municipality.
 
 One current card plus revision history. Fields are described in the PRD. The on-device projection must be readable offline without querying the cloud.
 

@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 19;
+const DATABASE_VERSION = 20;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -284,6 +284,16 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (!preferenceColumns.some((column) => column.name === 'onboarding_completed')) await db.execAsync('ALTER TABLE accessibility_preferences ADD COLUMN onboarding_completed INTEGER NOT NULL DEFAULT 0');
     await db.runAsync(`UPDATE accessibility_preferences SET onboarding_completed = 1 WHERE onboarding_completed = 0 AND EXISTS (SELECT 1 FROM privacy_consents WHERE privacy_consents.id = 'default' AND privacy_consents.local_data_consent = 1)`);
     currentVersion = 19;
+  }
+
+  if (currentVersion < 20) {
+    const emergencyColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(emergency_card)');
+    if (!emergencyColumns.some((column) => column.name === 'diagnosis_year')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN diagnosis_year TEXT');
+    if (!emergencyColumns.some((column) => column.name === 'insulin_use')) await db.execAsync("ALTER TABLE emergency_card ADD COLUMN insulin_use TEXT CHECK (insulin_use IN ('yes', 'no', 'unknown'))");
+    if (!emergencyColumns.some((column) => column.name === 'critical_conditions')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN critical_conditions TEXT');
+    if (!emergencyColumns.some((column) => column.name === 'insurer')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN insurer TEXT');
+    if (!emergencyColumns.some((column) => column.name === 'policy_number')) await db.execAsync('ALTER TABLE emergency_card ADD COLUMN policy_number TEXT');
+    currentVersion = 20;
   }
 
   if (currentVersion !== DATABASE_VERSION) {

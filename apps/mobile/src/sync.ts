@@ -137,8 +137,8 @@ async function uploadEvent(event: Awaited<ReturnType<typeof listPendingOutbox>>[
     case 'emergency_card': {
       const { error } = await supabase.from('emergency_cards').upsert({
         patient_id: patientId, full_name: stringValue(payload.fullName), birth_date: payload.birthDate ? String(payload.birthDate) : null,
-        diabetes_type: payload.diabetesType ? String(payload.diabetesType) : null, allergies: payload.allergies ? String(payload.allergies) : null,
-        care_provider: payload.careProvider ? String(payload.careProvider) : null, care_facility: payload.careFacility ? String(payload.careFacility) : null, emergency_number: payload.emergencyNumber ? String(payload.emergencyNumber) : null, emergency_region: payload.emergencyRegion ? String(payload.emergencyRegion) : null, emergency_notes: payload.emergencyNotes ? String(payload.emergencyNotes) : null,
+        diabetes_type: payload.diabetesType ? String(payload.diabetesType) : null, diagnosis_year: payload.diagnosisYear ? String(payload.diagnosisYear) : null, insulin_use: payload.insulinUse ? String(payload.insulinUse) : null, allergies: payload.allergies ? String(payload.allergies) : null, critical_conditions: payload.criticalConditions ? String(payload.criticalConditions) : null,
+        care_provider: payload.careProvider ? String(payload.careProvider) : null, care_facility: payload.careFacility ? String(payload.careFacility) : null, insurer: payload.insurer ? String(payload.insurer) : null, policy_number: payload.policyNumber ? String(payload.policyNumber) : null, emergency_number: payload.emergencyNumber ? String(payload.emergencyNumber) : null, emergency_region: payload.emergencyRegion ? String(payload.emergencyRegion) : null, emergency_notes: payload.emergencyNotes ? String(payload.emergencyNotes) : null,
       }, { onConflict: 'patient_id' });
       if (error) throw error;
       return;

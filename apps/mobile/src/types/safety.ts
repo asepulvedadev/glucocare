@@ -3,9 +3,14 @@ export type EmergencyCard = {
   fullName: string;
   birthDate?: string;
   diabetesType?: string;
+  diagnosisYear?: string;
+  insulinUse?: 'yes' | 'no' | 'unknown';
   allergies?: string;
+  criticalConditions?: string;
   careProvider?: string;
   careFacility?: string;
+  insurer?: string;
+  policyNumber?: string;
   emergencyNumber?: string;
   emergencyRegion?: string;
   emergencyNotes?: string;
