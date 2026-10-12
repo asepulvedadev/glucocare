@@ -47,6 +47,17 @@ old queued/processing backlog.
 3. If the provider is degraded, pause credential changes and preserve the
    queue. Do not repeatedly replay an incident; the patient/incident key is
    intentionally idempotent.
+   In synthetic staging, exercise the fail-closed path with:
+
+   ```bash
+   cd /srv/glucocare/release/server
+   DATABASE_URL='postgresql://<staging-user>:<staging-password>@127.0.0.1:5432/glucocare' \
+   PUBLIC_API_URL=https://synthetic.example.invalid \
+   npm run test:provider-outage
+   ```
+
+   The drill must end with the synthetic delivery in `failed` after its
+   bounded attempts; it must never report `provider_accepted`.
 4. If the provider confirms recovery, run one synthetic alert in staging,
    verify `provider_accepted` and a provider correlation ID, then monitor the
    queue for two worker intervals. Provider acceptance is not recipient delivery.
