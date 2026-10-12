@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { availableAppointmentTransitions, canTransitionAppointment, transitionAppointment } from '../src/domain/appointmentState';
-import { isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
+import { isMeasurementPlanActive, isValidMeasurementTime, validateMeasurementPlan } from '../src/domain/measurementPlan';
 import { newId } from '../src/ids';
 import { canTransitionMedicationOccurrence, transitionMedicationOccurrence } from '../src/domain/medicationOccurrenceState';
 import { canTransitionMeasurementOccurrence, transitionMeasurementOccurrence } from '../src/domain/measurementOccurrenceState';
@@ -38,6 +38,10 @@ describe('measurement plan validation', () => {
     expect(validateMeasurementPlan(3, ['07:30', '13:00', '20:30'], ['fasting', 'after_meal', 'after_meal'])).toBe(true);
     expect(validateMeasurementPlan(3, ['07:30'])).toBe(false);
     expect(validateMeasurementPlan(2, ['07:30', '20:30'], ['fasting'])).toBe(false);
+    expect(validateMeasurementPlan(1, ['08:00'], ['fasting'], { weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' })).toBe(true);
+    expect(validateMeasurementPlan(1, ['08:00'], ['fasting'], { weekdays: [1, 1] })).toBe(false);
+    expect(isMeasurementPlanActive({ weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' }, new Date('2026-10-05T12:00:00-05:00'))).toBe(true);
+    expect(isMeasurementPlanActive({ weekdays: [1, 3, 5], effectiveFrom: '2026-10-01', effectiveTo: '2026-10-31' }, new Date('2026-10-06T12:00:00-05:00'))).toBe(false);
   });
 });
 

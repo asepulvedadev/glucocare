@@ -1,4 +1,4 @@
-import type { MeasurementTiming } from '../types/measurement';
+import type { MeasurementPlan, MeasurementTiming } from '../types/measurement';
 
 export function isValidMeasurementTime(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -8,8 +8,42 @@ export function isValidMeasurementTime(value: string) {
   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
 }
 
-export function validateMeasurementPlan(readingsPerDay: 1 | 2 | 3, times: string[], timings?: MeasurementTiming[]) {
+const validWeekdays = [1, 2, 3, 4, 5, 6, 7];
+
+function isValidDateOnly(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+export function validateMeasurementPlan(readingsPerDay: 1 | 2 | 3, times: string[], timings?: MeasurementTiming[], options?: { weekdays?: number[]; effectiveFrom?: string; effectiveTo?: string }) {
+  const weekdays = options?.weekdays ?? [];
   return times.length === readingsPerDay
     && times.every(isValidMeasurementTime)
-    && (timings === undefined || (timings.length === readingsPerDay && timings.every((timing) => ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'].includes(timing))));
+    && (timings === undefined || (timings.length === readingsPerDay && timings.every((timing) => ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'].includes(timing))))
+    && weekdays.every((weekday) => validWeekdays.includes(weekday))
+    && new Set(weekdays).size === weekdays.length
+    && (!options?.effectiveFrom || isValidDateOnly(options.effectiveFrom))
+    && (!options?.effectiveTo || isValidDateOnly(options.effectiveTo))
+    && (!options?.effectiveFrom || !options?.effectiveTo || options.effectiveFrom <= options.effectiveTo);
+}
+
+export function localIsoDate(now: Date) {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function localIsoWeekday(now: Date) {
+  const day = now.getDay();
+  return day === 0 ? 7 : day;
+}
+
+export function isMeasurementPlanActive(plan: Pick<MeasurementPlan, 'weekdays' | 'effectiveFrom' | 'effectiveTo'>, now = new Date()) {
+  const date = localIsoDate(now);
+  if (plan.effectiveFrom && date < plan.effectiveFrom) return false;
+  if (plan.effectiveTo && date > plan.effectiveTo) return false;
+  const weekdays = plan.weekdays ?? [];
+  return weekdays.length === 0 || weekdays.includes(localIsoWeekday(now));
 }

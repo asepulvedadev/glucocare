@@ -24,6 +24,10 @@ function jsonObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function dateOnly(value: unknown) {
+  return typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : null;
+}
+
 function localUnit(value: unknown) {
   return value === 'mmol_l' ? 'mmol/L' : 'mg/dL';
 }
@@ -83,11 +87,12 @@ export async function applyRemoteSyncConflict(db: SQLiteDatabase, conflict: Sync
       case 'measurement_plan': {
         const times = jsonArray(payload.times_json);
         const timings = jsonArray(payload.timings_json);
+        const weekdays = jsonArray(payload.weekdays_json);
         await db.runAsync(
-          `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, instructions, updated_at)
-           VALUES ('default', ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, instructions = excluded.instructions, updated_at = excluded.updated_at`,
-          Number(payload.readings_per_day), times, timings, payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
+          `INSERT INTO measurement_plans (id, readings_per_day, times_json, timings_json, weekdays_json, effective_from, effective_to, instructions, updated_at)
+           VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET readings_per_day = excluded.readings_per_day, times_json = excluded.times_json, timings_json = excluded.timings_json, weekdays_json = excluded.weekdays_json, effective_from = excluded.effective_from, effective_to = excluded.effective_to, instructions = excluded.instructions, updated_at = excluded.updated_at`,
+          Number(payload.readings_per_day), times, timings, weekdays, dateOnly(payload.effective_from), dateOnly(payload.effective_to), payload.instructions ? String(payload.instructions) : null, requiredString(payload.created_at, 'created_at'),
         );
         break;
       }

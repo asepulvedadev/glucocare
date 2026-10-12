@@ -5,6 +5,10 @@ export type MeasurementPlan = {
   readingsPerDay: 1 | 2 | 3;
   times: string[];
   timings?: MeasurementTiming[];
+  /** ISO weekday numbers: 1 = Monday … 7 = Sunday. Empty means every day. */
+  weekdays?: number[];
+  effectiveFrom?: string;
+  effectiveTo?: string;
   instructions?: string;
   updatedAt: string;
 };

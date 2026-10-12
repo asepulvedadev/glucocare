@@ -13,6 +13,7 @@ import { measurementTimingLabel } from '../../types/measurement';
 import { appointmentStatusLabel } from '../../types/appointments';
 import { availableAppointmentTransitions } from '../../domain/appointmentState';
 import { isCarePlanExpired } from '../../domain/glucoseRisk';
+import { isMeasurementPlanActive } from '../../domain/measurementPlan';
 import { colors, spacing } from '../../theme/tokens';
 
 function formatTime(hour: number, minute: number) {
@@ -24,6 +25,7 @@ export default function CareScreen() {
   const [actingOccurrenceId, setActingOccurrenceId] = useState<string | null>(null);
   const [actingMeasurementId, setActingMeasurementId] = useState<string | null>(null);
   const [actingAppointmentId, setActingAppointmentId] = useState<string | null>(null);
+  const measurementPlanActive = measurementPlan ? isMeasurementPlanActive(measurementPlan) : false;
 
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -153,6 +155,8 @@ export default function CareScreen() {
         {measurementPlan ? <>
           <Text style={styles.title}>{measurementPlan.readingsPerDay} {measurementPlan.readingsPerDay === 1 ? 'lectura' : 'lecturas'} al día</Text>
           <Body>{measurementPlan.times.map((time, index) => `${time} · ${measurementTimingLabel[measurementPlan.timings?.[index] ?? 'other']}`).join(' | ')}</Body>
+          <Caption>{measurementPlanActive ? 'Activo hoy' : 'No genera mediciones hoy según los días o la vigencia configurada'}</Caption>
+          {measurementPlan.effectiveFrom || measurementPlan.effectiveTo ? <Caption>Vigencia: {measurementPlan.effectiveFrom ?? 'sin inicio'} → {measurementPlan.effectiveTo ?? 'sin final'}</Caption> : null}
           {measurementPlan.instructions ? <Caption>{measurementPlan.instructions}</Caption> : null}
           <View style={styles.measurementList}>
             {measurementOccurrences.map((occurrence, occurrenceIndex) => {

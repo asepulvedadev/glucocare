@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { newId } from '../ids';
 import { transitionMeasurementOccurrence } from '../domain/measurementOccurrenceState';
+import { isMeasurementPlanActive } from '../domain/measurementPlan';
 import type { MeasurementPlan } from '../types/measurement';
 import type { MeasurementOccurrence, MeasurementOccurrenceStatus } from '../types/measurementOccurrences';
 import { enqueueOutbox } from './outboxRepository';
@@ -41,6 +42,10 @@ export async function ensureTodaysMeasurementOccurrences(db: SQLiteDatabase, pla
   const createdAt = new Date().toISOString();
   const start = startOfLocalDay(now).toISOString();
   const end = new Date(startOfLocalDay(now).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  if (!isMeasurementPlanActive(plan, now)) {
+    await db.runAsync("DELETE FROM measurement_occurrences WHERE plan_id = ? AND scheduled_at >= ? AND scheduled_at < ? AND status IN ('planned', 'due')", plan.id, start, end);
+    return;
+  }
   const schedule = plan.times.map((time) => scheduledAtForTime(time, now));
   await db.withTransactionAsync(async () => {
     if (schedule.length > 0) {

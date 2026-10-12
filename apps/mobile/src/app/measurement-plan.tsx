@@ -12,6 +12,8 @@ import { measurementTimingLabel, type MeasurementTiming } from '../types/measure
 
 const defaultTimes = ['08:00', '14:00', '20:00'];
 const timingOptions: MeasurementTiming[] = ['fasting', 'before_meal', 'after_meal', 'bedtime', 'other'];
+const weekdayOptions = [{ value: 1, label: 'L', name: 'lunes' }, { value: 2, label: 'M', name: 'martes' }, { value: 3, label: 'X', name: 'miércoles' }, { value: 4, label: 'J', name: 'jueves' }, { value: 5, label: 'V', name: 'viernes' }, { value: 6, label: 'S', name: 'sábado' }, { value: 7, label: 'D', name: 'domingo' }];
+const everyDay = weekdayOptions.map((day) => day.value);
 
 export default function MeasurementPlanScreen() {
   const { measurementPlan, saveMeasurementPlan } = useCare();
@@ -19,6 +21,9 @@ export default function MeasurementPlanScreen() {
   const [count, setCount] = useState<1 | 2 | 3>(initialCount);
   const [times, setTimes] = useState<string[]>(measurementPlan?.times ?? [defaultTimes[0]]);
   const [timings, setTimings] = useState<MeasurementTiming[]>(measurementPlan?.timings ?? Array.from({ length: initialCount }, () => 'other'));
+  const [weekdays, setWeekdays] = useState<number[]>(measurementPlan?.weekdays?.length ? measurementPlan.weekdays : everyDay);
+  const [effectiveFrom, setEffectiveFrom] = useState(measurementPlan?.effectiveFrom ?? '');
+  const [effectiveTo, setEffectiveTo] = useState(measurementPlan?.effectiveTo ?? '');
   const [instructions, setInstructions] = useState(measurementPlan?.instructions ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -30,15 +35,24 @@ export default function MeasurementPlanScreen() {
     setTimings((current) => Array.from({ length: next }, (_, index) => current[index] ?? 'other'));
   }
 
+  function toggleWeekday(day: number) {
+    setWeekdays((current) => {
+      if (current.includes(day) && current.length === 1) return current;
+      return current.includes(day) ? current.filter((item) => item !== day) : [...current, day].sort((a, b) => a - b);
+    });
+  }
+
   async function save() {
     const selectedTimings = timings.slice(0, count);
-    if (selectedTimes.some((time) => !isValidMeasurementTime(time)) || !validateMeasurementPlan(count, selectedTimes, selectedTimings)) {
-      Alert.alert('Revisa las horas', 'Usa el formato HH:MM, por ejemplo 08:00.');
+    const normalizedFrom = effectiveFrom.trim();
+    const normalizedTo = effectiveTo.trim();
+    if (selectedTimes.some((time) => !isValidMeasurementTime(time)) || !validateMeasurementPlan(count, selectedTimes, selectedTimings, { weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined })) {
+      Alert.alert('Revisa el plan', 'Usa horas HH:MM, selecciona al menos un día y fechas AAAA-MM-DD válidas.');
       return;
     }
     setSaving(true);
     try {
-      await saveMeasurementPlan({ readingsPerDay: count, times: selectedTimes, timings: selectedTimings, instructions: instructions.trim() || undefined });
+      await saveMeasurementPlan({ readingsPerDay: count, times: selectedTimes, timings: selectedTimings, weekdays, effectiveFrom: normalizedFrom || undefined, effectiveTo: normalizedTo || undefined, instructions: instructions.trim() || undefined });
       router.back();
     } catch {
       Alert.alert('No se pudo guardar', 'Conserva las instrucciones y vuelve a intentarlo.');
@@ -75,6 +89,15 @@ export default function MeasurementPlanScreen() {
         <Caption>INSTRUCCIONES OPCIONALES</Caption>
         <TextInput accessibilityLabel="Instrucciones del plan de medición" value={instructions} onChangeText={setInstructions} multiline placeholder="Ej. antes del desayuno y dos horas después de la cena" placeholderTextColor={colors.textDisabled} style={[styles.input, styles.notes]} />
       </Panel>
+      <Panel>
+        <Caption>DÍAS DEL PLAN</Caption>
+        <View style={styles.dayChips}>{weekdayOptions.map((day) => <Pressable key={day.value} accessibilityRole="checkbox" accessibilityLabel={`Plan activo el ${day.name}`} accessibilityState={{ checked: weekdays.includes(day.value) }} onPress={() => toggleWeekday(day.value)} style={[styles.dayChip, weekdays.includes(day.value) && styles.chipSelected]}><Text style={[styles.chipText, weekdays.includes(day.value) && styles.chipSelectedText]}>{day.label}</Text></Pressable>)}</View>
+        <Body>Deja todos los días activos para una rutina diaria. Puedes limitar el plan a días específicos.</Body>
+        <Caption>VIGENCIA OPCIONAL</Caption>
+        <TextInput accessibilityLabel="Inicio de vigencia del plan" value={effectiveFrom} onChangeText={setEffectiveFrom} placeholder="Inicio · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <TextInput accessibilityLabel="Fin de vigencia del plan" value={effectiveTo} onChangeText={setEffectiveTo} placeholder="Fin · AAAA-MM-DD" placeholderTextColor={colors.textDisabled} style={styles.input} />
+        <Body>Fuera de estos días o fechas no se generarán mediciones pendientes. Esto organiza el plan; no modifica indicaciones clínicas.</Body>
+      </Panel>
       <PrimaryButton label={saving ? 'Guardando…' : 'Guardar plan'} onPress={() => void save()} disabled={saving} />
     </Screen>
   );
@@ -90,4 +113,6 @@ const styles = StyleSheet.create({
   timeInput: { fontSize: 24, fontWeight: '700' },
   notes: { minHeight: 96, textAlignVertical: 'top', paddingTop: spacing.sm },
   slot: { gap: spacing.xs, marginBottom: spacing.sm },
+  dayChips: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs, marginBottom: spacing.xs },
+  dayChip: { flex: 1, minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
 });

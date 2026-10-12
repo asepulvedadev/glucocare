@@ -675,6 +675,7 @@ export type Database = {
           source: string
           times_json: Json
           timings_json: Json
+          weekdays_json: Json
         }
         Insert: {
           clinician_verified?: boolean
@@ -689,6 +690,7 @@ export type Database = {
           source?: string
           times_json?: Json
           timings_json?: Json
+          weekdays_json?: Json
         }
         Update: {
           clinician_verified?: boolean
@@ -703,6 +705,7 @@ export type Database = {
           source?: string
           times_json?: Json
           timings_json?: Json
+          weekdays_json?: Json
         }
         Relationships: [
           {

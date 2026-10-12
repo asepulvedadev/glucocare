@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-const DATABASE_VERSION = 22;
+const DATABASE_VERSION = 23;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -309,6 +309,14 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     const measurementColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(measurement_plans)');
     if (!measurementColumns.some((column) => column.name === 'timings_json')) await db.execAsync("ALTER TABLE measurement_plans ADD COLUMN timings_json TEXT NOT NULL DEFAULT '[]'");
     currentVersion = 22;
+  }
+
+  if (currentVersion < 23) {
+    const measurementColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(measurement_plans)');
+    if (!measurementColumns.some((column) => column.name === 'weekdays_json')) await db.execAsync("ALTER TABLE measurement_plans ADD COLUMN weekdays_json TEXT NOT NULL DEFAULT '[1,2,3,4,5,6,7]'");
+    if (!measurementColumns.some((column) => column.name === 'effective_from')) await db.execAsync('ALTER TABLE measurement_plans ADD COLUMN effective_from TEXT');
+    if (!measurementColumns.some((column) => column.name === 'effective_to')) await db.execAsync('ALTER TABLE measurement_plans ADD COLUMN effective_to TEXT');
+    currentVersion = 23;
   }
 
   if (currentVersion !== DATABASE_VERSION) {
